@@ -25,7 +25,7 @@ TZ = ZoneInfo("Europe/Warsaw")
 app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:EDUQ@localhost:5432/suo")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:EDUQ@localhost:5432/suo?client_encoding=utf8")
 engine = create_engine(DATABASE_URL, future=True)
 
 # === WCZYTANIE MODELI AI ===
@@ -1777,6 +1777,7 @@ def delete_unavailability(entry_id):
     if result.rowcount == 0:
         return jsonify({"error": "Nie znaleziono wpisu."}), 404
     return "", 204
+
 
 
 
