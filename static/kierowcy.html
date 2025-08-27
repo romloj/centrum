@@ -7,192 +7,338 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { padding: 1rem; }
-    .toolbar .form-select, .toolbar .form-control { max-width: 280px }
-    /* Style kalendarza skopiowane z panelu terapeuty */
-    .cal-wrap { overflow:auto; border:1px solid var(--bs-border-color); border-radius:.5rem; }
-    .cal-grid { display:grid; grid-template-columns: 80px repeat(7, 1fr); }
-    .cal-head { position:sticky; top:0; z-index:2; background:var(--bs-body-bg); border-bottom:1px solid var(--bs-border-color); }
-    .cal-head div { padding:.5rem; font-weight:600; text-align:center; border-left:1px solid var(--bs-border-color); }
-    .cal-head div:first-child { border-left:0; text-align:left; }
-    .cal-row { height:24px; border-top:1px dotted var(--bs-border-color); font-size:12px; }
-    .cal-row label { display:inline-block; padding:2px 6px; color: var(--bs-secondary-color); }
-    .cal-col { position:relative; border-left:1px solid var(--bs-border-color); }
-    .cal-event { position:absolute; left:4px; right:4px; border-radius:.5rem; padding:2px 6px; font-size:12px; line-height:1.2; overflow:hidden; }
-    .cal-event.pickup { background: rgba(13,202,240,.15); border:1px solid rgba(13,202,240,.35); }
-    .cal-event.dropoff { background: rgba(25,135,84,.15); border-color: rgba(25,135,84,.35); }
-    .cal-event.cancelled { background: rgba(220,53,69,.10); border-color: rgba(220,53,69,.35); text-decoration:line-through; }
+    .toolbar .form-select, .toolbar .form-control { max-width: 280px; }
+
+    .cal-wrap { overflow: auto; border: 1px solid var(--bs-border-color); border-radius: .5rem; }
+    .cal-grid { display: grid; grid-template-columns: 80px repeat(7, 1fr); }
+    .cal-head { position: sticky; top: 0; z-index: 2; background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); }
+    .cal-head div { padding: .5rem; font-weight: 600; text-align: center; border-left: 1px solid var(--bs-border-color); }
+    .cal-head div:first-child { border-left: 0; text-align: left; }
+    .cal-row { height: 24px; border-top: 1px dotted var(--bs-border-color); font-size: 12px; }
+    .cal-row label { display: inline-block; padding: 2px 6px; color: var(--bs-secondary-color); }
+    .cal-col { position: relative; border-left: 1px solid var(--bs-border-color); }
+    .cal-event {
+      position: absolute; left: 4px; right: 4px; border-radius: .5rem;
+      padding: 4px 6px; font-size: 10px; line-height: 1.3;
+      overflow: hidden;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .cal-event > div { white-space: normal; }
+    .cal-event.pickup { background: rgba(13, 202, 240, .15); border: 1px solid rgba(13, 202, 240, .35); }
+    .cal-event.dropoff { background: rgba(25, 135, 84, .15); border-color: rgba(25, 135, 84, .35); }
+    .cal-event.cancelled { background: rgba(220, 53, 69, .10); border-color: rgba(220, 53, 69, .35); text-decoration: line-through; }
+
+    .month-wrap { border: 1px solid var(--bs-border-color); border-radius: .5rem; overflow: hidden; }
+    .month-head { display: grid; grid-template-columns: repeat(7, 1fr); background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); }
+    .month-head div { padding: .5rem; font-weight: 600; text-align: center; border-left: 1px solid var(--bs-border-color); }
+    .month-head div:first-child { border-left: 0; }
+    .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .day-cell { min-height: 120px; border-left: 1px solid var(--bs-border-color); border-top: 1px solid var(--bs-border-color); padding: .25rem; }
+    .day-cell:nth-child(7n+1) { border-left: 0; }
+    .day-num { font-size: 12px; color: var(--bs-secondary-color); padding-left: .25rem; }
+    .day-chip { display: block; margin-top: .15rem; padding: .1rem .35rem; border-radius: .25rem; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .muted-month { opacity: .55; }
+
+    @media print {
+      @page { size: A4 landscape; margin: 1cm; }
+      body { padding: 0; background-color: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      #print-container h1 { text-align: center; margin-bottom: 0.5rem; font-size: 14pt; }
+      #print-container h2 { text-align: center; margin-bottom: 1rem; font-size: 11pt; font-weight: normal; }
+      .print-flex-container { display: flex; gap: 20px; align-items: flex-start; }
+      .print-column { flex: 1; min-width: 0; }
+      .print-table {
+        width: 100%; border-collapse: collapse;
+        font-size: 8pt;
+      }
+      .print-table th, .print-table td {
+        border: 1px solid #ccc; padding: 0.3rem;
+        text-align: left; vertical-align: top;
+        word-break: break-word;
+      }
+      .print-table thead { background-color: #f2f2f2 !important; }
+    }
   </style>
 </head>
 <body>
   <div class="container-fluid">
-    <header class="d-flex flex-wrap align-items-center gap-2 mb-3 toolbar">
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-3 toolbar no-print">
       <h1 class="h5 m-0">Panel kierowcy – grafik</h1>
       <div class="ms-auto"></div>
-      <select id="driverSelect" class="form-select">
-        <option value="all">— wszyscy kierowcy —</option>
-      </select>
-      <input type="month" id="refMonth" class="form-control" />
+      <div class="btn-group view-toggle" role="group">
+        <input type="radio" class="btn-check" name="viewMode" id="vmWeek" autocomplete="off" checked>
+        <label class="btn btn-outline-primary" for="vmWeek">Tydzień</label>
+        <input type="radio" class="btn-check" name="viewMode" id="vmMonth" autocomplete="off">
+        <label class="btn btn-outline-primary" for="vmMonth">Miesiąc</label>
+      </div>
+      <select id="driverSelect" class="form-select"><option value="all">— wszyscy kierowcy —</option></select>
+      <input type="date" id="refDate" class="form-control" />
+      <input type="month" id="refMonth" class="form-control d-none" />
       <div class="btn-group">
         <button id="tpPrev" class="btn btn-outline-secondary">«</button>
         <button id="tpToday" class="btn btn-outline-secondary">Dziś</button>
         <button id="tpNext" class="btn btn-outline-secondary">»</button>
+        <button class="btn btn-secondary" id="printBtn">🖨️ Drukuj</button>
       </div>
     </header>
     <div id="alertBox" class="mb-3"></div>
     <div id="calendarHost"></div>
   </div>
+  <div id="print-container" class="d-none"></div>
 
   <script>
-    const API = ""; // ten sam origin
-    const DOW_SHORT = ["Pn","Wt","Śr","Cz","Pt","So","Nd"];
-    const START_HOUR = 7, END_HOUR = 20, PX_PER_MIN = 24 / 30;
+    document.addEventListener('DOMContentLoaded', () => {
+      const API_BASE = "";
+      const DOW_SHORT = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
+      const START_HOUR = 7, END_HOUR = 20, PX_PER_MIN = 24 / 30;
 
-    let _state = {
-      driverId: "all",
-      refMonth: new Date(),
-      drivers: [],
-      rows: []
-    };
+      let state = {
+        mode: "week", driverId: "all", refDate: new Date(),
+        refMonth: new Date(), drivers: [], scheduleData: []
+      };
 
-    function parseLocalTimestamp(str) {
-      if (!str) return null;
-      const s = str.trim().replace('T', ' ');
-      const m = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/.exec(s);
-      if (!m) return null;
-      const [_, Y, M, D, h, mnt, sec] = m;
-      return new Date(Number(Y), Number(M) - 1, Number(D), Number(h), Number(mnt), Number(sec));
-    }
+      const driverSelect = document.getElementById("driverSelect");
+      const refDateInput = document.getElementById("refDate");
+      const refMonthInput = document.getElementById("refMonth");
+      const calendarHost = document.getElementById("calendarHost");
+      const printBtn = document.getElementById("printBtn");
 
-    function fmtLocalTime(str) {
-      const d = parseLocalTimestamp(str);
-      if (!d) return "";
-      return d.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
-    }
+      const parseLocalTimestamp = (str) => str ? new Date(str.replace('T', ' ')) : null;
+      const fmtLocalTime = (str) => {
+        const d = parseLocalTimestamp(str);
+        return d ? d.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }) : "";
+      };
 
-    (async function init() {
-      const t = new Date();
-      document.getElementById("refMonth").value = t.toISOString().slice(0, 7);
-      _state.refMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+      const init = async () => {
+        setupEventListeners();
+        const today = new Date();
+        refDateInput.value = today.toISOString().slice(0, 10);
+        refMonthInput.value = today.toISOString().slice(0, 7);
+        state.refDate = today;
+        state.refMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        await loadDrivers();
+        await reloadData();
+      };
 
-      try {
-        const res = await fetch(`${API}/api/drivers`);
-        _state.drivers = (await res.json()).filter(x => x.active !== false);
-        const sel = document.getElementById("driverSelect");
-        sel.innerHTML = `<option value="all">— wszyscy kierowcy —</option>` +
-          _state.drivers.map(d => `<option value="${d.id}">${d.full_name}</option>`).join("");
-      } catch (e) {
-        console.error("Błąd ładowania kierowców:", e);
-      }
+      const loadDrivers = async () => {
+        try {
+          const response = await fetch(`${API_BASE}/api/drivers`);
+          state.drivers = (await response.json()).filter(d => d.active);
+          driverSelect.innerHTML = `<option value="all">— wszyscy kierowcy —</option>` +
+            state.drivers.map(d => `<option value="${d.id}">${d.full_name}</option>`).join("");
+        } catch (e) { console.error("Błąd ładowania kierowców:", e); }
+      };
 
-      document.getElementById("driverSelect").addEventListener("change", reloadData);
-      document.getElementById("refMonth").addEventListener("change", e => {
-        const [y, m] = e.target.value.split("-").map(Number);
-        _state.refMonth = new Date(y, m - 1, 1);
+      // === POPRAWIONA FUNKCJA POBIERANIA DANYCH ===
+      const reloadData = async () => {
+        state.driverId = driverSelect.value || "all";
+        const dateForMonthKey = state.mode === "week" ? state.refDate : state.refMonth;
+        const monthKey = `${dateForMonthKey.getFullYear()}-${String(dateForMonthKey.getMonth() + 1).padStart(2, '0')}`;
+        calendarHost.innerHTML = `<div class="text-muted p-3">Ładowanie…</div>`;
+
+        try {
+            const fetchPromises = (state.driverId === "all")
+                ? state.drivers.map(driver =>
+                    fetch(`${API_BASE}/api/drivers/${driver.id}/schedule?month=${monthKey}`)
+                        .then(r => r.ok ? r.json() : [])
+                        .then(scheduleEntries =>
+                            // Dodajemy informacje o kierowcy do każdego kursu
+                            scheduleEntries.map(entry => ({ ...entry, driver_name: driver.full_name }))
+                        )
+                )
+                : [
+                    fetch(`${API_BASE}/api/drivers/${state.driverId}/schedule?month=${monthKey}`)
+                        .then(r => r.ok ? r.json() : [])
+                ];
+
+            state.scheduleData = (await Promise.all(fetchPromises)).flat();
+            render();
+        } catch (e) {
+            calendarHost.innerHTML = `<div class="text-danger p-3">Błąd ładowania: ${e.message}</div>`;
+        }
+      };
+
+
+      const render = () => {
+        if (state.mode === "week") renderWeek();
+        else renderMonth();
+      };
+
+      const renderWeek = () => {
+        const d = new Date(state.refDate);
+        const dayOfWeek = (d.getDay() + 6) % 7;
+        const startOfWeek = new Date(d);
+        startOfWeek.setDate(d.getDate() - dayOfWeek);
+        const days = Array.from({ length: 7 }, (_, i) => new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + i));
+        const head = `<div class="cal-head cal-grid"><div>Godz.</div>${days.map((day, i) => `<div>${DOW_SHORT[i]}<br><small>${day.toLocaleDateString("pl-PL")}</small></div>`).join("")}</div>`;
+        let timesHtml = `<div>`;
+        for (let h = START_HOUR; h <= END_HOUR; h++) {
+          timesHtml += `<div class="cal-row"><label>${String(h).padStart(2, '0')}:00</label></div>`;
+          if (h !== END_HOUR) timesHtml += `<div class="cal-row"></div>`;
+        }
+        timesHtml += `</div>`;
+        const colHeight = ((END_HOUR - START_HOUR) * 2 + 1) * 24;
+        let colsHtml = days.map(day => {
+          const dayKey = day.toISOString().slice(0, 10);
+          const dayEvents = state.scheduleData.filter(r => r.starts_at && r.starts_at.startsWith(dayKey));
+          const eventsHtml = dayEvents.map(r => {
+            const s = parseLocalTimestamp(r.starts_at), e = parseLocalTimestamp(r.ends_at);
+            if (!s || !e) return '';
+            const top = ((s.getHours() - START_HOUR) * 60 + s.getMinutes()) * PX_PER_MIN;
+            const height = Math.max(50, ((e - s) / 60000) * PX_PER_MIN);
+            // === POPRAWIONY HTML WEWNĄTRZ WYDARZENIA (dodano nazwisko kierowcy) ===
+            return `<div class="cal-event ${r.kind} ${r.status}" style="top:${top}px; height:${height}px;" title="${r.client_name} (${r.driver_name || ''})">
+              <div><strong>${fmtLocalTime(r.starts_at)}–${fmtLocalTime(r.ends_at)}</strong></div>
+              <div>${r.client_name || ""}</div>
+              ${state.driverId === 'all' ? `<div><small><em>${r.driver_name}</em></small></div>` : ''}
+              <div><small>${[r.place_from, r.place_to].filter(Boolean).join(" → ")}</small></div>
+            </div>`;
+          }).join('');
+          return `<div class="cal-col" style="height:${colHeight}px">${eventsHtml}</div>`;
+        }).join('');
+        calendarHost.innerHTML = `<div class="cal-wrap">${head}<div class="cal-grid">${timesHtml}${colsHtml}</div></div>`;
+      };
+
+      const renderMonth = () => {
+        const firstOfMonth = new Date(state.refMonth.getFullYear(), state.refMonth.getMonth(), 1);
+        const dayOfWeek = (firstOfMonth.getDay() + 6) % 7;
+        const startOfGrid = new Date(firstOfMonth);
+        startOfGrid.setDate(firstOfMonth.getDate() - dayOfWeek);
+        const days = Array.from({ length: 42 }, (_, i) => new Date(startOfGrid.getFullYear(), startOfGrid.getMonth(), startOfGrid.getDate() + i));
+        const eventsByDate = new Map();
+        state.scheduleData.forEach(r => {
+          if (!r.starts_at) return;
+          const key = r.starts_at.slice(0, 10);
+          if (!eventsByDate.has(key)) eventsByDate.set(key, []);
+          eventsByDate.get(key).push(r);
+        });
+        const head = `<div class="month-head">${DOW_SHORT.map(d => `<div>${d}</div>`).join("")}</div>`;
+        const grid = days.map(d => {
+          const key = d.toISOString().slice(0, 10);
+          const items = eventsByDate.get(key) || [];
+          const mutedClass = d.getMonth() !== state.refMonth.getMonth() ? " muted-month" : "";
+          const chips = items.map(r => `<div class="day-chip ${r.kind}" title="${fmtLocalTime(r.starts_at)} ${r.client_name}">${fmtLocalTime(r.starts_at)} ${r.client_name}</div>`).join("");
+          return `<div class="day-cell${mutedClass}"><div class="day-num">${d.getDate()}</div>${chips}</div>`;
+        }).join("");
+        const title = state.refMonth.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
+        calendarHost.innerHTML = `<h4 class="mb-3">${title}</h4><div class="month-wrap">${head}<div class="month-grid">${grid}</div></div>`;
+      };
+
+      const setupEventListeners = () => {
+        document.getElementById("vmWeek").addEventListener("change", () => switchMode("week"));
+        document.getElementById("vmMonth").addEventListener("change", () => switchMode("month"));
+        driverSelect.addEventListener("change", reloadData);
+        refDateInput.addEventListener("change", e => { state.refDate = new Date(e.target.value); reloadData(); });
+        refMonthInput.addEventListener("change", e => {
+          const [y, m] = e.target.value.split("-").map(Number);
+          state.refMonth = new Date(y, m - 1, 1);
+          reloadData();
+        });
+        document.getElementById("tpPrev").addEventListener("click", shiftPrev);
+        document.getElementById("tpNext").addEventListener("click", shiftNext);
+        document.getElementById("tpToday").addEventListener("click", goToday);
+        printBtn.addEventListener("click", printSchedule);
+      };
+
+      const switchMode = (mode) => {
+        state.mode = mode;
+        refDateInput.classList.toggle("d-none", mode !== "week");
+        refMonthInput.classList.toggle("d-none", mode !== "month");
         reloadData();
-      });
+      };
+      const shiftPrev = () => {
+        if (state.mode === "week") { state.refDate.setDate(state.refDate.getDate() - 7); refDateInput.value = state.refDate.toISOString().slice(0, 10); }
+        else { state.refMonth.setMonth(state.refMonth.getMonth() - 1); refMonthInput.value = state.refMonth.toISOString().slice(0, 7); }
+        reloadData();
+      };
+      const shiftNext = () => {
+        if (state.mode === "week") { state.refDate.setDate(state.refDate.getDate() + 7); refDateInput.value = state.refDate.toISOString().slice(0, 10); }
+        else { state.refMonth.setMonth(state.refMonth.getMonth() + 1); refMonthInput.value = state.refMonth.toISOString().slice(0, 7); }
+        reloadData();
+      };
+      const goToday = () => {
+        const today = new Date();
+        if (state.mode === "week") { state.refDate = today; refDateInput.value = today.toISOString().slice(0, 10); }
+        else { state.refMonth = new Date(today.getFullYear(), today.getMonth(), 1); refMonthInput.value = state.refMonth.toISOString().slice(0, 7); }
+        reloadData();
+      };
 
-      document.getElementById("tpPrev").addEventListener("click", () => shiftMonth(-1));
-      document.getElementById("tpNext").addEventListener("click", () => shiftMonth(1));
-      document.getElementById("tpToday").addEventListener("click", goToday);
-
-      reloadData();
-    })();
-
-    function shiftMonth(offset) {
-      const d = new Date(_state.refMonth.getFullYear(), _state.refMonth.getMonth() + offset, 1);
-      _state.refMonth = d;
-      document.getElementById("refMonth").value = d.toISOString().slice(0, 7);
-      reloadData();
-    }
-
-    function goToday() {
-      const t = new Date();
-      const m = new Date(t.getFullYear(), t.getMonth(), 1);
-      _state.refMonth = m;
-      document.getElementById("refMonth").value = m.toISOString().slice(0, 7);
-      reloadData();
-    }
-
-    async function reloadData() {
-      _state.driverId = document.getElementById("driverSelect").value || "all";
-      const mk = `${_state.refMonth.getFullYear()}-${String(_state.refMonth.getMonth() + 1).padStart(2, '0')}`;
-      const host = document.getElementById("calendarHost");
-      host.innerHTML = `<div class="text-muted p-3">Ładowanie…</div>`;
-
-      try {
-        if (_state.driverId === "all") {
-          const promises = _state.drivers.map(d =>
-            fetch(`${API}/api/drivers/${d.id}/schedule?month=${mk}`)
-            .then(r => r.ok ? r.json() : [])
-          );
-          _state.rows = (await Promise.all(promises)).flat();
-        } else {
-          const did = Number(_state.driverId);
-          const res = await fetch(`${API}/api/drivers/${did}/schedule?month=${mk}`);
-          _state.rows = await res.json() || [];
+      // === FINALNA WERSJA FUNKCJI DRUKOWANIA ===
+      const printSchedule = () => {
+        const driverName = driverSelect.value === 'all' ? 'Wszyscy kierowcy' : driverSelect.options[driverSelect.selectedIndex].text;
+        let dateTitle;
+        if (state.mode === 'month') { dateTitle = state.refMonth.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' }); }
+        else {
+          const d = new Date(state.refDate); const dayOfWeek = (d.getDay() + 6) % 7;
+          const startOfWeek = new Date(d); startOfWeek.setDate(d.getDate() - dayOfWeek);
+          const endOfWeek = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 6);
+          dateTitle = `Tydzień: ${startOfWeek.toLocaleDateString('pl-PL')} - ${endOfWeek.toLocaleDateString('pl-PL')}`;
         }
-        renderWeek();
-      } catch (e) {
-        host.innerHTML = `<div class="text-danger p-3">Błąd ładowania: ${e.message}</div>`;
-      }
-    }
 
-    function renderWeek() {
-      const host = document.getElementById("calendarHost");
-      const firstOfMonth = new Date(_state.refMonth.getFullYear(), _state.refMonth.getMonth(), 1);
-      const daysInMonth = new Date(_state.refMonth.getFullYear(), _state.refMonth.getMonth() + 1, 0).getDate();
-      const days = Array.from({ length: daysInMonth }, (_, i) => new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth(), i + 1));
+        const printContainer = document.getElementById('print-container');
+        const headerHTML = `<h1>Harmonogram Kierowcy</h1><h2>${driverName} - ${dateTitle}</h2>`;
 
-      let gridHtml = '';
-      for (const day of days) {
-        const dow = (day.getDay() + 6) % 7; // 0=pn
-        const dayKey = day.toISOString().slice(0, 10);
-        const dayEvents = _state.rows.filter(r => r.starts_at && r.starts_at.startsWith(dayKey));
-
-        let eventsHtml = '';
-        for (const r of dayEvents) {
-          const s = parseLocalTimestamp(r.starts_at);
-          const e = parseLocalTimestamp(r.ends_at);
-          if (!s || !e) continue;
-
-          const top = ((s.getHours() - START_HOUR) * 60 + s.getMinutes()) * PX_PER_MIN;
-          const height = Math.max(18, Math.max(0, (e - s) / 60000) * PX_PER_MIN);
-
-          eventsHtml += `<div class="cal-event ${r.kind || ""} ${r.status || "planned"}" style="top:${top}px; height:${height}px;">
-            <div><strong>${fmtLocalTime(r.starts_at)}–${fmtLocalTime(r.ends_at)}</strong></div>
-            <div class="text-truncate">${r.client_name || ""}</div>
-            <div class="text-truncate"><small>${[r.place_from, r.place_to].filter(Boolean).join(" → ")}</small></div>
-          </div>`;
+        if (state.scheduleData.length === 0) {
+            printContainer.innerHTML = headerHTML + `<p style="text-align:center;">Brak danych w wybranym okresie.</p>`;
+            window.print();
+            return;
         }
-        gridHtml += `<div class="cal-col">${eventsHtml}</div>`;
-      }
 
-      const head = `<div class="cal-head cal-grid">
-        <div style="padding:.5rem">Godz.</div>
-        ${days.map(d => `<div>${DOW_SHORT[(d.getDay() + 6) % 7]}<br><small>${d.getDate()}</small></div>`).join("")}
-      </div>`;
+        const groupedByDate = state.scheduleData.reduce((acc, entry) => {
+            const dateKey = entry.starts_at.split('T')[0];
+            if (!acc[dateKey]) acc[dateKey] = [];
+            acc[dateKey].push(entry);
+            return acc;
+        }, {});
+        const sortedDateKeys = Object.keys(groupedByDate).sort();
 
-      let times = `<div>`;
-      for (let h = START_HOUR; h <= END_HOUR; h++) {
-        times += `<div class="cal-row"><label>${String(h).padStart(2, '0')}:00</label></div>`;
-        if (h !== END_HOUR) times += `<div class="cal-row"></div>`;
-      }
-      times += `</div>`;
+        const createTableForKeys = (keys) => {
+            const timeColumnHeader = state.driverId === 'all' ? 'Godziny / Kierowca' : 'Godziny';
+            let tableHTML = `<table class="print-table"><thead><tr><th>Data</th><th>${timeColumnHeader}</th><th>Rodzaj</th><th>Klient</th><th>Trasa</th></tr></thead><tbody>`;
+            keys.forEach(dateKey => {
+                const entries = groupedByDate[dateKey].sort((a,b) => parseLocalTimestamp(a.starts_at) - parseLocalTimestamp(b.starts_at));
+                const firstEntry = entries[0];
+                const dateLabel = new Date(firstEntry.starts_at).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric', weekday: 'long' });
 
-      const colHeight = ((END_HOUR - START_HOUR + 1) * 2 - 1) * 24;
-      const cols = days.map(() => `<div class="cal-col" style="height:${colHeight}px"></div>`).join("");
+                const getTimeCellHTML = (entry) => {
+                    let content = `${fmtLocalTime(entry.starts_at)}-${fmtLocalTime(entry.ends_at)}`;
+                    if (state.driverId === 'all' && entry.driver_name) {
+                        content += `<br><small><strong>${entry.driver_name}</strong></small>`;
+                    }
+                    return content;
+                };
 
-      host.innerHTML = `<h4 class="mb-3">${_state.refMonth.toLocaleDateString("pl-PL", {month: "long", year: "numeric"})}</h4>
-        <div class="cal-wrap">
-          <div class="cal-grid">${times}${cols}</div>${head}
-        </div>`;
+                tableHTML += `<tr><td rowspan="${entries.length}" style="vertical-align: top;"><strong>${dateLabel}</strong></td><td>${getTimeCellHTML(firstEntry)}</td><td>${firstEntry.kind === 'pickup' ? 'Odbiór' : 'Dowóz'}</td><td>${firstEntry.client_name}</td><td>${(firstEntry.place_from || '')} &rarr; ${(firstEntry.place_to || '')}</td></tr>`;
+                for (let i = 1; i < entries.length; i++) {
+                    const entry = entries[i];
+                    tableHTML += `<tr><td>${getTimeCellHTML(entry)}</td><td>${entry.kind === 'pickup' ? 'Odbiór' : 'Dowóz'}</td><td>${entry.client_name}</td><td>${(entry.place_from || '')} &rarr; ${(entry.place_to || '')}</td></tr>`;
+                }
+            });
+            return tableHTML + `</tbody></table>`;
+        };
 
-      // Ponowne wstawienie eventów do siatki
-      const dayCols = host.querySelectorAll('.cal-grid .cal-col');
-      host.querySelectorAll('.cal-event').forEach(ev => {
-          // Logika do wstawiania, jeśli potrzebna
-      });
-    }
+        const midPoint = Math.ceil(sortedDateKeys.length / 2);
+        const firstHalfKeys = sortedDateKeys.slice(0, midPoint);
+        const secondHalfKeys = sortedDateKeys.slice(midPoint);
+
+        const table1 = createTableForKeys(firstHalfKeys);
+        const table2 = secondHalfKeys.length > 0 ? createTableForKeys(secondHalfKeys) : '';
+
+        printContainer.innerHTML = headerHTML + `
+          <div class="print-flex-container">
+            <div class="print-column">${table1}</div>
+            <div class="print-column">${table2}</div>
+          </div>
+        `;
+
+        // Dajemy przeglądarce chwilę na wyrenderowanie layoutu flex przed drukowaniem
+        setTimeout(() => {
+            window.print();
+        }, 100);
+      };
+
+      init();
+    });
   </script>
 </body>
 </html>
