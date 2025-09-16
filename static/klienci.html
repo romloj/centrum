@@ -13,6 +13,7 @@
     .table-actions .btn {
       width: 80px;
     }
+
   </style>
 </head>
 <body>
@@ -79,12 +80,25 @@
   </div>
 </div>
 
+<div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="historyModalLabel">Historia spotkań</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+      </div>
+      <div class="modal-body" id="historyModalBody">
+        </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
    // === POCZĄTEK: Prawdziwe API ===
-  const API_URL = "https://odnowa.onrender.com/api/clients";
+  const API_URL = "http://127.0.0.1:5000/api/clients";
 
   const api = {
     // GET /api/clients
@@ -105,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     // PUT /api/clients/{id}
     updateClient: async (id, clientData) => {
-      const response = await fetch(`${API_URL}/${id}`, {
+      const response = await fetch(`${API}/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(clientData)
@@ -115,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     // DELETE /api/clients/{id}
     deleteClient: async (id) => {
-      const response = await fetch(`${API_URL}/${id}`, {
+      const response = await fetch(`${API}/${id}`, {
         method: 'DELETE'
       });
       if (!response.ok) throw new Error('Błąd podczas usuwania klienta.');
@@ -133,8 +147,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalTitle = document.getElementById('clientModalLabel');
   const saveBtn = document.getElementById('saveClientBtn');
   const saveBtnSpinner = saveBtn.querySelector('.spinner-border');
+  const historyModalEl = document.getElementById('historyModal');
+  const historyModal = new bootstrap.Modal(historyModalEl);
 
-  // Funkcja do renderowania listy klientów
+
  // Funkcja do renderowania listy klientów
   const renderClients = async () => {
     // 1. Pokaż "ładowanie"
@@ -157,16 +173,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // POPRAWIONE NAZWY: Używamy client.client_id oraz client.full_name
         // Dodano też fallback '—' dla pustych pól
-        tr.innerHTML = `
-          <td>${client.client_id}</td>
-          <td>${client.full_name}</td>
-          <td>${client.address || '—'}</td>
-          <td>${client.phone || '—'}</td>
-          <td class="text-end table-actions">
-            <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${client.client_id}">Edytuj</button>
-            <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${client.client_id}">Usuń</button>
-          </td>
-        `;
+                  tr.innerHTML = `
+            <td>${client.client_id}</td>
+            <td>${client.full_name}</td>
+            <td>${client.address || '—'}</td>
+            <td>${client.phone || '—'}</td>
+            <td class="text-end table-actions">
+              <button class="btn btn-sm btn-outline-info history-btn" data-id="${client.client_id}" data-name="${client.full_name}">Historia</button>
+              <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${client.client_id}">Edytuj</button>
+              <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${client.client_id}">Usuń</button>
+            </td>
+          `;
         tableBody.appendChild(tr);
       });
 
@@ -206,6 +223,52 @@ document.addEventListener('DOMContentLoaded', () => {
         clientModal.show();
       }
     }
+
+    // Historia spotkań
+      if (target.classList.contains('history-btn')) {
+          const clientId = Number(target.dataset.id);
+          const clientName = target.dataset.name;
+          const modalBody = document.getElementById('historyModalBody');
+
+          document.getElementById('historyModalLabel').textContent = `Historia spotkań: ${clientName}`;
+          modalBody.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div></div>';
+          historyModal.show();
+
+          try {
+              const response = await fetch(`${API_URL}/${clientId}/history`);
+              if (!response.ok) throw new Error('Błąd pobierania historii');
+              const history = await response.json();
+
+              let html = '<h4>Spotkania indywidualne</h4>';
+              if (history.individual.length > 0) {
+                  html += '<ul class="list-group mb-4">';
+                  history.individual.forEach(s => {
+                      const date = new Date(s.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                      html += `<li class="list-group-item"><strong>${date}</strong> - ${s.therapist} (Status: ${s.status})</li>`;
+                  });
+                  html += '</ul>';
+              } else {
+                  html += '<p class="text-muted">Brak spotkań indywidualnych.</p>';
+              }
+
+              html += '<h4>Spotkania grupowe TUS</h4>';
+              if (history.tus_group.length > 0) {
+                  html += '<ul class="list-group">';
+                  history.tus_group.forEach(s => {
+                      const date = new Date(s.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                      const time = s.time ? `, ${s.time}` : '';
+                      html += `<li class="list-group-item"><strong>${date}${time}</strong> - Temat: "${s.topic}" (w grupie: ${s.group})</li>`;
+                  });
+                  html += '</ul>';
+              } else {
+                  html += '<p class="text-muted">Brak spotkań grupowych.</p>';
+              }
+              modalBody.innerHTML = html;
+
+          } catch(error) {
+              modalBody.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+          }
+      }
 
     // Usuwanie
     if (target.classList.contains('delete-btn')) {
@@ -265,7 +328,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 </body>
-
 </html>
-
-
