@@ -239,69 +239,77 @@
       return { start, days };
     }
 
-    function renderWeek(){
-      const host = document.getElementById("calendarHost");
-      const { days } = weekRange(_state.refDate);
+    function renderWeek() {
+    const host = document.getElementById("calendarHost");
+    const { days } = weekRange(_state.refDate);
 
-      // head (dni na górze)
-      const head = `<div class="cal-head cal-grid">
+    // head (dni na górze)
+    const head = `<div class="cal-head cal-grid">
         <div style="padding:.5rem">Godz.</div>
         ${days.map((d,i)=>`<div>${dowShort[i]}<br><small>${d.toLocaleDateString("pl-PL")}</small></div>`).join("")}
-      </div>`;
+    </div>`;
 
-      // lewa kolumna z godzinami
-      let times = `<div>`;
-      for (let h=TP_START_HOUR; h<=TP_END_HOUR; h++){
-        times += `<div class="cal-row"><label>${String(h).padStart(2,'0')}:00</label></div>`;
-        if (h!==TP_END_HOUR) times += `<div class="cal-row"></div>`;
-      }
-      times += `</div>`;
-      const colHeight = ((TP_END_HOUR-TP_START_HOUR+1)*2)*24; // 2x24px
-      const cols = days.map(d => `<div class="cal-col" data-day="${d.toISOString().slice(0,10)}" style="height:${colHeight}px"></div>`).join("");
+    // lewa kolumna z godzinami
+    let times = `<div>`;
+    for (let h = TP_START_HOUR; h <= TP_END_HOUR; h++) {
+        times += `<div class="cal-row"><label>${String(h).padStart(2, '0')}:00</label></div>`;
+        if (h !== TP_END_HOUR) times += `<div class="cal-row"></div>`;
+    }
+    times += `</div>`;
+    const colHeight = ((TP_END_HOUR - TP_START_HOUR + 1) * 2) * 24;
 
-       host.innerHTML = `<div class="cal-wrap">
+    // --- POPRAWKA 1: Używamy fmtYYYYMMDD do tworzenia atrybutu data-day ---
+    const cols = days.map(d => `<div class="cal-col" data-day="${fmtYYYYMMDD(d)}" style="height:${colHeight}px"></div>`).join("");
+
+    host.innerHTML = `<div class="cal-wrap">
         ${head}<div class="cal-grid">${times}${cols}</div>
         <div class="cal-legend">
           <span><span class="swatch" style="background:rgba(13,110,253,.3); border:1px solid rgba(13,110,253,.5)"></span> planned</span>
           <span><span class="swatch" style="background:rgba(25,135,84,.3); border:1px solid rgba(25,135,84,.5)"></span> done</span>
           <span><span class="swatch" style="background:rgba(220,53,69,.25); border:1px solid rgba(220,53,69,.5)"></span> cancelled</span>
-          ${_state.therapistId==="all" ? `<span class="ms-2">Kolor = terapeuta (inicjały na chipie)</span>` : ``}
+          ${_state.therapistId === "all" ? `<span class="ms-2">Kolor = terapeuta (inicjały na chipie)</span>` : ``}
         </div>
-      </div>`;
+    </div>`;
 
-      const dayMap = new Map([...host.querySelectorAll(".cal-col")].map(el => [el.getAttribute("data-day"), el]));
+    const dayMap = new Map([...host.querySelectorAll(".cal-col")].map(el => [el.getAttribute("data-day"), el]));
 
-     for (const r of _state.rows) {
-      const d = parseLocalTimestamp(r.starts_at);
-      const e = parseLocalTimestamp(r.ends_at);
-      if (!d || !e) continue;
+    for (const r of _state.rows) {
+        const d = parseLocalTimestamp(r.starts_at);
+        const e = parseLocalTimestamp(r.ends_at);
+        if (!d || !e) continue;
 
-      const key = d.toISOString().slice(0,10);
-      if (!dayMap.has(key)) continue;
+        // --- POPRAWKA 2: Używamy fmtYYYYMMDD do stworzenia klucza daty ---
+        const key = fmtYYYYMMDD(d);
+        if (!dayMap.has(key)) continue;
 
-        const top = ((d.getHours()-TP_START_HOUR)*60 + d.getMinutes()) * PX_PER_MIN;
-        const height = Math.max(18, Math.max(0, (e - d)/60000) * PX_PER_MIN);
+        const top = ((d.getHours() - TP_START_HOUR) * 60 + d.getMinutes()) * PX_PER_MIN;
+        const height = Math.max(18, Math.max(0, (e - d) / 60000) * PX_PER_MIN);
 
         const el = document.createElement("div");
-        el.className = `cal-event ${r.status||"planned"} ${_state.therapistId==="all"?'all':''}`;
-        if (_state.therapistId==="all"){
-          const c = colorForId(r.therapist_id || 0);
-          el.style.background = c.bg; el.style.borderColor=c.border; el.style.color=c.text;
+        el.className = `cal-event ${r.status || "planned"} ${_state.therapistId === "all" ? 'all' : ''}`;
+        if (_state.therapistId === "all") {
+            const c = colorForId(r.therapist_id || 0);
+            el.style.background = c.bg;
+            el.style.borderColor = c.border;
+            el.style.color = c.text;
         }
-        el.style.top = `${top}px`; el.style.height = `${height}px`;
+        el.style.top = `${top}px`;
+        el.style.height = `${height}px`;
 
+        const isTusGroup = r.type === 'tus';
         const tName = r.therapist_name || "";
-        const tag = _state.therapistId==="all" ? `<span class="badge rounded-pill text-bg-light border me-1" style="background:rgba(255,255,255,.6);">${initials(tName)}</span>` : ``;
+        const tag = _state.therapistId === "all" ? `<span class="badge rounded-pill text-bg-light border me-1" style="background:rgba(255,255,255,.6);">${initials(tName)}</span>` : ``;
+        const groupIcon = isTusGroup ? `👥 ` : '';
+        const clientLabel = isTusGroup ? `Grupa: ${r.client_name}` : (r.client_name || `klient #${r.client_id ?? ""}`);
 
         el.innerHTML = `
           <div><strong>${fmtLocalTime(r.starts_at)}–${fmtLocalTime(r.ends_at)}</strong></div>
-          <div class="text-truncate">${tag}${(r.client_name || `klient #${r.client_id??""}`)}</div>
+          <div class="text-truncate">${tag}${groupIcon}${clientLabel}</div>
           ${r.place_to ? `<div class="text-truncate"><small>${r.place_to}</small></div>` : ``}
         `;
         dayMap.get(key).appendChild(el);
-      }
     }
-
+}
     // — miesiąc —
     function monthMatrix(firstDay){
       // start na poniedziałek poprzedzający 1. dzień (lub ten sam, jeśli 1. to pn)
@@ -664,7 +672,13 @@ function dateKeyPLLocal(str){
   return { key, label };
 }
 
-
+function fmtYYYYMMDD(date) {
+    if (!date || isNaN(date)) return "";
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0'); // Miesiące są 0-indeksowane
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
 
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
