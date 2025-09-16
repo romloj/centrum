@@ -54,12 +54,12 @@
           </ul>
         </li>
         <li>
-                    <div class="d-flex gap-2 mb-3">
+            <div class="d-flex gap-2 mb-3">
              <a href="/klienci.html" class="btn btn-primary">
               👥 Klienci Baza
             </a>         
             <a href="/client-panel.html" class="btn btn-primary">
-              👥 Klienci
+              👥 Klienci - PLAN
             </a>
 
             <a href="/dostepnosc.html" class="btn btn-primary">
@@ -68,11 +68,15 @@
             <button id="openClientSelectModalBtn" class="btn btn-success">➕ Dodaj Pakiet</button>
 
             <a href="/therapist.html" class="btn btn-secondary">
-              🧑‍⚕️ Terapeuci
+              🧑‍⚕️ Terapeuci - PLAN
             </a>
-            <a href="/kierowcy.html" class="btn btn-info">
-              🚐 Kierowcy
+             <a href="/plan-tus.html" class="btn btn-success">
+              🗓️ Plan TUS
+             </a>
+                <a href="/kierowcy.html" class="btn btn-info">
+              🚐 Kierowcy - PLAN
             </a>
+                      <a href="/tus" class="btn btn-info">👥 Moduł TUS</a>
 </div>
 
         </li>
@@ -99,11 +103,8 @@
 
         <button id="reloadBtn" class="btn btn-primary">
           <span class="spinner-border spinner-border-sm d-none" id="reloadSpinner" role="status" aria-hidden="true"></span>
-          <span id="reloadTxt">Odśwież</span>
-          <button id="gapsMonthBtn" class="btn btn-outline-secondary">Braki w miesiącu</button>
-
-
-        </button>
+          <span id="reloadTxt">Odśwież</span></button>
+         <button id="gapsMonthBtn" class="btn btn-outline-secondary">Braki w miesiącu</button>
       </div>
     </header>
 
@@ -510,8 +511,28 @@
   </div>
 </div>
 
+<!-----MOADEL----->
 
-          <div class="modal fade" id="clientPackagesModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="packageTypeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Wybierz rodzaj zajęć</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Jaki rodzaj zajęć chcesz zaplanować dla tego klienta?</p>
+        <div class="d-grid gap-2">
+          <button class="btn btn-primary btn-lg" id="btnGoToIndividualPackage">Zajęcia Indywidualne</button>
+          <button class="btn btn-info btn-lg" id="btnGoToTus">Sesja Grupowa TUS</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="clientPackagesModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
@@ -640,6 +661,10 @@
 
     let _clientEditId = null;
     let lastClients = [];
+
+    const packageTypeModalEl = document.getElementById('packageTypeModal');
+    const packageTypeModal = new bootstrap.Modal(packageTypeModalEl);
+    let _clientIdForNewPackage = null; // Zmienna do przechowywania ID klienta
 
 
 
@@ -927,7 +952,7 @@ const therapistFilter = document.getElementById("therapistFilter");
           <td class="text-end">
             <div class="actions d-grid d-sm-inline-flex gap-1">
                <button class="btn btn-sm btn-success" onclick="aiSuggestForClient(${row.client_id})">🤖 Zaproponuj</button>
-              <button class="btn btn-sm btn-primary" onclick="openPackageCanvas(${row.client_id})">Dodaj pakiet</button>
+              <button class="btn btn-sm btn-primary" onclick="choosePackageType(${row.client_id})">Dodaj pakiet</button>
               <button class="btn btn-sm btn-outline-secondary" onclick="openAllocationCanvas(${row.client_id}, '${row.month_key}', ${row.minutes_quota ?? 'null'})">Ustaw przydział</button>
               <button class="btn btn-sm btn-outline-primary" onclick="openClientPackages(${row.client_id}, '${row.full_name.replace(/'/g, "\\'")}')">Pakiety</button>
               <!--<button class="btn btn-sm btn-outline-primary" onclick="openClientEdit(${row.client_id})">✏️</button>
@@ -1159,6 +1184,10 @@ const therapistFilter = document.getElementById("therapistFilter");
   }
 });
 
+function choosePackageType(clientId) {
+  _clientIdForNewPackage = clientId; // Zapisujemy ID klienta
+  packageTypeModal.show(); // Pokazujemy okno wyboru
+}
 
 async function openPackageEdit(groupId){
   const modalEl = document.getElementById('clientPackagesModal');
@@ -1816,7 +1845,9 @@ async function openClientPackages(clientId, fullName) {
                   <th>Min</th>
                   <th>Osoba</th>
                   <th>Trasa / Miejsce</th>
+                  <th>Dystans</th>
                   <th>Status</th>
+                  <th>Akcje</th>
                 </tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
@@ -2018,7 +2049,11 @@ function renderDriverScheduleHTML(fullName, data) {
             <td>${row.client_name || `klient #${row.client_id ?? ""}`}</td>
             <td>${route || "—"}</td>
             <td>${row.vehicle_id ?? "—"}</td>
+
+            <td>${route}</td>
+            <td>${row.distance_km ? `${row.distance_km} km` : '—'}</td>
             <td><code>${row.status || ""}</code></td>
+    <td>
           </tr>`;
       }).join("");
 
@@ -2163,6 +2198,7 @@ function renderClientPackagesHTML(fullName, data) {
         <td>${mins || ""}</td>
         <td>${who}</td>
         <td>${route}</td>
+        <td>${row.distance_km ? `${row.distance_km} km` : '—'}</td>
         <td><code>${row.status || ""}</code></td>
         <td>
           <button class="btn btn-sm btn-outline-success"
@@ -2182,10 +2218,10 @@ function renderClientPackagesHTML(fullName, data) {
       <div class="table-responsive">
         <table class="table table-sm align-middle">
           <thead class="table-light">
-            <tr>
-              <th>Typ</th><th>Godzina</th><th>Min</th><th>Osoba</th><th>Trasa / Miejsce</th><th>Status</th><th>Akcje</th>
-            </tr>
-          </thead>
+              <tr>
+                <th>Typ</th><th>Godzina</th><th>Min</th><th>Osoba</th><th>Trasa / Miejsce</th><th>Dystans</th><th>Status</th><th>Akcje</th>
+              </tr>
+           </thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -3042,7 +3078,7 @@ document.getElementById('continueWithClientBtn').addEventListener('click', () =>
 
     // Otwórz panel dodawania pakietu dla wybranego klienta
     // Używamy tutaj istniejącej funkcji openPackageCanvas!
-    openPackageCanvas(Number(selectedClientId));
+    choosePackageType(Number(selectedClientId));
   } else {
     alert("Proszę wybrać klienta z listy.");
   }
@@ -3112,6 +3148,37 @@ absenceForm.addEventListener('submit', async (e) => {
         showAlert(err.message, 'danger');
     }
 });
+
+      // Logika dla przycisków w oknie wyboru typu pakietu
+document.getElementById('btnGoToIndividualPackage').addEventListener('click', () => {
+    packageTypeModal.hide();
+    // Wywołaj istniejącą funkcję do tworzenia pakietu indywidualnego
+    openPackageCanvas(_clientIdForNewPackage);
+});
+
+document.getElementById('btnGoToTus').addEventListener('click', async () => {
+    packageTypeModal.hide();
+
+    try {
+        const response = await fetch(`${API}/api/clients/${_clientIdForNewPackage}/tus-groups`);
+        if (!response.ok) throw new Error('Błąd serwera przy sprawdzaniu grupy klienta.');
+
+        const clientGroups = await response.json();
+
+        if (clientGroups.length > 0) {
+            // PRZYPADEK 1: Klient jest już w jednej grupie -> przejdź od razu do jej szczegółów
+            const groupId = clientGroups[0].id;
+            window.location.href = `tus.html?openGroup=${groupId}`;
+        } else {
+            // PRZYPADEK 2: Klient nie należy do żadnej grupy -> przejdź do strony ogólnej TUS
+            alert("Ten klient nie jest jeszcze przypisany do żadnej grupy TUS. Zostaniesz przekierowany na główną stronę modułu, aby go dodać do istniejącej grupy lub stworzyć nową.");
+            window.location.href = 'tus.html';
+        }
+    } catch (err) {
+        alert(err.message);
+    }
+});
+
   </script>
 </body>
 </html>
