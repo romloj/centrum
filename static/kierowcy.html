@@ -14,12 +14,12 @@
     .cal-head { position: sticky; top: 0; z-index: 2; background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); }
     .cal-head div { padding: .5rem; font-weight: 600; text-align: center; border-left: 1px solid var(--bs-border-color); }
     .cal-head div:first-child { border-left: 0; text-align: left; }
-    .cal-row { height: 24px; border-top: 1px dotted var(--bs-border-color); font-size: 12px; }
+    .cal-row { height: 22px; border-top: 1px dotted var(--bs-border-color); font-size: 12px; }
     .cal-row label { display: inline-block; padding: 2px 6px; color: var(--bs-secondary-color); }
     .cal-col { position: relative; border-left: 1px solid var(--bs-border-color); }
     .cal-event {
       position: absolute; left: 4px; right: 4px; border-radius: .5rem;
-      padding: 4px 6px; font-size: 10px; line-height: 1.3;
+      padding: 4px 6px; font-size: 12px; line-height: 1.3;
       overflow: hidden;
       display: flex; flex-direction: column; justify-content: center;
     }
@@ -49,10 +49,10 @@
       .print-column { flex: 1; min-width: 0; }
       .print-table {
         width: 100%; border-collapse: collapse;
-        font-size: 8pt;
+        font-size: 7pt;
       }
       .print-table th, .print-table td {
-        border: 1px solid #ccc; padding: 0.3rem;
+        border: 1px solid #ccc; padding: 0.2rem;
         text-align: left; vertical-align: top;
         word-break: break-word;
       }
@@ -88,7 +88,7 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const API_BASE = "";
+      const API_BASE = "http://127.0.0.1:5000";
       const DOW_SHORT = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
       const START_HOUR = 7, END_HOUR = 20, PX_PER_MIN = 24 / 30;
 
@@ -129,20 +129,17 @@
         } catch (e) { console.error("Błąd ładowania kierowców:", e); }
       };
 
-      // === POPRAWIONA FUNKCJA POBIERANIA DANYCH ===
       const reloadData = async () => {
         state.driverId = driverSelect.value || "all";
         const dateForMonthKey = state.mode === "week" ? state.refDate : state.refMonth;
         const monthKey = `${dateForMonthKey.getFullYear()}-${String(dateForMonthKey.getMonth() + 1).padStart(2, '0')}`;
         calendarHost.innerHTML = `<div class="text-muted p-3">Ładowanie…</div>`;
-
         try {
             const fetchPromises = (state.driverId === "all")
                 ? state.drivers.map(driver =>
                     fetch(`${API_BASE}/api/drivers/${driver.id}/schedule?month=${monthKey}`)
                         .then(r => r.ok ? r.json() : [])
                         .then(scheduleEntries =>
-                            // Dodajemy informacje o kierowcy do każdego kursu
                             scheduleEntries.map(entry => ({ ...entry, driver_name: driver.full_name }))
                         )
                 )
@@ -150,14 +147,10 @@
                     fetch(`${API_BASE}/api/drivers/${state.driverId}/schedule?month=${monthKey}`)
                         .then(r => r.ok ? r.json() : [])
                 ];
-
             state.scheduleData = (await Promise.all(fetchPromises)).flat();
             render();
-        } catch (e) {
-            calendarHost.innerHTML = `<div class="text-danger p-3">Błąd ładowania: ${e.message}</div>`;
-        }
+        } catch (e) { calendarHost.innerHTML = `<div class="text-danger p-3">Błąd ładowania: ${e.message}</div>`; }
       };
-
 
       const render = () => {
         if (state.mode === "week") renderWeek();
@@ -184,9 +177,8 @@
           const eventsHtml = dayEvents.map(r => {
             const s = parseLocalTimestamp(r.starts_at), e = parseLocalTimestamp(r.ends_at);
             if (!s || !e) return '';
+            const height = Math.max(60, ((e - s) / 60000) * PX_PER_MIN);
             const top = ((s.getHours() - START_HOUR) * 60 + s.getMinutes()) * PX_PER_MIN;
-            const height = Math.max(50, ((e - s) / 60000) * PX_PER_MIN);
-            // === POPRAWIONY HTML WEWNĄTRZ WYDARZENIA (dodano nazwisko kierowcy) ===
             return `<div class="cal-event ${r.kind} ${r.status}" style="top:${top}px; height:${height}px;" title="${r.client_name} (${r.driver_name || ''})">
               <div><strong>${fmtLocalTime(r.starts_at)}–${fmtLocalTime(r.ends_at)}</strong></div>
               <div>${r.client_name || ""}</div>
@@ -217,7 +209,12 @@
           const key = d.toISOString().slice(0, 10);
           const items = eventsByDate.get(key) || [];
           const mutedClass = d.getMonth() !== state.refMonth.getMonth() ? " muted-month" : "";
-          const chips = items.map(r => `<div class="day-chip ${r.kind}" title="${fmtLocalTime(r.starts_at)} ${r.client_name}">${fmtLocalTime(r.starts_at)} ${r.client_name}</div>`).join("");
+          // === POPRAWIONA LOGIKA WIDOKU MIESIĘCZNEGO ===
+          const chips = items.map(r => {
+              const driverInfo = state.driverId === 'all' && r.driver_name ? ` (${r.driver_name.split(' ')[0]})` : '';
+              const title = `${fmtLocalTime(r.starts_at)} ${r.client_name}${driverInfo}`;
+              return `<div class="day-chip ${r.kind}" title="${title}">${title}</div>`;
+          }).join("");
           return `<div class="day-cell${mutedClass}"><div class="day-num">${d.getDate()}</div>${chips}</div>`;
         }).join("");
         const title = state.refMonth.toLocaleDateString("pl-PL", { month: "long", year: "numeric" });
@@ -263,7 +260,6 @@
         reloadData();
       };
 
-      // === FINALNA WERSJA FUNKCJI DRUKOWANIA ===
       const printSchedule = () => {
         const driverName = driverSelect.value === 'all' ? 'Wszyscy kierowcy' : driverSelect.options[driverSelect.selectedIndex].text;
         let dateTitle;
@@ -331,10 +327,7 @@
           </div>
         `;
 
-        // Dajemy przeglądarce chwilę na wyrenderowanie layoutu flex przed drukowaniem
-        setTimeout(() => {
-            window.print();
-        }, 100);
+        setTimeout(() => { window.print(); }, 100);
       };
 
       init();
