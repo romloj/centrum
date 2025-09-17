@@ -32,7 +32,7 @@ CORS(app)
 
 # Wczytywanie konfiguracji ze zmiennych środowiskowych
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:EDUQ@localhost:5432/suo")
-GOOGLE_MAPS_API_KEY = os.getenv("AIzaSyC5TGcemvDn-BZ5khdlQOOpPZVV2qLMYc8")
+GOOGLE_MAPS_API_KEY = os.getenv("klucz")
 
 # === DODAJ TĘ LINIĘ DIAGNOSTYCZNĄ ===
 print(f"--- APLIKACJA ŁĄCZY SIĘ Z BAZĄ DANYCH: {DATABASE_URL} ---")
@@ -2981,6 +2981,7 @@ def get_general_bonus_history(group_id: int):
             } for h in history
         ]
         return jsonify(results)
+
 
 
 
