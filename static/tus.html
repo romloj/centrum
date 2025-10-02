@@ -10,7 +10,7 @@
 
   <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
-
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
     body {
       background-color: #f8f9fa;
@@ -20,6 +20,124 @@
     }
     .select2-container--bootstrap-5 .select2-selection__rendered {
       padding-top: 4px;
+    }
+      /* Style dla mini-kalendarza w modalu TUS */
+.session-calendar {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem;
+    background: #fff;
+}
+.session-calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .5rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.session-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+}
+.session-calendar-dow {
+    font-size: .75rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+    padding: .25rem 0;
+}
+.session-calendar-day {
+    font-size: .8rem;
+    padding: .5rem 0;
+    border-top: 1px solid var(--bs-border-color);
+    cursor: pointer;
+    position: relative;
+}
+.session-calendar-day:hover {
+    background-color: var(--bs-primary-bg-subtle);
+}
+.session-calendar-day.other-month {
+    color: var(--bs-secondary-color);
+    opacity: .6;
+}
+/* Kółko oznaczające zaplanowaną sesję */
+.session-calendar-day.scheduled::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+}
+/* Styl dla zaznaczonego dnia */
+.session-calendar-day.selected {
+    background-color: var(--bs-primary);
+    color: #fff;
+    font-weight: 600;
+    border-radius: 50%;
+}
+      /* Styl dla regularnego dnia zajęć (szablonu) */
+.session-calendar-day.is-selected-day {
+    background-color: var(--bs-info-bg-subtle);
+    font-weight: bold;
+}
+      .fab-container {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: 1050;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+    .fab-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: var(--bs-primary);
+        color: white;
+        font-size: 1.8rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        text-decoration: none;
+        transition: transform 0.3s ease, background-color 0.3s ease;
+        border: none;
+    }
+    .fab-button:hover {
+        transform: scale(1.1);
+        background-color: var(--bs-primary-dark);
+    }
+    .fab-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        gap: 0.75rem;
+        transform: scaleY(0);
+        transform-origin: bottom;
+        transition: transform 0.3s ease;
+    }
+    .fab-container.open .fab-menu {
+        transform: scaleY(1);
+    }
+    .fab-menu-item a {
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+        background-color: var(--bs-secondary);
+    }
+    .fab-container.open #fab-main-icon {
+        transform: rotate(45deg);
+    }
+    #fab-main-icon {
+        transition: transform 0.3s ease;
     }
   </style>
 </head>
@@ -134,7 +252,7 @@
   </div>
 
   <div class="modal fade" id="scoringModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Punktacja sesji</h5>
@@ -187,7 +305,33 @@
       </div>
     </div>
   </div>
+<!-- menu-->
+    <div class="fab-container" id="fab-container">
+    <ul class="fab-menu">
+        <li class="fab-menu-item">
+            <a href="therapist.html" class="fab-button" title="Plan terapeuty"><i class="bi bi-heart-pulse"></i></a>
+        </li>
+        <li class="fab-menu-item">
+            <a href="tus.html" class="fab-button" title="Moduł TUS"><i class="bi bi-star-fill"></i></a>
+        </li>
+        <li class="fab-menu-item">
+            <a href="klienci.html" class="fab-button" title="Lista klientów"><i class="bi bi-people-fill"></i></a>
+        </li>
 
+         <li class="fab-menu-item">
+            <a href="client_history.html" class="fab-button" title="Historia klientów"><i class="bi bi-people-fill"></i></a>
+        </li>
+         <li class="fab-menu-item">
+            <a href="index.html" class="fab-button" title="Strona główna"><i class="bi bi-house-x-fill"></i></a>
+        </li>
+
+
+
+    </ul>
+    <button class="fab-button" id="fab-main-btn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg" id="fab-main-icon"></i>
+    </button>
+</div>
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -254,6 +398,8 @@
           allowClear: true,
           width: '100%'
         });
+
+
         $('#clientSelect').select2({
           theme: 'bootstrap-5',
           dropdownParent: $('#groupModal'),
@@ -262,6 +408,20 @@
         });
       }
 
+       function showAlert(msg, type = "success") {
+    const alertBox = document.getElementById('alertBox');
+    // Upewnij się, że element alertBox istnieje w Twoim HTML
+    if (alertBox) {
+        alertBox.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${msg}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>`;
+    } else {
+        // Jeśli nie ma dedykowanego miejsca, użyj standardowego alertu
+        alert(msg);
+    }
+}
 
       // ==========================================================
       // === GŁÓWNE FUNKCJE ŁADUJĄCE DANE =========================
@@ -402,169 +562,319 @@
       // === FUNKCJE ZARZĄDZAJĄCE MODALAMI ========================
       // ==========================================================
 
+
+ async function saveSchedule(groupId, scheduleDays) {
+        try {
+            const response = await fetch(`/api/tus/groups/${groupId}/schedule`, {
+                method: 'PUT', // <-- UPEWNIJ SIĘ, ŻE JEST TUTAJ 'PUT'
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ schedule_days: scheduleDays }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Błąd serwera: ' + response.status);
+            }
+
+            // Sukces
+            console.log("Harmonogram zapisany!");
+
+        } catch (error) {
+            console.error("Nie udało się zapisać harmonogramu:", error);
+        }
+    }
+
       /**
        * Otwiera główny, interaktywny modal ze szczegółami grupy, sesjami i opcjami.
        * @param {number} groupId - ID grupy do wyświetlenia.
        */
-      async function openGroupDetails(groupId) {
-            try {
-                const [g, bonusDetails, bonusHistory] = await Promise.all([
-                   fetchJSON(`${API_BASE}/api/tus/groups/${groupId}`),
-                   fetchJSON(`${API_BASE}/api/tus/groups/${groupId}/bonus-details`),
-                   fetchJSON(`${API_BASE}/api/tus/groups/${groupId}/general-bonus-history`)
-                ]);
+      // W pliku tus.html znajdź i podmień tę funkcję
 
-                $('#groupDetailsTitle').text(`Zarządzaj grupą: ${g.name}`);
-                $('#deleteGroupFromDetailsBtn').show().data('group-id', g.id);
+async function openGroupDetails(groupId) {
+        try {
+            const g = await fetchJSON(`${API_BASE}/api/tus/groups/${groupId}`);
+            const [bonusDetails, bonusHistory] = await Promise.all([
+               fetchJSON(`${API_BASE}/api/tus/groups/${groupId}/bonus-details`),
+               fetchJSON(`${API_BASE}/api/tus/groups/${groupId}/general-bonus-history`)
+            ]);
 
-                const currentYear = new Date().getFullYear();
-                let schoolYearOptionsHtml = '';
-                for (let i = 0; i < 5; i++) {
-                    const yearStart = currentYear - i;
-                    const yearEnd = yearStart + 1;
-                    schoolYearOptionsHtml += `<option value="${yearStart}">${yearStart}/${yearEnd}</option>`;
+            $('#groupDetailsTitle').text(`Zarządzaj grupą: ${g.name}`);
+            $('#deleteGroupFromDetailsBtn').show().data('group-id', g.id);
+
+            // --- LOGIKA KALENDARZA ---
+            let calendarCurrentDate = new Date();
+            const scheduledDates = new Set(g.sessions.map(s => s.session_date.slice(0, 10)));
+            const DOW_SHORT = ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "So"];
+            let selectedDates = new Set(g.schedule_days || []);
+
+            function renderSessionCalendar() {
+                const year = calendarCurrentDate.getFullYear();
+                const month = calendarCurrentDate.getMonth();
+                const calendarEl = document.getElementById('sessionCalendar');
+                if (!calendarEl) return;
+
+                const firstOfMonth = new Date(year, month, 1);
+                const lastOfMonth = new Date(year, month + 1, 0);
+                const startDay = firstOfMonth.getDay();
+
+                let headerHtml = `<div class="session-calendar-header"><button type="button" class="btn btn-sm btn-outline-secondary cal-prev-month">«</button><strong class="mx-2">${firstOfMonth.toLocaleString('pl-PL', { month: 'long', year: 'numeric' })}</strong><button type="button" class="btn btn-sm btn-outline-secondary cal-next-month">»</button></div>`;
+                let gridHtml = `<div class="session-calendar-grid">`;
+                DOW_SHORT.forEach(day => gridHtml += `<div class="session-calendar-dow">${day}</div>`);
+                for (let i = 0; i < startDay; i++) { gridHtml += `<div class="session-calendar-day other-month"></div>`; }
+
+                for (let i = 1; i <= lastOfMonth.getDate(); i++) {
+                    const dayDate = new Date(year, month, i);
+                    const dateString = fmtYYYYMMDD(dayDate);
+
+                    const isScheduled = scheduledDates.has(dateString);
+                    const isSelected = selectedDates.has(dateString);
+
+                    let classes = 'session-calendar-day';
+                    if (isScheduled) classes += ' scheduled';
+                    if (isSelected) classes += ' is-selected-day';
+
+                    gridHtml += `<div class="${classes}" data-date="${dateString}">${i}</div>`;
                 }
+            gridHtml += `</div>`;
+            calendarEl.innerHTML = `<div class="session-calendar">${headerHtml}${gridHtml}</div>`;
+        }
 
-                const membersListHtml = (g.members || []).map(m => `<li>${m.full_name}</li>`).join('') || '<li class="text-muted">Brak uczestników</li>';
+        // --- KONIEC NOWEJ SEKCJI: Logika Kalendarza ---
 
-                // --- POCZĄTEK POPRAWKI ---
-                // TA LINIA ZOSTAŁA PRZYWRÓCONA. Tworzy ona listę sesji bez duplikatów.
-                const uniqueSessions = [...new Map((g.sessions || []).map(item => [item['id'], item])).values()];
-                // --- KONIEC POPRAWKI ---
+        const currentYear = new Date().getFullYear();
+        let schoolYearOptionsHtml = '';
+        for (let i = 0; i < 5; i++) {
+            const yearStart = currentYear - i;
+            const yearEnd = yearStart + 1;
+            schoolYearOptionsHtml += `<option value="${yearStart}">${yearStart}/${yearEnd}</option>`;
+        }
 
-                const sessionsListHtml = uniqueSessions.map(s => {
-                    const d = new Date(s.session_date);
-                    const whenLabel = d.toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                    return `
-                      <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <span>${whenLabel} — ${s.topic_title || 'bez tematu'}</span>
-                        <div class="btn-group btn-group-sm">
-                          <button class="btn btn-outline-success bonus-session-btn" data-session-id="${s.id}">Bonusy sesji</button>
-                          <button class="btn btn-outline-primary score-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Oceń</button>
-                          <button class="btn btn-outline-danger delete-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Usuń</button>
-                        </div>
-                      </li>`;
-                }).join('') || '<li class="list-group-item text-muted">Brak sesji</li>';
+        const membersListHtml = (g.members || []).map(m => `<li>${m.full_name}</li>`).join('') || '<li class="text-muted">Brak uczestników</li>';
 
-                const bonusTableRowsHtml = (g.members || []).map(member => {
-                    const details = bonusDetails.find(d => d.client_id === member.id) || {};
-                    return `
-                      <tr>
-                        <td>${member.full_name}</td>
-                        <td class="text-center border-end">${details.behavior_points || 0}</td>
-                        <td class="text-center">${details.session_bonus_points || 0}</td>
-                        <td class="text-center">${details.general_bonus_points || 0}</td>
-                        <td class="text-center fw-bold fs-5">${details.total_points || 0}</td>
-                      </tr>`;
-                }).join('');
+        // --- POCZĄTEK POPRAWKI ---
+        const uniqueSessions = [...new Map((g.sessions || []).map(item => [item['id'], item])).values()];
 
-                const memberOptionsHtml = (g.members || []).map(m => `<option value="${m.id}">${m.full_name}</option>`).join('');
+        const sessionsListHtml = uniqueSessions.map(s => {
+    // POPRAWIONE WYŚWIETLANIE DATY
+    let whenLabel = 'Błędna data';
 
-                const bonusHistoryHtml = bonusHistory.length > 0 ? bonusHistory.map(h => {
-                    const date = new Date(h.awarded_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                    return `
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div><strong>${h.client_name}</strong> otrzymał <strong>${h.points} pkt.</strong><br><small class="text-muted">Powód: ${h.reason || 'Brak'}</small></div>
-                            <span class="badge bg-secondary rounded-pill">${date}</span>
-                        </li>`;
-                }).join('') : '<li class="list-group-item text-muted">Brak przyznanych bonusów ogólnych.</li>';
+    try {
+        if (s.session_date) {
+            // Bezpieczne formatowanie daty
+            const dateObj = new Date(s.session_date);
+            if (!isNaN(dateObj.getTime())) {
+                const timePart = s.session_time ?
+                    ` ${s.session_time.substring(0, 5)}` : ''; // Pokazuj tylko HH:MM
 
-                $('#groupDetailsBody').html(`
-                    <ul class="nav nav-tabs" id="groupTabs" role="tablist">
-                      <li class="nav-item" role="presentation"><button class="nav-link active" id="sessions-tab" data-bs-toggle="tab" data-bs-target="#sessions-panel" type="button" role="tab">Sesje i Uczestnicy</button></li>
-                      <li class="nav-item" role="presentation"><button class="nav-link" id="bonuses-tab" data-bs-toggle="tab" data-bs-target="#bonuses-panel" type="button" role="tab">⭐ Punktacja i Bonusy</button></li>
-                      <li class="nav-item" role="presentation"><button class="nav-link" id="goals-tab" data-bs-toggle="tab" data-bs-target="#goals-panel" type="button" role="tab">Cele i Postępy</button></li>
-                    </ul>
-                    <div class="tab-content pt-3">
-                      <div class="tab-pane fade show active" id="sessions-panel" role="tabpanel">
-                        <div class="row">
-                          <div class="col-md-5"><h6>Uczestnicy</h6><ul class="list-unstyled">${membersListHtml}</ul></div>
-                          <div class="col-md-7">
-                            <h6>Lista Sesji</h6><ul class="list-group mb-3">${sessionsListHtml}</ul>
-                            <div class="card"><div class="card-body"><h6 class="card-title">Dodaj nową sesję</h6>
-                                <form id="addSessionForm" data-group-id="${g.id}">
-                                   <div class="row g-2">
-                                    <div class="col-6"><label class="form-label">Data</label><input type="date" class="form-control" name="date" required></div>
-                                    <div class="col-6"><label class="form-label">Godzina</label><input type="time" class="form-control" name="time" required></div>
-                                    <div class="col-12"><label class="form-label">Temat</label><select id="sessionTopicSelect" class="form-select" required></select></div>
-                                    <div class="col-12"><label class="form-label">Zachowania do modelowania (max 4)</label><select id="sessionBehaviorsSelect" class="form-select" multiple></select></div>
-                                    <div class="col-12"><button class="btn btn-primary w-100" type="submit">Dodaj sesję</button></div>
-                                   </div>
-                                </form>
-                            </div></div>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="tab-pane fade" id="bonuses-panel" role="tabpanel">
-                        <h5>Zbiorcza punktacja</h5>
-                        <div class="table-responsive mb-4"><table class="table table-bordered table-striped">
-                            <thead class="table-light"><tr><th>Uczestnik</th><th class="text-center border-end">Pkt. za zachowania</th><th class="text-center">Bonusy z sesji</th><th class="text-center">Bonusy ogólne</th><th class="text-center">SUMA PUNKTÓW</th></tr></thead>
-                            <tbody>${bonusTableRowsHtml}</tbody>
-                        </table></div><hr/>
-                        <h5>Przyznaj bonus ogólny</h5>
-                        <form id="awardGeneralBonusForm" class="row g-2 align-items-end" data-group-id="${g.id}">
-                          <div class="col-md-5"><label for="bonusClientSelect" class="form-label">Uczestnik</label><select id="bonusClientSelect" name="client_id" class="form-select" required>${memberOptionsHtml}</select></div>
-                          <div class="col-md-2"><label for="bonusPointsInput" class="form-label">Punkty</label><input type="number" id="bonusPointsInput" name="points" class="form-control" min="1" required></div>
-                          <div class="col-md-5"><label for="bonusReasonInput" class="form-label">Powód (wymagany)</label><input type="text" id="bonusReasonInput" name="reason" class="form-control" placeholder="Np. Pomoc koledze" required></div>
-                          <div class="col-12"><button type="submit" class="btn btn-success">Przyznaj punkty</button></div>
-                        </form><hr class="my-4"/>
-                        <div class="accordion" id="bonusHistoryAccordion"><div class="accordion-item">
-                          <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistory">Pokaż / Ukryj historię bonusów ogólnych</button></h2>
-                          <div id="collapseHistory" class="accordion-collapse collapse" data-bs-parent="#bonusHistoryAccordion"><div class="accordion-body p-0">
-                              <ul class="list-group list-group-flush">${bonusHistoryHtml}</ul>
-                          </div></div>
-                        </div></div>
-                      </div>
-                      <div class="tab-pane fade" id="goals-panel" role="tabpanel">
-                         <h6>🎯 Cele i nagrody semestralne</h6>
-                         <div class="card mb-3"><div class="card-body">
-                             <form id="groupTargetForm" data-group-id="${g.id}">
-                               <div class="row g-2 align-items-end">
-                                 <div class="col-md-5"><label class="form-label">Rok szkolny</label>
-                                    <select class="form-select" name="school_year_start" required>${schoolYearOptionsHtml}</select>
-                                 </div>
-                                 <div class="col-md-7"><label class="form-label">Semestr</label>
-                                    <select class="form-select" name="semester" required><option value="1">I Półrocze (Wrzesień - Styczeń)</option><option value="2">II Półrocze (Luty - Czerwiec)</option></select>
-                                 </div>
-                                 <div class="col-6"><label class="form-label">Cel (pkt)</label><input type="number" class="form-control" name="points" min="0" required></div>
-                                 <div class="col-6"><label class="form-label">Nagroda</label><input type="text" class="form-control" name="reward"></div>
-                                 <div class="col-12"><button type="submit" class="btn btn-primary btn-sm w-100">Zapisz cel</button></div>
-                               </div>
-                             </form>
-                         </div></div>
-                         <div class="d-flex align-items-end gap-2 mb-3">
-                           <div><label class="form-label mb-0"><strong>Podsumowanie dla roku szkolnego</strong></label>
-                              <select class="form-select" id="bonusYearSelect">${schoolYearOptionsHtml}</select>
-                           </div>
-                           <button type="button" class="btn btn-primary" id="bonusScopeRefreshBtn" data-group-id="${g.id}">Pokaż</button>
-                           <button type="button" class="btn btn-secondary" id="hideBonusesBtn" style="display: none;">Ukryj</button>
-                         </div>
-                         <div id="bonusesSummary" class="mb-3"></div>
-                      </div>
-                    </div>
-                `);
-
-                const topics = await fetchJSON(`${API_BASE}/api/tus/topics`);
-                const $topicSelect = $('#sessionTopicSelect').empty();
-                (topics || []).forEach(t => $topicSelect.append(new Option(t.title, String(t.id))));
-
-                const behaviors = await fetchJSON(`${API_BASE}/api/tus/behaviors`);
-                const $behaviorSelect = $('#sessionBehaviorsSelect').empty();
-                (behaviors || []).forEach(b => $behaviorSelect.append(new Option(`${b.title} (max ${b.default_max_points ?? 3})`, String(b.id))));
-                $behaviorSelect.select2({
-                    theme: 'bootstrap-5',
-                    width: '100%',
-                    placeholder: 'Wybierz do 4 zachowań',
-                    maximumSelectionLength: 4,
-                    dropdownParent: $('#groupDetailsModal')
-                });
-
-                groupDetailsModal.show();
-            } catch (e) {
-                console.error(e);
-                alert(`Nie udało się otworzyć szczegółów grupy: ${e.message}`);
+                whenLabel = dateObj.toLocaleDateString('pl-PL') + timePart;
+            } else {
+                // Fallback - pokaż surowe dane
+                whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time.substring(0,5) : ''}`;
             }
         }
+    } catch (e) {
+        console.error('Błąd formatowania daty:', e);
+        whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time : ''}`;
+    }
+
+    return `
+      <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span>${whenLabel} — ${s.topic_title || 'bez tematu'}</span>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-success bonus-session-btn" data-session-id="${s.id}">Bonusy sesji</button>
+          <button class="btn btn-outline-primary score-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Oceń</button>
+          <button class="btn btn-outline-danger delete-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Usuń</button>
+        </div>
+      </li>`;
+}).join('') || '<li class="list-group-item text-muted">Brak sesji</li>';
+
+        const bonusTableRowsHtml = (g.members || []).map(member => {
+            const details = bonusDetails.find(d => d.client_id === member.id) || {};
+            return `
+              <tr>
+                <td>${member.full_name}</td>
+                <td class="text-center border-end">${details.behavior_points || 0}</td>
+                <td class="text-center">${details.session_bonus_points || 0}</td>
+                <td class="text-center">${details.general_bonus_points || 0}</td>
+                <td class="text-center fw-bold fs-5">${details.total_points || 0}</td>
+              </tr>`;
+        }).join('');
+
+        const memberOptionsHtml = (g.members || []).map(m => `<option value="${m.id}">${m.full_name}</option>`).join('');
+
+        const bonusHistoryHtml = bonusHistory.length > 0 ? bonusHistory.map(h => {
+            const date = new Date(h.awarded_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            return `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div><strong>${h.client_name}</strong> otrzymał <strong>${h.points} pkt.</strong><br><small class="text-muted">Powód: ${h.reason || 'Brak'}</small></div>
+                    <span class="badge bg-secondary rounded-pill">${date}</span>
+                </li>`;
+        }).join('') : '<li class="list-group-item text-muted">Brak przyznanych bonusów ogólnych.</li>';
+
+        $('#groupDetailsBody').html(`
+            <ul class="nav nav-tabs" id="groupTabs" role="tablist">
+              <li class="nav-item" role="presentation"><button class="nav-link active" id="sessions-tab" data-bs-toggle="tab" data-bs-target="#sessions-panel" type="button" role="tab">Sesje i Uczestnicy</button></li>
+              <li class="nav-item" role="presentation"><button class="nav-link" id="bonuses-tab" data-bs-toggle="tab" data-bs-target="#bonuses-panel" type="button" role="tab">⭐ Punktacja i Bonusy</button></li>
+              <li class="nav-item" role="presentation"><button class="nav-link" id="goals-tab" data-bs-toggle="tab" data-bs-target="#goals-panel" type="button" role="tab">Cele i Postępy</button></li>
+            </ul>
+
+            <div class="tab-content pt-3">
+              <div class="tab-pane fade show active" id="sessions-panel" role="tabpanel">
+                <div class="row">
+                  <div class="col-lg-5">
+                    <h6>Uczestnicy</h6>
+                    <ul class="list-unstyled">${membersListHtml}</ul>
+                    <div id="sessionCalendar" class="mt-4"></div>
+                        <div class="d-grid mt-2">
+                            <button id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button>
+
+                    </div>
+                  </div>
+                  <div class="col-lg-7">
+                    <h6>Lista Sesji</h6>
+                    <ul class="list-group mb-3">${sessionsListHtml}</ul>
+                    <div class="card">
+                      <div class="card-body">
+                        <h6 class="card-title">Dodaj nową sesję</h6>
+                        <form id="addSessionForm" data-group-id="${g.id}">
+                           <div class="row g-2">
+                            <div class="col-6"><label class="form-label">Data</label><input type="date" class="form-control" name="date" id="sessionDateInput" required></div>
+                            <div class="col-6"><label class="form-label">Godzina</label><input type="time" class="form-control" name="time" required></div>
+                            <div class="col-12"><label class="form-label">Temat</label><select id="sessionTopicSelect" class="form-select" required></select></div>
+                            <div class="col-12"><label class="form-label">Zachowania do modelowania (max 4)</label><select id="sessionBehaviorsSelect" class="form-select" multiple></select></div>
+                            <div class="col-12"><button class="btn btn-primary w-100" type="submit">Dodaj sesję</button></div>
+                           </div>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="tab-pane fade" id="bonuses-panel" role="tabpanel">
+                <h5>Zbiorcza punktacja</h5>
+                <div class="table-responsive mb-4"><table class="table table-bordered table-striped">
+                    <thead class="table-light"><tr><th>Uczestnik</th><th class="text-center border-end">Pkt. za zachowania</th><th class="text-center">Bonusy z sesji</th><th class="text-center">Super bonusy</th><th class="text-center">SUMA PUNKTÓW</th></tr></thead>
+                    <tbody>${bonusTableRowsHtml}</tbody>
+                </table></div><hr/>
+                <h5>Przyznaj bonus ogólny</h5>
+                <form id="awardGeneralBonusForm" class="row g-2 align-items-end" data-group-id="${g.id}">
+                  <div class="col-md-5"><label for="bonusClientSelect" class="form-label">Uczestnik</label><select id="bonusClientSelect" name="client_id" class="form-select" required>${memberOptionsHtml}</select></div>
+                  <div class="col-md-2"><label for="bonusPointsInput" class="form-label">Punkty</label><input type="number" id="bonusPointsInput" name="points" class="form-control" min="1" required></div>
+                  <div class="col-md-5"><label for="bonusReasonInput" class="form-label">Powód (wymagany)</label><input type="text" id="bonusReasonInput" name="reason" class="form-control" placeholder="Np. Pomoc koledze" required></div>
+                  <div class="col-12"><button type="submit" class="btn btn-success">Przyznaj punkty</button></div>
+                </form><hr class="my-4"/>
+                <div class="accordion" id="bonusHistoryAccordion"><div class="accordion-item">
+                  <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistory">Pokaż / Ukryj historię bonusów ogólnych</button></h2>
+                  <div id="collapseHistory" class="accordion-collapse collapse" data-bs-parent="#bonusHistoryAccordion"><div class="accordion-body p-0">
+                      <ul class="list-group list-group-flush">${bonusHistoryHtml}</ul>
+                  </div></div>
+                </div></div>
+              </div>
+
+              <div class="tab-pane fade" id="goals-panel" role="tabpanel">
+                 <h6>🎯 Cele i nagrody semestralne</h6>
+                 <div class="card mb-3"><div class="card-body">
+                     <form id="groupTargetForm" data-group-id="${g.id}">
+                       <div class="row g-2 align-items-end">
+                         <div class="col-md-5"><label class="form-label">Rok szkolny</label>
+                            <select class="form-select" name="school_year_start" required>${schoolYearOptionsHtml}</select>
+                         </div>
+                         <div class="col-md-7"><label class="form-label">Semestr</label>
+                            <select class="form-select" name="semester" required><option value="1">I Półrocze (Wrzesień - Styczeń)</option><option value="2">II Półrocze (Luty - Czerwiec)</option></select>
+                         </div>
+                         <div class="col-6"><label class="form-label">Cel (pkt)</label><input type="number" class="form-control" name="points" min="0" required></div>
+                         <div class="col-6"><label class="form-label">Nagroda</label><input type="text" class="form-control" name="reward"></div>
+                         <div class="col-12"><button type="submit" class="btn btn-primary btn-sm w-100">Zapisz cel</button></div>
+                       </div>
+                     </form>
+                 </div></div>
+                 <div class="d-flex align-items-end gap-2 mb-3">
+                   <div><label class="form-label mb-0"><strong>Podsumowanie dla roku szkolnego</strong></label>
+                      <select class="form-select" id="bonusYearSelect">${schoolYearOptionsHtml}</select>
+                   </div>
+                   <button type="button" class="btn btn-primary" id="bonusScopeRefreshBtn" data-group-id="${g.id}">Pokaż</button>
+                   <button type="button" class="btn btn-secondary" id="hideBonusesBtn" style="display: none;">Ukryj</button>
+                 </div>
+                 <div id="bonusesSummary" class="mb-3"></div>
+              </div>
+              </div>
+        `);
+
+
+        renderSessionCalendar();
+
+
+        function fmtYYYYMMDD(date) {
+        if (!date || isNaN(date)) return "";
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+        // Dodajemy event listenery dla kalendarza
+        const calendarEl = document.getElementById('sessionCalendar');
+            if (calendarEl) {
+                calendarEl.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('cal-prev-month')) {
+                        calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() - 1);
+                        renderSessionCalendar();
+                    } else if (e.target.classList.contains('cal-next-month')) {
+                        calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + 1);
+                        renderSessionCalendar();
+                    } else if (e.target.classList.contains('session-calendar-day') && e.target.dataset.date) {
+                        const clickedDateString = e.target.dataset.date;
+                        if (selectedDates.has(clickedDateString)) {
+                            selectedDates.delete(clickedDateString);
+                        } else {
+                            selectedDates.add(clickedDateString);
+                        }
+                        renderSessionCalendar();
+                    }
+                });
+            }
+
+
+            const saveScheduleBtn = document.getElementById('saveScheduleBtn');
+            if (saveScheduleBtn) {
+                saveScheduleBtn.addEventListener('click', async () => {
+                    try {
+                        const payload = { schedule_days: Array.from(selectedDates) };
+                        await fetchJSON(`/api/tus/groups/${groupId}/schedule`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        showAlert('Harmonogram został zapisany!', 'success');
+                    } catch (err) {
+                        showAlert(`Błąd zapisu harmonogramu: ${err.message}`, 'danger');
+                    }
+                });
+            }
+
+
+
+        const topics = await fetchJSON(`${API_BASE}/api/tus/topics`);
+        const $topicSelect = $('#sessionTopicSelect').empty();
+        (topics || []).forEach(t => $topicSelect.append(new Option(t.title, String(t.id))));
+
+        const behaviors = await fetchJSON(`${API_BASE}/api/tus/behaviors`);
+        const $behaviorSelect = $('#sessionBehaviorsSelect').empty();
+        (behaviors || []).forEach(b => $behaviorSelect.append(new Option(`${b.title} (max ${b.default_max_points ?? 3})`, String(b.id))));
+        $behaviorSelect.select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Wybierz do 4 zachowań',
+            maximumSelectionLength: 4,
+            dropdownParent: $('#groupDetailsModal')
+        });
+
+        groupDetailsModal.show();
+    } catch (e) {
+        console.error(e);
+        alert(`Nie udało się otworzyć szczegółów grupy: ${e.message}`);
+    }
+}
 
 
       /**
@@ -776,32 +1086,53 @@
       });
 
       $(document).on('submit', '#addSessionForm', async function(e) {
-        e.preventDefault();
-        const $form = $(this);
-        const gid = $form.data('group-id');
-        const payload = {
-          group_id: gid,
-          topic_id: parseInt($('#sessionTopicSelect').val(), 10),
-          session_date: `${$form.find('input[name="date"]').val()}T${$form.find('input[name="time"]').val()}:00`,
-          behavior_ids: ($('#sessionBehaviorsSelect').val() || []).map(v => parseInt(v, 10))
-        };
+    e.preventDefault();
+    const $form = $(this);
+    const gid = $form.data('group-id');
 
-        if (!payload.topic_id || !payload.session_date.includes('T')) {
-          return alert('Data, godzina i temat są wymagane.');
-        }
+    const dateValue = $form.find('input[name="date"]').val(); // Format: YYYY-MM-DD
+    const timeValue = $form.find('input[name="time"]').val(); // Format: HH:MM
 
-        try {
-          await fetchJSON(`${API_BASE}/api/tus/sessions`, {
+    console.log("Surowa data:", dateValue, "Surowy czas:", timeValue);
+
+    // UPEWNIJ SIĘ ŻE DANE SĄ POPRAWNE
+    if (!dateValue || !timeValue) {
+        alert('Data i godzina są wymagane!');
+        return;
+    }
+
+    // FORMATUJ CZAS - upewnij się że ma sekundy
+    let timeFormatted = timeValue;
+    if (timeValue.length === 5) { // Format HH:MM
+        timeFormatted = timeValue + ':00';
+    }
+
+    const payload = {
+        group_id: gid,
+        topic_id: parseInt($('#sessionTopicSelect').val(), 10),
+        session_date: `${dateValue}T${timeFormatted}`, // Format: "YYYY-MM-DDTHH:MM:SS"
+        behavior_ids: ($('#sessionBehaviorsSelect').val() || []).map(v => parseInt(v, 10))
+    };
+
+    console.log("Wysyłane dane sesji:", JSON.stringify(payload, null, 2));
+
+    if (!payload.topic_id) {
+        return alert('Temat jest wymagany.');
+    }
+
+    try {
+        const response = await fetchJSON(`${API_BASE}/api/tus/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-          });
-          await openGroupDetails(gid); // Odśwież widok modala
-        } catch (err) {
-          alert('Nie udało się dodać sesji: ' + err.message);
-        }
-      });
-
+        });
+        console.log("Odpowiedź serwera:", response);
+        await openGroupDetails(gid);
+    } catch (err) {
+        console.error("Błąd podczas tworzenia sesji:", err);
+        alert('Nie udało się dodać sesji: ' + err.message);
+    }
+});
       $(document).on('click', '.delete-session-btn', async function() {
     const sid = $(this).data('session-id');
     const gid = $(this).data('group-id');
@@ -944,6 +1275,25 @@
           alert('Nie udało się przyznać bonusu: ' + err.message);
         }
       });
+
+            const saveScheduleBtn = document.getElementById('saveScheduleBtn');
+            if(saveScheduleBtn) {
+                saveScheduleBtn.addEventListener('click', async () => {
+                    try {
+                        // Zapisujemy tablicę dat, a nie dni tygodnia
+                        const payload = { schedule_days: Array.from(selectedDates) };
+                        await fetchJSON(`/api/tus/groups/${groupId}/schedule`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        showAlert('Szablon tygodnia został zapisany!', 'success');
+                    } catch (err) {
+                        showAlert(`Błąd zapisu szablonu: ${err.message}`, 'danger');
+                    }
+                });
+            }
+
 
       // --- Akcje w modalu oceniania (scoring) ---
       $(document).on('input', '.score-input', function() {
@@ -1097,6 +1447,14 @@
       loadGroups();
       openGroupFromUrl();
 
+    });
+      document.addEventListener('DOMContentLoaded', () => {
+        const fabContainer = document.getElementById('fab-container');
+        const fabMainBtn = document.getElementById('fab-main-btn');
+
+        fabMainBtn.addEventListener('click', () => {
+            fabContainer.classList.toggle('open');
+        });
     });
   </script>
 </body>

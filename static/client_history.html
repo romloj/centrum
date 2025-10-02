@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>Historia Spotkań Klienta</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    .fab-container {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: 1050;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+    .fab-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: var(--bs-primary);
+        color: white;
+        font-size: 1.8rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        text-decoration: none;
+        transition: transform 0.3s ease, background-color 0.3s ease;
+        border: none;
+    }
+    .fab-button:hover {
+        transform: scale(1.1);
+        background-color: var(--bs-primary-dark);
+    }
+    .fab-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        gap: 0.75rem;
+        transform: scaleY(0);
+        transform-origin: bottom;
+        transition: transform 0.3s ease;
+    }
+    .fab-container.open .fab-menu {
+        transform: scaleY(1);
+    }
+    .fab-menu-item a {
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+        background-color: var(--bs-secondary);
+    }
+    .fab-container.open #fab-main-icon {
+        transform: rotate(45deg);
+    }
+    #fab-main-icon {
+        transition: transform 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-4">
+      <h1 class="h4 m-0">🗓️ Historia Spotkań Klienta</h1>
+      <!-- POCZĄTEK ZMIANY: Dodano pole wyszukiwania -->
+      <div class="ms-auto d-flex gap-2">
+        <input type="text" id="searchInput" class="form-control" placeholder="Wpisz nazwisko, aby wyszukać..." style="width: 250px;">
+        <select id="clientSelector" class="form-select" style="width: 300px;">
+          <option value="">-- Wybierz klienta --</option>
+        </select>
+      </div>
+      <!-- KONIEC ZMIANY -->
+    </header>
+
+    <div id="alertBox" class="mb-3"></div>
+    <div id="historyContainer">
+      <!-- Historia klienta będzie renderowana tutaj -->
+    </div>
+  </div>
+
+  <!-- menu-->
+    <div class="fab-container" id="fab-container">
+    <ul class="fab-menu">
+        <li class="fab-menu-item">
+            <a href="therapist.html" class="fab-button" title="Plan terapeuty"><i class="bi bi-heart-pulse"></i></a>
+        </li>
+        <li class="fab-menu-item">
+            <a href="tus.html" class="fab-button" title="Moduł TUS"><i class="bi bi-star-fill"></i></a>
+        </li>
+        <li class="fab-menu-item">
+            <a href="klienci.html" class="fab-button" title="Lista klientów"><i class="bi bi-people-fill"></i></a>
+        </li>
+
+         <li class="fab-menu-item">
+            <a href="client_history.html" class="fab-button" title="Historia klientów"><i class="bi bi-people-fill"></i></a>
+        </li>
+         <li class="fab-menu-item">
+            <a href="index.html" class="fab-button" title="Strona główna"><i class="bi bi-house-x-fill"></i></a>
+        </li>
+
+
+
+    </ul>
+    <button class="fab-button" id="fab-main-btn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg" id="fab-main-icon"></i>
+    </button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const API = "";
+    const clientSelector = document.getElementById('clientSelector');
+    const historyContainer = document.getElementById('historyContainer');
+    const alertBox = document.getElementById('alertBox');
+    // POCZĄTEK ZMIANY: Referencja do pola wyszukiwania
+    const searchInput = document.getElementById('searchInput');
+    let allClients = []; // Zmienna do przechowywania wszystkich klientów
+    // KONIEC ZMIANY
+
+    const showAlert = (msg, type = "success") => {
+        alertBox.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    };
+
+    async function fetchJSON(url, options = {}) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: `Błąd serwera: ${response.status}` }));
+                throw new Error(errorData.error);
+            }
+            return response.json();
+        } catch (error) {
+            console.error("Błąd API:", error);
+            throw error;
+        }
+    }
+
+    // POCZĄTEK ZMIANY: Funkcja renderująca opcje w selektorze
+    function renderClientOptions(searchTerm = '') {
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+        const filteredClients = allClients.filter(client =>
+            client.full_name.toLowerCase().includes(lowerCaseSearchTerm)
+        );
+
+        clientSelector.innerHTML = '<option value="">-- Wybierz klienta --</option>';
+        if (filteredClients.length > 0) {
+            filteredClients.forEach(client => {
+                const option = new Option(client.full_name, client.client_id);
+                clientSelector.add(option);
+            });
+        } else {
+             clientSelector.innerHTML = '<option value="">Brak pasujących klientów</option>';
+        }
+    }
+    // KONIEC ZMIANY
+
+    async function initializeClientSelector() {
+        try {
+            const clients = await fetchJSON(`${API}/api/clients?include_inactive=true`);
+            allClients = clients.sort((a, b) => a.full_name.localeCompare(b.full_name));
+            renderClientOptions(); // Wywołaj, aby wypełnić listę na starcie
+        } catch (error) {
+            showAlert(`Nie udało się załadować listy klientów: ${error.message}`, 'danger');
+        }
+    }
+
+    async function loadClientHistory() {
+        const clientId = clientSelector.value;
+        if (!clientId) {
+            historyContainer.innerHTML = '<p class="text-center text-muted p-5">Wybierz klienta, aby zobaczyć jego historię.</p>';
+            return;
+        }
+
+        historyContainer.innerHTML = '<p class="text-center text-muted p-5">Ładowanie historii...</p>';
+        try {
+            const history = await fetchJSON(`${API}/api/clients/${clientId}/history`);
+            renderHistory(history);
+        } catch (error) {
+            historyContainer.innerHTML = `<div class="alert alert-danger">Wystąpił błąd: ${error.message}</div>`;
+        }
+    }
+
+    function renderHistory(history) {
+        let html = '';
+
+        // Sekcja spotkań indywidualnych
+        html += `
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Spotkania Indywidualne</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Data i Godzina</th>
+                                    <th>Terapeuta</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+        if (history.individual && history.individual.length > 0) {
+            history.individual.forEach(session => {
+                html += `
+                    <tr>
+                        <td>${new Date(session.date).toLocaleString('pl-PL')}</td>
+                        <td>${session.therapist}</td>
+                        <td><span class="badge text-bg-secondary">${session.status}</span></td>
+                    </tr>
+                `;
+            });
+        } else {
+            html += '<tr><td colspan="3" class="text-center text-muted">Brak spotkań indywidualnych w historii.</td></tr>';
+        }
+        html += `</tbody></table></div></div></div>`;
+
+        // Sekcja spotkań TUS
+        html += `
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Sesje Grupowe TUS</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Data i Godzina</th>
+                                    <th>Grupa</th>
+                                    <th>Zrealizowany Temat</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+        if (history.tus_group && history.tus_group.length > 0) {
+            history.tus_group.forEach(session => {
+                const sessionTime = session.time ? ` ${session.time}` : '';
+                html += `
+                    <tr>
+                        <td>${new Date(session.date).toLocaleDateString('pl-PL')}${sessionTime}</td>
+                        <td>${session.group}</td>
+                        <td>${session.topic}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            html += '<tr><td colspan="3" class="text-center text-muted">Brak sesji TUS w historii.</td></tr>';
+        }
+        html += `</tbody></table></div></div></div>`;
+
+        historyContainer.innerHTML = html;
+    }
+
+    clientSelector.addEventListener('change', loadClientHistory);
+    // POCZĄTEK ZMIANY: Nasłuchiwanie na wpisywanie w polu wyszukiwania
+    searchInput.addEventListener('input', () => {
+        renderClientOptions(searchInput.value);
+    });
+    // KONIEC ZMIANY
+
+    initializeClientSelector();
+    loadClientHistory();
+});
+    document.addEventListener('DOMContentLoaded', () => {
+        const fabContainer = document.getElementById('fab-container');
+        const fabMainBtn = document.getElementById('fab-main-btn');
+
+        fabMainBtn.addEventListener('click', () => {
+            fabContainer.classList.toggle('open');
+        });
+    });
+</script>
+</body>
+</html>
+

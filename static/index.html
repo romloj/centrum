@@ -40,51 +40,76 @@
     <div class="col-12 col-lg-6">
         <h1 class="h5 m-0">Moduł planowania</h1>
     </div>
+    <!-- Responsywne menu -->
 <nav class="navbar navbar-expand-lg bg-body-tertiary mb-3 rounded shadow-sm">
-    <div class="container-fluid">
-        <div class="collapse navbar-collapse">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+  <div class="container-fluid">
+    <!-- Brand/logo -->
+    <a class="navbar-brand navbar-brand-responsive" href="#">
+      <i class="bi bi-calendar-check"></i> Planowanie SUO
+    </a>
 
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-people-fill"></i> Klienci
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" id="addClientBtn"><i class="bi bi-person-add"></i>Dodaj Klienta</a></li>
-                        <li><a class="dropdown-item" href="klienci.html"><i class="bi bi-list-ul me-2"></i>Lista Klientów</a></li>
-                        <li><a class="dropdown-item" href="client-panel.html"><i class="bi bi-calendar-week me-2"></i>Plan Klienta</a></li>
-                        <li><a class="dropdown-item" href="dostepnosc.html"><i class="bi bi-universal-access-circle"></i>Dostępność Klienta</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item fw-bold" href="#" id="openClientSelectModalBtn"><i class="bi bi-plus-circle-fill me-2"></i>Dodaj Pakiet</a></li>
-                    </ul>
-                </li>
+    <!-- Hamburger button -->
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+            aria-controls="mainNavbar" aria-expanded="false" aria-label="Przełącz nawigację">
+      <span class="navbar-toggler-icon"></span>
+    </button>
 
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-calendar3"></i> Grafiki
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" id="addTherapistBtn"><i class="bi bi-person-fill-add"></i>Dodaj Terapeutę</a></li>
-                        <li><a class="dropdown-item" href="therapist.html"><i class="bi bi-heart-pulse me-2"></i>Plan Terapeuty</a></li>
-                        <li><a class="dropdown-item" href="#" id="addDriverBtn"><i class="bi bi-person-plus-fill"></i>Dodaj Kierowcę</a></li>
-                        <li><a class="dropdown-item" href="kierowcy.html"><i class="bi bi-truck me-2"></i>Plan Kierowcy</a></li>
-                    </ul>
-                </li>
+    <!-- Menu content -->
+    <div class="collapse navbar-collapse" id="mainNavbar">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-star-fill"></i> Moduł TUS
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="tus.html"><i class="bi bi-person-video3 me-2"></i>Zarządzanie Grupami</a></li>
-                        <li><a class="dropdown-item" href="plan-tus.html"><i class="bi bi-calendar-range me-2"></i>Globalny Plan TUS</a></li>
-                    </ul>
-                </li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-people-fill"></i> Klienci
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" id="addClientBtn"><i class="bi bi-person-add"></i> Dodaj Klienta</a></li>
+            <li><a class="dropdown-item" href="klienci.html"><i class="bi bi-list-ul me-2"></i> Lista Klientów</a></li>
+            <li><a class="dropdown-item" href="client-panel.html"><i class="bi bi-calendar-week me-2"></i> Plan Klienta</a></li>
+            <li><a class="dropdown-item" href="dostepnosc.html"><i class="bi bi-universal-access-circle"></i> Dostępność Klienta</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item fw-bold" href="#" id="openClientSelectModalBtn"><i class="bi bi-plus-circle-fill me-2"></i> Dodaj Pakiet</a></li>
+          </ul>
+        </li>
 
-            </ul>
-        </div>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-calendar3"></i> Grafiki
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" id="addTherapistBtn"><i class="bi bi-person-fill-add"></i> Dodaj Terapeutę</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="therapist.html"><i class="bi bi-heart-pulse me-2"></i> Plan Terapeuty</a></li>
+            <li><a class="dropdown-item" href="import_image.html"><i class="bi bi-image-alt me-2"></i> Import Planu</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#" id="addDriverBtn"><i class="bi bi-person-plus-fill"></i> Dodaj Kierowcę</a></li>
+            <li><a class="dropdown-item" href="kierowcy.html"><i class="bi bi-truck me-2"></i> Plan Kierowcy</a></li>
+          </ul>
+        </li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-star-fill"></i> Moduł TUS
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="tus.html"><i class="bi bi-person-video3 me-2"></i> Zarządzanie Grupami</a></li>
+            <li><a class="dropdown-item" href="plan-tus.html"><i class="bi bi-calendar-range me-2"></i> Globalny Plan TUS</a></li>
+          </ul>
+        </li>
+
+      </ul>
+
+      <!-- Możesz dodać tutaj dodatkowe elementy po prawej stronie -->
+      <div class="d-flex">
+        <a href="index.html" class="btn btn-outline-secondary">
+          <i class="bi bi-house-door-fill"></i>
+          <span class="d-none d-md-inline">Powrót do menu</span>
+        </a>
+      </div>
     </div>
+  </div>
 </nav>
+
 
 
 <div id="errorBox" class="alert alert-danger d-none"></div>

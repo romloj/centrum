@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>Moduł TUS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+  <style>
+    body { background-color: #f8f9fa; }
+    .select2-container--bootstrap-5 .select2-selection { min-height: 38px; }
+    .select2-container--bootstrap-5 .select2-selection__rendered { padding-top: 4px; }
+    .cursor-pointer { cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="container py-4">
+  <header class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-4">
+    <h1 class="h3 m-0">👥 Moduł TUS – Grupy</h1>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#topicsModal">Tematy</button>
+      <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#behaviorsModal">Zachowania</button>
+      <button class="btn btn-primary" id="addGroupBtn">Stwórz nową grupę</button>
+    </div>
+  </header>
+  <main id="groupsContainer" class="row g-4"></main>
+</div>
+
+<div class="modal fade" id="groupDetailsModal" tabindex="-1" aria-hidden="true"></div>
+<div class="modal fade" id="groupModal" tabindex="-1" aria-hidden="true"></div>
+<div class="modal fade" id="topicsModal" tabindex="-1" aria-hidden="true"></div>
+<div class="modal fade" id="behaviorsModal" tabindex="-1" aria-hidden="true"></div>
+<div class="modal fade" id="scoringModal" tabindex="-1" aria-hidden="true"></div>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+// =======================================================================
+// === CAŁKOWICIE NOWA, UJEDNOLICONA WERSJA SKRYPTU ========================
+// =======================================================================
+$(function () {
+  const API_BASE = '';
+  const groupDetailsModal = new bootstrap.Modal(document.getElementById('groupDetailsModal'));
+  const groupModal = new bootstrap.Modal(document.getElementById('groupModal'));
+  const scoringModal = new bootstrap.Modal(document.getElementById('scoringModal'));
+
+  let currentGroupId = null;
+
+  // =======================================================================
+  // === FUNKCJE POMOCNICZE ================================================
+  // =======================================================================
+
+  async function fetchJSON(url, options) {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: `Błąd serwera: ${res.status}` }));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+    }
+    if (res.status === 204) return null; // No Content
+    return res.json();
+  }
+
+  // Ta funkcja jest już poprawna
+  async function refreshBonusesSummary(groupId, year) {
+      const container = $('#bonusesSummary');
+      container.html(`<div class="alert alert-info mb-0">Ładowanie...</div>`);
+      try {
+          const createBonusUrl = (half) => {
+              const u = new URL(`${API_BASE}/api/tus/groups/${groupId}/bonuses`, window.location.origin);
+              u.searchParams.set('year', year);
+              u.searchParams.set('half', half);
+              return u.toString();
+          };
+          const [dataH1, dataH2] = await Promise.all([
+              fetchJSON(createBonusUrl('1')),
+              fetchJSON(createBonusUrl('2'))
+          ]);
+          const createHalfYearPanel = (data, half) => {
+              const scopeLabel = half === '1' ? 'I Półrocze' : 'II Półrocze';
+              const individualPointsRows = (data.members || []).map(m => `<tr><td>${m.full_name}</td><td class="text-end">${m.individual_points}</td></tr>`).join('');
+              const totalCollectedPoints = data.group_total_points + (data.members || []).reduce((sum, m) => sum + m.individual_points, 0);
+              const target = data.halfyear_target_points ?? 0;
+              const reward = data.halfyear_reward || '—';
+              const remaining = Math.max(0, target - totalCollectedPoints);
+              return `<div class="col-lg-6 mb-3 mb-lg-0"><div class="card h-100"><div class="card-header fw-bold">${scopeLabel} ${year}</div><div class="card-body"><h6 class="card-title">Cel i nagroda</h6><p class="mb-1"><strong>Cel:</strong> ${target} pkt</p><p class="mb-3"><strong>Nagroda:</strong> ${reward}</p><h6 class="card-title">Postęp</h6><p class="mb-1"><strong>Zebrano:</strong> ${totalCollectedPoints} pkt</p><p class="mb-0 fs-5"><strong>Pozostało: <span class="fw-bold text-primary">${remaining} pkt</span></strong></p></div><div class="card-footer"><small class="text-muted">Punkty indywidualne:</small><div class="table-responsive" style="max-height: 150px;"><table class="table table-sm table-borderless mb-0"><tbody>${individualPointsRows || '<tr><td class="text-muted">Brak</td></tr>'}</tbody></table></div></div></div></div>`;
+          };
+          container.html(`<div class="row g-3">${createHalfYearPanel(dataH1, '1')}${createHalfYearPanel(dataH2, '2')}</div>`);
+      } catch (e) {
+          console.error(e);
+          container.html(`<div class="alert alert-danger">${e.message}</div>`);
+      }
+  }
+
+  // =======================================================================
+  // === GŁÓWNA LOGIKA APLIKACJI ===========================================
+  // =======================================================================
+
+  // Renderowanie listy grup (bez zmian)
+
+  async function loadGroups() {
+    try {
+      const res = await fetch(`${API_BASE}/api/tus/groups`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const groups = await res.json();
+      const $c = $('#groupsContainer').empty();
+
+      if (!groups || groups.length === 0) {
+        $c.html('<p class="text-center text-muted">Brak grup. Stwórz pierwszą!</p>');
+        return;
+      }
+
+      groups.forEach(g => {
+        $c.append(`
+          <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+              <div class="card-body d-flex flex-column">
+                <h5 class="card-title">${g.name}</h5>
+                <h6 class="card-subtitle mb-2 text-muted">${g.therapist_name ?? ''}</h6>
+                <p class="card-text">
+                  Uczestnicy: <strong>${g.member_count ?? 0}</strong><br />
+                  Punkty bonusowe: <strong>${g.total_bonuses ?? 0}</strong>
+                </p>
+                <div class="mt-auto d-flex gap-2">
+                  <button class="btn btn-outline-primary btn-sm view-details-btn" data-group-id="${g.id}">Szczegóły</button>
+                  <button class="btn btn-outline-secondary btn-sm edit-group-btn" data-group-id="${g.id}">Edytuj</button>
+                  <button class="btn btn-outline-danger btn-sm delete-group-btn" data-group-id="${g.id}">Usuń</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `);
+      });
+    } catch (e) {
+      console.error(e);
+      $('#groupsContainer').html('<div class="col-12"><div class="alert alert-danger">Nie można załadować grup.</div></div>');
+    }
+  }
+
+  // Otwieranie szczegółów grupy - UJEDNOLICONA I POPRAWIONA
+  async function openGroupDetails(groupId) {
+    try {
+        const g = await fetchJSON(`${API_BASE}/api/tus/groups/${groupId}`);
+        if (!g) { // Obsługa 404
+          groupDetailsModal.hide();
+          await loadGroups();
+          return alert('Ta grupa już nie istnieje (mogła zostać usunięta). Odświeżono listę.');
+        }
+
+        const membersHtml = (g.members || []).map(m => `<li>${m.full_name}</li>`).join('') || '<li class="text-muted">Brak</li>';
+        const sessionsHtml = (g.sessions || []).map(s => `...`).join('') || '<li class="text-muted">Brak sesji</li>';
+
+        $('#groupDetailsTitle').text(`Grupa: ${g.name}`);
+
+        // Renderowanie całego body modala
+        $('#groupDetailsBody').html(`
+            `);
+
+        // Inicjalizacja selectów i innych elementów (jeśli są w modalu)
+         // Słownik zachowań
+    await renderBehaviorSelect($('#sessionBehaviorsSelect'));
+
+    // Select z sesjami dla bonusów indywidualnych
+    const $sessSel = $('#bonusSessionSelect').empty();
+    (g.sessions || []).forEach(s => {
+      const whenLabel = s.session_time ? `${s.session_date} ${s.session_time}` : (s.session_date || '');
+      $sessSel.append(new Option(`${whenLabel} — ${s.topic_title || 'bez tematu'}`, String(s.id)));
+    });
+    const hasSessions = (g.sessions && g.sessions.length > 0);
+    $('#memberBonusForm button[type="submit"]').prop('disabled', !hasSessions);
+    $('#bonusSessionSelect').prop('disabled', !hasSessions);
+    if (!hasSessions) $sessSel.append(new Option('Brak sesji — najpierw dodaj sesję powyżej', ''));
+
+    // Select z członkami
+    const $memSel = $('#bonusMemberSelect').empty();
+    (g.members || []).forEach(m => $memSel.append(new Option(m.full_name, String(m.id))));
+
+
+        await refreshBonusesSummary(g.id, new Date().getFullYear());
+        groupDetailsModal.show();
+    } catch (e) {
+        console.error(e);
+        alert(`Nie udało się pobrać szczegółów grupy: ${e.message}`);
+    }
+  }
+
+  // =======================================================================
+  // === WSZYSTKIE ZDARZENIA (EVENT HANDLERS) ==============================
+  // =======================================================================
+
+  // --- Zdarzenia na stronie głównej ---
+
+   $('#addGroupBtn').on('click', async () => {
+    currentGroupId = null;
+    $('#groupModalTitle').text('Nowa grupa');
+    $('#groupForm')[0].reset();
+    try {
+      await loadTherapistsAndClients();
+    } catch (e) {
+      console.error(e);
+      initGroupFormSelect2();
+      alert('Nie udało się pobrać list terapeutów/uczestników.');
+    }
+    groupModal.show();
+  });
+
+  $('#groupsContainer').on('click', '.view-details-btn', function () {
+    const gid = $(this).data('group-id');
+    openGroupDetails(gid);
+  });
+
+  $('#groupsContainer').on('click', '.edit-group-btn', async function () {
+    const gid = $(this).data('group-id');
+    try {
+      const res = await fetch(`${API_BASE}/api/tus/groups/${gid}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const g = await res.json();
+      currentGroupId = g.id;
+      $('#groupModalTitle').text('Edytuj grupę');
+      await loadTherapistsAndClients({
+        name: g.name,
+        therapist_id: g.therapist_id,
+        client_ids: (g.members || []).map(m => m.id)
+      });
+      groupModal.show();
+    } catch (e) {
+      console.error(e);
+      alert('Nie udało się pobrać danych grupy.');
+    }
+  });
+
+  $('#groupsContainer').on('click', '.delete-group-btn', async function () {
+    const gid = $(this).data('group-id');
+    if (!confirm('Usunąć tę grupę? Spowoduje to usunięcie jej sesji.')) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/tus/groups/${gid}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      await loadGroups();
+    } catch (e) {
+      console.error(e);
+      alert('Nie udało się usunąć grupy.');
+    }
+  });
+
+  // --- Zdarzenia dla modali (delegacja z `document`) ---
+
+  // Przycisk "Pokaż" w modalu szczegółów
+  $(document).on('click', '#bonusScopeRefreshBtn', async function(e) {
+    e.preventDefault();
+    const gid = $('#groupTargetForm').data('group-id');
+    const year = parseInt($('#bonusYearInput').val(), 10);
+    if (gid && year) await refreshBonusesSummary(gid, year);
+  });
+
+// Formularz "Zapisz cel"
+$(document).on('submit', '#groupTargetForm', async function (e) {
+    e.preventDefault(); // Zapobiega przeładowaniu strony
+
+    // 1. Zbierz dane z formularza
+    const gid = $(this).data('group-id');
+    const year = parseInt($('#targetsYear').val(), 10);
+    const scope = $('#targetsScope').val(); // Wartość to "" (roczny), "1" (I półrocze), lub "2" (II półrocze)
+    const points = parseInt($('#targetsPoints').val(), 10);
+    const reward = ($('#targetsReward').val() || '').trim();
+
+    // 2. Walidacja danych
+    if (!gid || !Number.isInteger(year) || !Number.isInteger(points) || points < 0) {
+        return alert('Proszę poprawnie wypełnić pola Rok i Cel (wartość musi być >= 0).');
+    }
+
+    // 3. Przygotuj paczkę danych (payload) w formacie oczekiwanym przez backend
+    let payload = {};
+    if (scope === '1' || scope === '2') {
+        // Ustawiamy cel PÓŁROCZNY
+        payload = { halfyear_points: points, halfyear_reward: reward };
+    } else {
+        // Ustawiamy cel ROCZNY (gdy scope jest pusty)
+        payload = { annual_points: points, annual_reward: reward };
+    }
+
+    const url = `${API_BASE}/api/tus/groups/${gid}/target`;
+
+    // 4. Wyślij zapytanie do serwera i obsłuż odpowiedź
+    try {
+        await fetchJSON(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        alert('✅ Cel został zapisany.');
+
+        // 5. Odśwież widok bonusów, aby pokazać zaktualizowane dane
+        await refreshBonusesSummary(gid, parseInt($('#bonusYearInput').val(), 10));
+
+    } catch (err) {
+        console.error('Błąd podczas zapisywania celu:', err);
+        alert('Nie udało się zapisać celu/nagrody: ' + err.message);
+    }
+});
+
+
+  // Formularz "Dodaj sesję"
+  $(document).on('submit', '#addSessionForm', async function (e) {
+      e.preventDefault();
+      const gid = $(this).data('group-id');
+      const date = $(this).find('input[name="date"]').val();
+      const time = $(this).find('input[name="time"]').val();
+      const topic_id = $('#sessionTopicSelect').val();
+      const behaviorIds = ($('#sessionBehaviorsSelect').val() || []);
+
+       // ==========================================================
+    // === POCZĄTEK BLOKU WALIDACJI =============================
+    // ==========================================================
+    if (!date) {
+        return alert('Proszę wybrać datę sesji.');
+    }
+    if (!time) {
+        return alert('Proszę wybrać godzinę sesji.');
+    }
+    if (!Number.isInteger(topic_id)) {
+        return alert('Proszę wybrać temat sesji.');
+    }
+    // ==========================================================
+    // === KONIEC BLOKU WALIDACJI ===============================
+    // ==========================================================
+
+    const session_date = `${date}T${time}:00`;
+
+      try {
+        const created = await fetchJSON(`${API_BASE}/api/tus/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ group_id: gid, topic_id, session_date: `${date}T${time}:00` })
+        });
+
+       if (behaviorIds.length) {
+          const payload = { behaviors: behaviorIds.map(id => ({behavior_id:id})) };
+          const resB = await fetch(`${API_BASE}/api/tus/sessions/${created.id}/behaviors`, {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+          });
+          if (!resB.ok) throw new Error('HTTP ' + resB.status + ' (przy zapisie zachowań)');
+        }
+
+        await openGroupDetails(gid); // Odśwież widok
+      } catch (err) {
+        alert(`Błąd zapisu sesji: ${err.message}`);
+      }
+  });
+
+// =======================================================================
+// === DELEGOWANE HANDLERY ZDARZEŃ DLA MODALI =============================
+// =======================================================================
+
+// Zapisywanie punktacji z modala "Punktuj"
+$(document).on('click', '#saveScoresBtn', async function(e) {
+    e.preventDefault();
+    const sid = parseInt($('#scoringSessionId').val(), 10);
+    const gid = parseInt($('#scoringGroupId').val(), 10);
+
+    if (!sid || !gid) return alert('Błąd: Brak ID sesji lub grupy.');
+
+    const scoresPayload = { scores: [] };
+    const memberRows = $('#scoringBody tr[data-cid]');
+
+    memberRows.each(function() {
+        const row = $(this);
+        const cid = parseInt(row.data('cid'), 10);
+        const awarded = row.find('.partial-reward').is(':checked');
+        const items = [];
+
+        row.find('.score-input').each(function() {
+            const input = $(this);
+            items.push({
+                behavior_id: parseInt(input.data('bid'), 10),
+                points: parseInt(input.val() || '0', 10)
+            });
+        });
+
+        scoresPayload.scores.push({
+            client_id: cid,
+            items: items,
+            partial_reward: { awarded: awarded }
+        });
+    });
+
+    try {
+        await fetchJSON(`${API_BASE}/api/tus/sessions/${sid}/scores`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(scoresPayload)
+        });
+
+        alert('✅ Zapisano punktację.');
+        scoringModal.hide();
+
+        // Odśwież widok bonusów, aby pokazać nowe sumy
+        const year = parseInt($('#bonusYearInput').val() || new Date().getFullYear(), 10);
+        await refreshBonusesSummary(gid, year);
+
+    } catch (err) {
+        console.error("Błąd zapisu punktacji:", err);
+        alert('Nie udało się zapisać punktacji: ' + err.message);
+    }
+});
+
+// Usuwanie sesji z listy w modalu szczegółów
+$(document).on('click', '.delete-session-btn', async function(e) {
+    e.preventDefault();
+    if (!confirm('Czy na pewno usunąć tę sesję? Tej akcji nie można cofnąć.')) return;
+
+    const sessionId = $(this).data('id');
+    const groupId = $('#groupTargetForm').data('group-id'); // Pobieramy ID grupy z formularza
+
+    if (!sessionId || !groupId) return alert('Błąd: Brak ID sesji lub grupy.');
+
+    try {
+        await fetchJSON(`${API_BASE}/api/tus/sessions/${sessionId}`, { method: 'DELETE' });
+
+        // Odśwież cały modal szczegółów, aby zaktualizować listę sesji
+        await openGroupDetails(groupId);
+
+    } catch (err) {
+        console.error("Błąd usuwania sesji:", err);
+        alert('Nie udało się usunąć sesji: ' + err.message);
+    }
+});
+
+// Zapisywanie bonusu indywidualnego
+$(document).on('submit', '#memberBonusForm', async function(e) {
+    e.preventDefault();
+
+    const gid = $(this).data('group-id');
+    const session_id = parseInt($('#bonusSessionSelect').val(), 10);
+    const client_id = parseInt($('#bonusMemberSelect').val(), 10);
+    const points = parseInt($(this).find('input[name="points"]').val(), 10);
+
+    if (!gid || !Number.isInteger(session_id) || !Number.isInteger(client_id) || !Number.isInteger(points) || points < 0) {
+        return alert('Proszę poprawnie wypełnić wszystkie pola (sesja, członek, punkty >= 0).');
+    }
+
+    try {
+        await fetchJSON(`${API_BASE}/api/tus/member-bonuses`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id, client_id, points })
+        });
+
+        // Odśwież widok bonusów
+        const year = parseInt($('#bonusYearInput').val() || new Date().getFullYear(), 10);
+        await refreshBonusesSummary(gid, year);
+
+        // Zresetuj pole punktów
+        $(this).find('input[name="points"]').val('1');
+
+    } catch (err) {
+        console.error("Błąd przyznawania bonusu:", err);
+        alert('Nie udało się przyznać bonusu: ' + err.message);
+    }
+});
+  // Start aplikacji
+  loadGroups();
+});
+</script>
+</body>
+</html>
