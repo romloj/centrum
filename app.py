@@ -1,8 +1,17 @@
+import base64
+import io
+import json
+import re
+
+from PIL import Image
+
+print("--- SERWER ZALADOWAL NAJNOWSZA WERSJE PLIKU ---")
 # Wersja po refaktoryzacji, poprawkach błędów i ujednoliceniu dostępu do bazy danych.
 import math
 import os
+import traceback
 import uuid
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 from functools import wraps
 from math import exp
 from zoneinfo import ZoneInfo
@@ -11,16 +20,17 @@ import joblib
 import pandas as pd
 import psycopg2
 import requests
-from flask import Flask, jsonify, request, g
+
 from flask_cors import CORS
+from flask import Flask, jsonify, request, g, session, redirect, url_for
 from contextlib import contextmanager
 from psycopg2 import errorcodes
-
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy import (Column, DateTime, ForeignKey, Integer, String, Table,
-                        Boolean, Float, Time, create_engine, func, text, bindparam, TIMESTAMP, Date,desc,
-                        UniqueConstraint,select)
-from sqlalchemy.orm import declarative_base
+                        Boolean, Float, Time, create_engine, func, text, bindparam, TIMESTAMP, Date, desc,
+                        UniqueConstraint, select, ARRAY, Enum)
+from sqlalchemy.orm import declarative_base, selectinload
 from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base, relationship, joinedload, aliased
 from sqlalchemy.exc import IntegrityError
 
@@ -47,16 +57,113 @@ SessionLocal = scoped_session(
     sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
 )
 
-# === MODELE BAZY DANYCH (SQLALCHEMY ORM) ===
 
-# Tabela pośrednicząca dla relacji TUSGroup <-> Client
-#tus_group_members = Table('tus_group_members', Base.metadata,
-#                          Column('group_id', Integer, ForeignKey('tus_groups.id', ondelete="CASCADE"),
-#                                 primary_key=True),
-#                          Column('client_id', Integer, ForeignKey('clients.id', ondelete="CASCADE"), primary_key=True)
+def find_best_match(name_to_find, name_list):
+    """
+    Znajduje najlepsze dopasowanie dla skróconej nazwy na liście pełnych nazw.
+    Obsługuje przypadki typu 'Jan M.' -> 'Jan Kowalski'
+    """
+    if not name_to_find or not name_list:
+        return None
 
-#                         )
+    # Normalizacja wejściowej nazwy - usuwa kropki i zbędne spacje
+    name_to_find_clean = re.sub(r'[\.\s]+', ' ', name_to_find.strip())
+    name_to_find_lower = name_to_find_clean.lower()
 
+    if not name_to_find_lower:
+        return None
+
+    parts_to_find = name_to_find_lower.split()
+
+    best_match = None
+    highest_score = 0
+
+    for full_name in name_list:
+        current_score = 0
+        full_name_clean = re.sub(r'[\.\s]+', ' ', full_name.strip())
+        full_name_lower = full_name_clean.lower()
+        parts_full = full_name_lower.split()
+
+        # Debug: wypisz co porównujemy
+        print(f"Porównuję: '{name_to_find_lower}' z '{full_name_lower}'")
+
+        # 1. Dokładne dopasowanie (najwyższy priorytet)
+        if full_name_lower == name_to_find_lower:
+            current_score = 100
+            print("  → Dokładne dopasowanie!")
+
+        # 2. Dopasowanie skrótu z inicjałem "Jan M" -> "Jan Kowalski"
+        elif len(parts_to_find) == 2 and len(parts_full) >= 2:
+            first_name_find = parts_to_find[0]
+            last_initial_find = parts_to_find[1]
+
+            # Sprawdź czy pierwsze imię pasuje i inicjał nazwiska też
+            if (parts_full[0] == first_name_find and
+                    len(last_initial_find) == 1 and
+                    parts_full[1][0] == last_initial_find[0]):
+                current_score = 95
+                print(
+                    f"  → Dopasowanie inicjału: {first_name_find} {last_initial_find} -> {parts_full[0]} {parts_full[1]}")
+
+        # 3. Dopasowanie tylko imienia "Jan" -> "Jan Kowalski"
+        elif len(parts_to_find) == 1 and len(parts_full) >= 1:
+            if parts_full[0] == parts_to_find[0]:
+                current_score = 70
+                print(f"  → Dopasowanie imienia: {parts_to_find[0]} -> {parts_full[0]}")
+
+        # 4. Dopasowanie przez zawieranie
+        elif name_to_find_lower in full_name_lower:
+            current_score = 50
+            print(f"  → Zawieranie: '{name_to_find_lower}' w '{full_name_lower}'")
+
+        # 5. Dopasowanie pierwszego słowa
+        elif parts_to_find and parts_full and parts_to_find[0] == parts_full[0]:
+            current_score = 60
+            print(f"  → Dopasowanie pierwszego słowa: {parts_to_find[0]}")
+
+        # 6. Dopasowanie przez wspólne słowa
+        else:
+            matching_words = 0
+            for word in parts_to_find:
+                if any(part.startswith(word) for part in parts_full if len(word) > 1):
+                    matching_words += 1
+
+            if matching_words == len(parts_to_find):
+                current_score = 80
+                print(f"  → Wszystkie słowa pasują: {matching_words}")
+            elif matching_words > 0:
+                current_score = 40 + (matching_words * 10)
+                print(f"  → Częściowe dopasowanie słów: {matching_words}")
+
+        # Aktualizuj najlepsze dopasowanie
+        if current_score > highest_score:
+            highest_score = current_score
+            best_match = full_name
+            print(f"  → NOWE NAJLEPSZE DOPASOWANIE: {full_name} (wynik: {current_score})")
+
+    # Zwróć wynik tylko jeśli osiągnięto minimalny próg dopasowania
+    print(f"NAJLEPSZE DOPASOWANIE: {best_match} (wynik: {highest_score})")
+
+    if highest_score >= 40:
+        return best_match
+
+    # Jeśli nie znaleziono dobrego dopasowania, zwróć None
+    return None
+
+class TUSSessionAttendance(Base):
+    __tablename__ = 'tus_session_attendance'
+    id = Column(Integer, primary_key=True)
+    session_id = Column(Integer, ForeignKey('tus_sessions.id', ondelete="CASCADE"), nullable=False)
+    client_id = Column(Integer, ForeignKey('clients.id', ondelete="CASCADE"), nullable=False)
+    status = Column(String, nullable=False, default='obecny')  # np. obecny, nieobecny, spóźniony, usprawiedliwiony
+
+    __table_args__ = (UniqueConstraint('session_id', 'client_id'),)
+
+class IndividualSessionAttendance(Base):
+    __tablename__ = 'individual_session_attendance'
+    id = Column(Integer, primary_key=True)
+    slot_id = Column(Integer, ForeignKey('schedule_slots.id', ondelete="CASCADE"), nullable=False, unique=True)
+    status = Column(String, nullable=False, default='obecny')
 
 class Client(Base):
     __tablename__ = 'clients'
@@ -96,17 +203,18 @@ class Driver(Base):
 class ScheduleSlot(Base):
     __tablename__ = 'schedule_slots'
     id = Column(Integer, primary_key=True)
-    group_id = Column(String, ForeignKey('event_groups.id', ondelete="CASCADE"))
+    group_id = Column(UUID(as_uuid=True), ForeignKey('event_groups.id', ondelete="CASCADE"))
     client_id = Column(Integer, ForeignKey('clients.id'))
     therapist_id = Column(Integer, ForeignKey('therapists.id'))
     driver_id = Column(Integer, ForeignKey('drivers.id'))
-    kind = Column(String, nullable=False)
+    kind = Column(Enum('therapy', 'pickup', 'dropoff', name='session_kind', create_type=False), nullable=False)
     starts_at = Column(DateTime(timezone=True))
     ends_at = Column(DateTime(timezone=True))
     status = Column(String, default='planned')
     distance_km = Column(Float)
-    session_id = Column(String)  # Do łączenia sesji grupowych
-    run_id = Column(String)  # Do łączenia kursów
+    session_id = Column(UUID(as_uuid=True), nullable=True)
+    run_id = Column(UUID(as_uuid=True), nullable=True)
+    attendance = relationship("IndividualSessionAttendance", uselist=False, cascade="all, delete-orphan")
 
 class TUSGroupMember(Base):
     __tablename__ = "tus_group_members"
@@ -133,11 +241,8 @@ class TUSGroup(Base):
     therapist = relationship("Therapist", back_populates="tus_groups", lazy="selectin", foreign_keys=[therapist_id])
     sessions = relationship("TUSSession", back_populates="group", cascade="all, delete-orphan", lazy="selectin")
     assistant_therapist = relationship("Therapist", lazy="selectin", foreign_keys=[assistant_therapist_id])
-    sessions = relationship("TUSSession", back_populates="group", cascade="all, delete-orphan", lazy="selectin")
-
     # POPRAWKA: Definiujemy relację do obiektu pośredniczącego
     member_associations = relationship("TUSGroupMember", back_populates="group", cascade="all, delete-orphan")
-
     # "Proxy" sprawia, że group.members jest wygodną listą klientów
     # Association proxy z dodanym creatorem
     members = association_proxy(
@@ -146,18 +251,12 @@ class TUSGroup(Base):
         creator=_create_member_association
     )
 
-    # POPRAWKA: Dodano brakującą relację many-to-many do Client
-    #members = relationship(
-    #    "Client",
-    #    secondary='tus_group_members',
-    #   backref="tus_groups",  # Umożliwia dostęp client.tus_groups
-    #    lazy="selectin"
-    #)
     # Dodatkowe pola na cele punktowe
     halfyear_target_points = Column(Integer)
     halfyear_reward = Column(String)
     annual_target_points = Column(Integer)
     annual_reward = Column(String)
+    schedule_days = Column(ARRAY(Date))
 
 
 class TUSTopic(Base):
@@ -180,6 +279,8 @@ class TUSSession(Base):
 
     scores = relationship("TUSSessionMemberScore", back_populates="session", cascade="all, delete-orphan")
     member_bonuses = relationship("TUSMemberBonus", back_populates="session", cascade="all, delete-orphan")
+    attendance = relationship("TUSSessionAttendance", cascade="all, delete-orphan")
+    # --- KONIEC ---
 ####
 
 class TUSMemberBonus(Base):
@@ -256,6 +357,13 @@ class TUSGroupTarget(Base):
 
     __table_args__ = (UniqueConstraint('group_id', 'school_year_start', 'semester'),)
 
+class EventGroup(Base):
+    __tablename__ = 'event_groups'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    client_id = Column(Integer, ForeignKey('clients.id'))
+    label = Column(String)
+    slots = relationship("ScheduleSlot", cascade="all, delete-orphan")
+
 # === WCZYTANIE MODELI AI ===
 CT_MODEL_PATH = "models/ct_recommender.pkl"
 CD_MODEL_PATH = "models/cd_recommender.pkl"
@@ -275,16 +383,6 @@ try:
 except Exception as e:
     print(f"BŁĄD: Nie można wczytać modelu kierowców: {e}")
 
-
-Session = sessionmaker(bind=engine)
-with Session() as session:
-    # Pobieramy pierwszego terapeutę z bazy
-    pierwszy_terapeuta = session.query(Therapist).first()
-
-    if pierwszy_terapeuta:
-        print(f"Znaleziono terapeutę: {pierwszy_terapeuta.full_name}")
-
-
 # === FUNKCJE POMOCNICZE ===
 @contextmanager
 def session_scope():
@@ -298,6 +396,17 @@ def session_scope():
         raise
     finally:
         session.close()
+
+Session = sessionmaker(bind=engine)
+with session_scope() as db_session:
+    # Pobieramy pierwszego terapeutę z bazy
+    pierwszy_terapeuta = db_session.query(Therapist).first()
+
+    if pierwszy_terapeuta:
+        print(f"Znaleziono terapeutę: {pierwszy_terapeuta.full_name}")
+
+
+
 
 
 def get_route_distance(origin, destination):
@@ -448,10 +557,10 @@ def find_overlaps(conn, *, driver_id=None, therapist_id=None, starts_at=None, en
     else:
         return []
 
-    stmt = text(sql).bindparams(
+    stmt = sql.bindparams(
         bindparam("s", type_=TIMESTAMP(timezone=True)),
         bindparam("e", type_=TIMESTAMP(timezone=True)),
-    )
+        )
     return [dict(r) for r in conn.execute(stmt, params).mappings().all()]
 
 def ensure_shared_run_id_for_driver(conn, driver_id, starts_at, ends_at):
@@ -1041,8 +1150,8 @@ def create_therapist():
 @app.put("/api/therapists/<int:tid>")
 def update_therapist(tid):
     """Aktualizuje dane terapeuty."""
-    with Session() as session:
-        therapist = session.query(Therapist).filter_by(id=tid).first()
+    with session_scope() as db_session:
+        therapist = db_session.query(Therapist).filter_by(id=tid).first()
         if not therapist:
             return jsonify({"error": "Terapeuta nie istnieje."}), 404
 
@@ -1062,12 +1171,12 @@ def update_therapist(tid):
 @app.delete("/api/therapists/<int:tid>")
 def delete_therapist(tid):
     """Usuwa terapeutę."""
-    with Session() as session:
-        therapist = session.query(Therapist).filter_by(id=tid).first()
+    with session_scope() as db_session:
+        therapist = db_session.query(Therapist).filter_by(id=tid).first()
         if not therapist:
             return jsonify({"error": "Therapist not found"}), 404
-        session.delete(therapist)
-        session.commit()
+        db_session.delete(therapist)
+        db_session.commit()
         return "", 204
 
 # === DRIVERS ===
@@ -1108,26 +1217,26 @@ def create_driver():
     if not data or not data.get("full_name"):
         return jsonify({"error": "Pole 'full_name' jest wymagane."}), 400
 
-    with Session() as session:
+    with session_scope() as db_session:
         new_driver = Driver(
             full_name=data["full_name"],
             phone=data.get("phone"),
             active=data.get("active", True)
         )
-        session.add(new_driver)
+        db_session.add(new_driver)
         try:
-            session.commit()
+            db_session.commit()
             return jsonify({"id": new_driver.id, "full_name": new_driver.full_name}), 201
         except IntegrityError:
-            session.rollback()
+            db_session.rollback()
             return jsonify({"error": "Taki kierowca już istnieje (imię i nazwisko)."}), 409
 
 
 @app.put("/api/drivers/<int:did>")
 def update_driver(did):
     """Aktualizuje dane kierowcy."""
-    with Session() as session:
-        driver = session.query(Driver).filter_by(id=did).first()
+    with session_scope() as db_session:
+        driver = db_session.query(Driver).filter_by(id=did).first()
         if not driver:
             return jsonify({"error": "Kierowca nie istnieje."}), 404
 
@@ -1136,22 +1245,22 @@ def update_driver(did):
         driver.phone = data.get("phone", driver.phone)
         driver.active = data.get("active", driver.active)
         try:
-            session.commit()
+            db_session.commit()
             return jsonify({"id": driver.id, "full_name": driver.full_name}), 200
         except IntegrityError:
-            session.rollback()
+            db_session.rollback()
             return jsonify({"error": "Taki kierowca już istnieje (imię i nazwisko)."}), 409
 
 
 @app.delete("/api/drivers/<int:did>")
 def delete_driver(did):
     """Usuwa kierowcę."""
-    with Session() as session:
-        driver = session.query(Driver).filter_by(id=did).first()
+    with session_scope() as db_session:
+        driver = db_session.query(Driver).filter_by(id=did).first()
         if not driver:
             return jsonify({"error": "Driver not found"}), 404
-        session.delete(driver)
-        session.commit()
+        db_session.delete(driver)
+        db_session.commit()
         return "", 204
 
 # === CLIENT UNAVAILABILITY ===
@@ -1247,6 +1356,64 @@ def ai_plan_day():
     return jsonify({"date": date, "proposals": plans}), 200
 
 
+@app.get("/api/groups/<string:gid>")
+def get_group(gid):
+    """Pobiera dane pojedynczego pakietu indywidualnego do edycji."""
+
+    # --- POCZĄTEK POPRAWKI ---
+    # Używamy standardowej funkcji CAST() zamiast składni ::uuid przy parametrze
+    sql = text("""
+        SELECT
+            eg.client_id, eg.label, ss.kind, ss.therapist_id, ss.driver_id,
+            ss.vehicle_id, ss.starts_at, ss.ends_at, ss.place_from,
+            ss.place_to, ss.status
+        FROM event_groups eg
+        JOIN schedule_slots ss ON eg.id = ss.group_id::uuid
+        WHERE eg.id = CAST(:gid AS UUID)
+    """)
+    # --- KONIEC POPRAWKI ---
+
+    with engine.begin() as conn:
+        rows = conn.execute(sql, {"gid": gid}).mappings().all()
+
+    if not rows:
+        return jsonify({"error": "Pakiet nie został znaleziony."}), 404
+
+    result = {
+        "group_id": gid,
+        "client_id": rows[0]['client_id'],
+        "label": rows[0]['label'],
+        "status": rows[0]['status'],
+        "therapy": None, "pickup": None, "dropoff": None
+    }
+
+    for row in rows:
+        slot_data = {
+            "starts_at": row['starts_at'].isoformat() if row['starts_at'] else None,
+            "ends_at": row['ends_at'].isoformat() if row['ends_at'] else None,
+            "from": row['place_from'],
+            "to": row['place_to']
+        }
+        if row['kind'] == 'therapy':
+            result['therapy'] = {**slot_data, "therapist_id": row['therapist_id'], "place": row['place_to']}
+        elif row['kind'] == 'pickup':
+            result['pickup'] = {**slot_data, "driver_id": row['driver_id'], "vehicle_id": row['vehicle_id']}
+        elif row['kind'] == 'dropoff':
+            result['dropoff'] = {**slot_data, "driver_id": row['driver_id'], "vehicle_id": row['vehicle_id']}
+
+    return jsonify(result)
+
+
+@app.delete("/api/groups/<string:gid>")
+def delete_group(gid):
+    """Usuwa cały pakiet indywidualny (rekord z event_groups i kaskadowo sloty)."""
+    with engine.begin() as conn:
+        result = conn.execute(text("DELETE FROM event_groups WHERE id = CAST(:gid AS UUID)"), {"gid": gid})
+
+    if result.rowcount == 0:
+        return jsonify({"error": "Pakiet nie został znaleziony lub już został usunięty."}), 404
+
+    return jsonify({"message": "Pakiet został pomyślnie usunięty."}), 200
 
 
 @app.put("/api/groups/<string:gid>")
@@ -1345,8 +1512,8 @@ def tus_page():
 
 @app.get("/api/tus/groups")
 def get_tus_groups():
-    with session_scope() as session:
-        groups = session.query(TUSGroup).options(
+    with session_scope() as db_session:
+        groups = db_session.query(TUSGroup).options(
             joinedload(TUSGroup.therapist),
             joinedload(TUSGroup.members),
             joinedload(TUSGroup.sessions)
@@ -1369,14 +1536,14 @@ def create_tus_group():
     if not data.get("name") or not data.get("therapist_id"):
         return jsonify({"error": "Nazwa grupy i terapeuta są wymagani."}), 400
 
-    with session_scope() as session:
-        if session.query(TUSGroup).filter_by(name=data["name"]).first():
+    with session_scope() as db_session:
+        if db_session.query(TUSGroup).filter_by(name=data["name"]).first():
             return jsonify({"error": f"Grupa o nazwie '{data['name']}' już istnieje."}), 409
 
         client_ids = [int(cid) for cid in data.get("client_ids", []) if cid is not None]
         members = []
         if client_ids:
-            members = session.query(Client).filter(Client.id.in_(client_ids)).all()
+            members = db_session.query(Client).filter(Client.id.in_(client_ids)).all()
 
         new_group = TUSGroup(
             name=data["name"],
@@ -1384,8 +1551,8 @@ def create_tus_group():
             assistant_therapist_id=data.get("assistant_therapist_id"),
             members=members  # POPRAWKA: To zadziała dzięki poprawionej relacji w modelu
         )
-        session.add(new_group)
-        session.flush()  # Aby uzyskać ID nowej grupy
+        db_session.add(new_group)
+        db_session.flush()  # Aby uzyskać ID nowej grupy
         return jsonify({"id": new_group.id, "name": new_group.name}), 201
 
 
@@ -1395,13 +1562,13 @@ def update_tus_group(group_id):
     if not data.get("name") or not data.get("therapist_id"):
         return jsonify({"error": "Nazwa grupy i terapeuta są wymagani."}), 400
 
-    with session_scope() as session:
-        group = session.get(TUSGroup, group_id)
+    with session_scope() as db_session:
+        group = db_session.get(TUSGroup, group_id)
         if not group:
             return jsonify({"error": "Nie znaleziono grupy."}), 404
 
         # Sprawdzenie unikalności nowej nazwy
-        if session.query(TUSGroup).filter(TUSGroup.name == data["name"], TUSGroup.id != group_id).first():
+        if db_session.query(TUSGroup).filter(TUSGroup.name == data["name"], TUSGroup.id != group_id).first():
             return jsonify({"error": f"Grupa o nazwie '{data['name']}' już istnieje."}), 409
 
         group.name = data["name"]
@@ -1410,7 +1577,7 @@ def update_tus_group(group_id):
 
         client_ids = [int(cid) for cid in data.get("client_ids", []) if cid is not None]
         if client_ids:
-            group.members = session.query(Client).filter(Client.id.in_(client_ids)).all()
+            group.members = db_session.query(Client).filter(Client.id.in_(client_ids)).all()
         else:
             group.members = []
 
@@ -1420,67 +1587,100 @@ def update_tus_group(group_id):
 @app.post("/api/tus/sessions")
 def create_tus_session():
     data = request.get_json(silent=True) or {}
+    print(f"=== ROZPOCZĘCIE TWORZENIA SESJI ===")
+    print(f"Pełne dane: {data}")
+
     try:
         group_id = int(data["group_id"])
         topic_id = int(data["topic_id"])
-        dt_raw = data["session_date"]
-        # --- POCZĄTEK POPRAWKI ---
-        # Odczytujemy listę ID zachowań z frontendu
+        session_date_str = data["session_date"]  # Format: "YYYY-MM-DDTHH:MM:SS"
+
+        print(f"ID grupy: {group_id}, ID tematu: {topic_id}")
+        print(f"Data sesji: '{session_date_str}'")
+
+        # PROSTE I BEZPIECZNE PARSOWANIE
+        try:
+            # Podziel datę i czas
+            if 'T' in session_date_str:
+                date_part, time_part = session_date_str.split('T', 1)
+            else:
+                date_part = session_date_str
+                time_part = "00:00:00"
+
+            # Parsuj datę
+            sess_date = datetime.fromisoformat(date_part).date()
+
+            # Parsuj czas (usuń milisekundy jeśli istnieją)
+            time_part = time_part.split('.')[0]  # Usuń milisekundy
+            time_parts = time_part.split(':')
+
+            hour = int(time_parts[0])
+            minute = int(time_parts[1]) if len(time_parts) > 1 else 0
+            second = int(time_parts[2]) if len(time_parts) > 2 else 0
+
+            sess_time = time(hour, minute, second)
+
+        except ValueError as e:
+            print(f"Błąd parsowania daty/czasu: {e}")
+            return jsonify({"error": f"Nieprawidłowy format daty lub godziny: {session_date_str}"}), 400
+
+        print(f"SPARSOWANO - Data: {sess_date}, Czas: {sess_time}")
+
         behavior_ids = [int(bid) for bid in data.get("behavior_ids", []) if bid]
         if len(behavior_ids) > 4:
             return jsonify({"error": "Można wybrać maksymalnie 4 zachowania."}), 400
-        # --- KONIEC POPRAWKI ---
 
-        if "T" in dt_raw:
-            dt = datetime.fromisoformat(dt_raw)
-            sess_date = dt.date()
-            sess_time = dt.time().replace(second=0, microsecond=0)
-        else:
-            sess_date = date.fromisoformat(dt_raw)
-            sess_time = None
+        with session_scope() as db_session:
+            if not db_session.get(TUSGroup, group_id):
+                return jsonify({"error": f"Grupa o ID {group_id} nie istnieje."}), 404
+
+            # Tworzymy główny obiekt sesji
+            new_session = TUSSession(
+                group_id=group_id,
+                topic_id=topic_id,
+                session_date=sess_date,
+                session_time=sess_time,
+            )
+            db_session.add(new_session)
+            db_session.flush()
+
+            # Zapisz powiązane zachowania
+            if behavior_ids:
+                behaviors_map = {b.id: b.default_max_points for b in
+                                 db_session.query(TUSBehavior).filter(TUSBehavior.id.in_(behavior_ids)).all()}
+
+                for b_id in behavior_ids:
+                    session_behavior = TUSSessionBehavior(
+                        session_id=new_session.id,
+                        behavior_id=b_id,
+                        max_points=behaviors_map.get(b_id, 3)
+                    )
+                    db_session.add(session_behavior)
+
+            print(
+                f"UTWORZONO SESJĘ: ID={new_session.id}, Data={new_session.session_date}, Czas={new_session.session_time}")
+
+            return jsonify({"id": new_session.id}), 201
 
     except (TypeError, ValueError, KeyError) as e:
+        print(f"=== BŁĄD KRYTYCZNY ===")
+        print(f"Typ: {type(e)}, Komunikat: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": "Nieprawidłowe lub brakujące dane w zapytaniu.", "details": str(e)}), 400
-
-    with session_scope() as session:
-        if not session.get(TUSGroup, group_id):
-            return jsonify({"error": f"Grupa o ID {group_id} nie istnieje."}), 404
-
-        # Tworzymy główny obiekt sesji
-        new_session = TUSSession(
-            group_id=group_id,
-            topic_id=topic_id,
-            session_date=sess_date,
-            session_time=sess_time,
-        )
-        session.add(new_session)
-        session.flush()  # Ważne, aby uzyskać ID nowej sesji (new_session.id)
-
-        # --- POCZĄTEK POPRAWKI ---
-        # Teraz, mając ID sesji, zapisujemy powiązane z nią zachowania
-        if behavior_ids:
-            # Pobieramy domyślne maksymalne punkty dla wybranych zachowań
-            behaviors_map = {b.id: b.default_max_points for b in
-                             session.query(TUSBehavior).filter(TUSBehavior.id.in_(behavior_ids)).all()}
-
-            for b_id in behavior_ids:
-                session_behavior = TUSSessionBehavior(
-                    session_id=new_session.id,
-                    behavior_id=b_id,
-                    # Używamy domyślnej wartości z tabeli `tus_behaviors`
-                    max_points=behaviors_map.get(b_id, 3)
-                )
-                session.add(session_behavior)
-        # --- KONIEC POPRAWKI ---
-
-        return jsonify({"id": new_session.id}), 201
+    except Exception as e:
+        print(f"=== NIESPODZIEWANY BŁĄD ===")
+        print(f"Typ: {type(e)}, Komunikat: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "Wewnętrzny błąd serwera."}), 500
 
 
 @app.put("/api/tus/sessions/<int:session_id>")
 def update_tus_session(session_id):
     data = request.get_json(silent=True) or {}
-    with session_scope() as session:
-        s = session.get(TUSSession, session_id)
+    with session_scope() as db_session:
+        s = db_session.get(TUSSession, session_id)
         if not s:
             return jsonify({"error": "Session not found"}), 404
 
@@ -1504,9 +1704,9 @@ def delete_tus_session(session_id):
     # Odczytujemy decyzję użytkownika z parametrów URL
     delete_all_bonuses = request.args.get('delete_all_bonuses', 'false').lower() == 'true'
 
-    with session_scope() as session:
+    with session_scope() as db_session:
         # Znajdź sesję, którą chcemy usunąć
-        session_to_delete = session.get(TUSSession, session_id)
+        session_to_delete = db_session.get(TUSSession, session_id)
         if not session_to_delete:
             return jsonify({"error": "Session not found"}), 404
 
@@ -1518,34 +1718,33 @@ def delete_tus_session(session_id):
             print(f"DIAGNOSTYKA: Usuwanie wszystkich bonusów dla grupy ID: {group_id}")
 
             # 1. Usuń bonusy ogólne
-            session.query(TUSGeneralBonus).filter(TUSGeneralBonus.group_id == group_id).delete()
+            db_session.query(TUSGeneralBonus).filter(TUSGeneralBonus.group_id == group_id).delete()
 
             # 2. Usuń bonusy sesyjne (ze wszystkich sesji w tej grupie)
-            session_ids_in_group = session.query(TUSSession.id).filter(TUSSession.group_id == group_id)
-            session.query(TUSMemberBonus).filter(TUSMemberBonus.session_id.in_(session_ids_in_group)).delete()
+            session_ids_in_group = db_session.query(TUSSession.id).filter(TUSSession.group_id == group_id)
+            db_session.query(TUSMemberBonus).filter(TUSMemberBonus.session_id.in_(session_ids_in_group)).delete()
 
         # Niezależnie od decyzji, ZAWSZE usuwamy sesję.
         # Jeśli użytkownik wybrał "NIE", kaskada w bazie danych usunie
         # bonusy i punkty TYLKO dla tej jednej usuwanej sesji.
-        session.delete(session_to_delete)
+        db_session.delete(session_to_delete)
 
     return jsonify({"ok": True}), 200
 
 
 @app.put("/api/tus/groups/<int:gid>/target")
 def tus_update_targets(gid):
-    """Zapisuje lub aktualizuje cel dla grupy w nowej tabeli."""
     data = request.get_json(silent=True) or {}
     try:
-        school_year_start = int(data["school_year_start"])  # np. 2025
-        semester = int(data["semester"])  # 1 lub 2
+        school_year_start = int(data["school_year_start"])
+        semester = int(data["semester"])
         points = int(data["points"])
         reward = (data.get("reward") or "").strip()
     except (KeyError, ValueError, TypeError):
         return jsonify({"error": "Brakujące lub nieprawidłowe dane."}), 400
 
-    with session_scope() as session:
-        target = session.query(TUSGroupTarget).filter_by(
+    with session_scope() as db_session:
+        target = db_session.query(TUSGroupTarget).filter_by(
             group_id=gid,
             school_year_start=school_year_start,
             semester=semester
@@ -1555,47 +1754,45 @@ def tus_update_targets(gid):
             target.target_points = points
             target.reward = reward
         else:  # Stwórz nowy
-            target = TUSGroupTarget(
-                group_id=gid,
-                school_year_start=school_year_start,
-                semester=semester,
-                target_points=points,
-                reward=reward
-            )
-            session.add(target)
+            # --- POCZĄTEK POPRAWKI ---
+            target = TUSGroupTarget() # Stwórz pusty obiekt
+            # Ustaw wartości jako atrybuty
+            target.group_id = gid
+            target.school_year_start = school_year_start
+            target.semester = semester
+            target.target_points = points
+            target.reward = reward
+            db_session.add(target)
+            # --- KONIEC POPRAWKI ---
 
     return jsonify({"ok": True})
 
 
 @app.get("/api/tus/groups/<int:group_id>")
 def get_tus_group_details(group_id: int):
-    with SessionLocal() as session:
-        # Używamy opcji `selectinload` dla lepszej wydajności i uniknięcia duplikatów
-        group = session.query(TUSGroup).options(
+    with session_scope() as db_session:
+        group = db_session.query(TUSGroup).options(
             joinedload(TUSGroup.therapist),
             joinedload(TUSGroup.assistant_therapist),
             joinedload(TUSGroup.member_associations).joinedload(TUSGroupMember.client),
-            joinedload(TUSGroup.sessions).joinedload(TUSSession.topic)
+            # Use 'selectinload' for efficient and correct loading of the session list
+            selectinload(TUSGroup.sessions).joinedload(TUSSession.topic)
         ).filter(TUSGroup.id == group_id).first()
 
         if not group:
             return jsonify({"error": "Group not found"}), 404
 
-        # POPRAWKA: Ręczne usunięcie duplikatów przed wysłaniem do frontendu
-        unique_sessions = {sess.id: sess for sess in group.sessions}.values()
-
+        # Manually build the JSON response to guarantee correct date format
         sessions_json = sorted([
             {
                 "id": s.id,
-                "session_date": s.session_date.isoformat(),
-                "session_time": s.session_time.strftime('%H:%M') if s.session_time else None,
+                "session_date": s.session_date.isoformat() if s.session_date else None,
+                "session_time": s.session_time.strftime('%H:%M:%S') if s.session_time else None,
                 "topic_title": s.topic.title if s.topic else "bez tematu",
                 "bonuses_awarded": s.bonuses_awarded or 0
-            } for s in unique_sessions
-        ], key=lambda x: (x.get('session_date'), x.get('session_time')), reverse=True)
+            } for s in group.sessions
+        ], key=lambda x: (x.get('session_date') or "", x.get('session_time') or ""), reverse=True)
 
-        # Usunięcie duplikatów członków (na wszelki wypadek)
-        # POPRAWIONA, JEDNA LINIA
         members_json = [{"id": m.id, "full_name": m.full_name} for m in group.members]
 
         group_data = {
@@ -1607,6 +1804,7 @@ def get_tus_group_details(group_id: int):
             "assistant_therapist_name": group.assistant_therapist.full_name if group.assistant_therapist else None,
             "members": members_json,
             "sessions": sessions_json,
+            "schedule_days": [d.isoformat() for d in group.schedule_days] if group.schedule_days else []
         }
 
         return jsonify(group_data)
@@ -1621,15 +1819,15 @@ def tus_group_bonuses(gid):
         return jsonify({"error": "Nieprawidłowy rok szkolny"}), 400
 
     results = {}
-    with session_scope() as session:
-        group = session.get(TUSGroup, gid)
+    with session_scope() as db_session:
+        group = db_session.get(TUSGroup, gid)
         if not group: return jsonify({"error": "Not found"}), 404
 
         for semester in [1, 2]:
             start_date, end_date = get_semester_dates(school_year_start, semester)
 
             # Pobierz cel dla tego semestru
-            target_obj = session.query(TUSGroupTarget).filter_by(
+            target_obj = db_session.query(TUSGroupTarget).filter_by(
                 group_id=gid, school_year_start=school_year_start, semester=semester
             ).first()
 
@@ -1640,8 +1838,8 @@ def tus_group_bonuses(gid):
             general_bonus_q = select(func.sum(TUSGeneralBonus.points)).where(
                 TUSGeneralBonus.group_id == gid, TUSGeneralBonus.awarded_at.between(start_date, end_date)
             )
-            session_pts = session.execute(session_bonus_q).scalar() or 0
-            general_pts = session.execute(general_bonus_q).scalar() or 0
+            session_pts = db_session.execute(session_bonus_q).scalar() or 0
+            general_pts = db_session.execute(general_bonus_q).scalar() or 0
             total_collected = int(session_pts) + int(general_pts)
 
             results[f"semester_{semester}"] = {
@@ -1708,28 +1906,28 @@ def _half_bounds(year:int, half:int):
 # CRUD dla tematów (prosty przykład)
 @app.get("/api/tus/topics")
 def get_tus_topics():
-    session = Session()
-    topics = session.query(TUSTopic).all()
-    result = [{"id": t.id, "title": t.title} for t in topics]
-    session.close()
-    return jsonify(result)
+    with session_scope() as db_session:
+        topics = db_session.query(TUSTopic).all()
+        result = [{"id": t.id, "title": t.title} for t in topics]
+        return jsonify(result)
 
 
 @app.post("/api/tus/topics")
 def create_tus_topic():
     data = request.get_json(silent=True) or {}
-    session = Session()
-    try:
-        new_topic = TUSTopic(title=data["title"])
-        session.add(new_topic)
-        session.commit()
-        result = {"id": new_topic.id, "title": new_topic.title}
-        session.close()
-        return jsonify(result), 201
-    except IntegrityError:  # Obsługa duplikatów
-        session.rollback()
-        session.close()
-        return jsonify({"error": "Topic with this title already exists"}), 409
+
+    with session_scope() as db_session:
+        try:
+            new_topic = TUSTopic(title=data["title"])
+            db_session.add(new_topic)
+            db_session.flush()  # To jest potrzebne, aby uzyskać ID przed końcem transakcji
+
+            result = {"id": new_topic.id, "title": new_topic.title}
+            return jsonify(result), 201
+
+        except IntegrityError:
+            # Rollback i close są obsługiwane automatycznie przez session_scope
+            return jsonify({"error": "Topic with this title already exists"}), 409
 
 @app.get("/api/tus/behaviors")
 def get_behaviors():
@@ -1901,12 +2099,12 @@ def save_session_scores(sid):
 
     return jsonify({"ok": True}), 200
 
-def _half_bounds(year:int, half:int):
-    if half == 1:
-        a = datetime(year,1,1,tzinfo=TZ); b = datetime(year,7,1,tzinfo=TZ)
-    else:
-        a = datetime(year,7,1,tzinfo=TZ); b = datetime(year+1,1,1,tzinfo=TZ)
-    return a,b
+#def _half_bounds(year:int, half:int):
+#    if half == 1:
+#        a = datetime(year,1,1,tzinfo=TZ); b = datetime(year,7,1,tzinfo=TZ)
+#    else:
+#        a = datetime(year,7,1,tzinfo=TZ); b = datetime(year+1,1,1,tzinfo=TZ)
+#    return a,b
 
 @app.get("/api/gaps/day")
 def gaps_day():
@@ -2074,76 +2272,52 @@ def gaps_month():
         }
     }), 200
 
-# === CLIENT PACKAGES (grupy+sloty klienta) ===
 @app.get("/api/client/<int:cid>/packages")
 def client_packages(cid):
-    mk = request.args.get("month")  # 'YYYY-MM' albo None
-
+    mk = request.args.get("month")
+    # POPRAWKA: Usunięto CAST, ponieważ oba pola są typu UUID
     sql = text("""
-        -- 1. ZAJĘCIA INDYWIDUALNE
-        SELECT
-          'individual' as type,
-          -- POCZĄTEK POPRAWKI: Konwertujemy UUID na TEXT
-          eg.id::text AS group_id,
-          -- KONIEC POPRAWKI
-          eg.label,
-          ss.id AS slot_id,
-          ss.kind,
-          ss.starts_at,
-          ss.ends_at,
-          ss.status,
-          ss.therapist_id,
-          t.full_name AS therapist_name,
-          ss.driver_id,
-          d.full_name AS driver_name,
-          ss.place_from,
-          ss.place_to
-        FROM event_groups eg
-        JOIN schedule_slots ss ON ss.group_id = eg.id
-        LEFT JOIN therapists t ON t.id = ss.therapist_id
-        LEFT JOIN drivers d    ON d.id = ss.driver_id
-        WHERE eg.client_id = :cid
-          AND (:mk IS NULL OR to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk)
-
-        UNION ALL
-
-        -- 2. ZAJĘCIA GRUPOWE TUS
-        SELECT
-          'tus' as type,
-          -- POCZĄTEK POPRAWKI: Konwertujemy INTEGER na TEXT
-          g.id::text AS group_id,
-          -- KONIEC POPRAWKI
-          g.name AS label,
-          s.id AS slot_id,
-          'therapy' as kind,
-          (s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
-          (s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
-          'planned' as status,
-          g.therapist_id,
-          th.full_name AS therapist_name,
-          NULL AS driver_id,
-          NULL AS driver_name,
-          'Poradnia' AS place_from,
-          'Poradnia' AS place_to
-        FROM tus_sessions s
-        JOIN tus_groups g ON s.group_id = g.id
-        JOIN tus_group_members gm ON gm.group_id = g.id
-        LEFT JOIN therapists th ON g.therapist_id = th.id
-        WHERE gm.client_id = :cid
-          AND (:mk IS NULL OR to_char(s.session_date, 'YYYY-MM') = :mk)
-
+        WITH all_events AS (
+            SELECT
+                'individual' as type, eg.id::text AS group_id, eg.label, ss.id AS slot_id,
+                ss.kind, ss.starts_at, ss.ends_at, ss.status, ss.therapist_id, t.full_name AS therapist_name,
+                ss.driver_id, d.full_name AS driver_name, ss.place_from, ss.place_to, ss.distance_km
+            FROM event_groups eg
+            JOIN schedule_slots ss ON eg.id = ss.group_id
+            LEFT JOIN therapists t ON t.id = ss.therapist_id
+            LEFT JOIN drivers d ON d.id = ss.driver_id
+            WHERE eg.client_id = :cid
+            UNION ALL
+            SELECT
+                'tus' as type, g.id::text AS group_id, g.name AS label, s.id AS slot_id, 'therapy' as kind,
+                (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
+                (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
+                'planned' as status, g.therapist_id, th.full_name AS therapist_name,
+                NULL AS driver_id, NULL AS driver_name, 'Poradnia' AS place_from, 'Poradnia' AS place_to, NULL as distance_km
+            FROM tus_sessions s
+            JOIN tus_groups g ON s.group_id = g.id
+            JOIN tus_group_members gm ON gm.group_id = g.id
+            LEFT JOIN therapists th ON g.therapist_id = th.id
+            WHERE gm.client_id = :cid
+        )
+        SELECT * FROM all_events
+        WHERE (:mk IS NULL OR to_char(starts_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM') = :mk)
         ORDER BY starts_at;
     """)
 
     with engine.begin() as conn:
         rows = conn.execute(sql, {"cid": cid, "mk": mk}).mappings().all()
-        results = [
-            {**r,
-             'starts_at': r['starts_at'].isoformat() if r.get('starts_at') else None,
-             'ends_at': r['ends_at'].isoformat() if r.get('ends_at') else None
-             } for r in rows
-        ]
+        results = []
+        for r in rows:
+            row_dict = dict(r)
+            if starts_at_aware := r.get('starts_at'):
+                row_dict['starts_at'] = starts_at_aware.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S')
+            if ends_at_aware := r.get('ends_at'):
+                row_dict['ends_at'] = ends_at_aware.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S')
+            results.append(row_dict)
         return jsonify(results)
+
+
 
 # === DRIVER SCHEDULE (kursy kierowcy z klientami) ===
 @app.get("/api/drivers/<int:did>/schedule")
@@ -2175,44 +2349,44 @@ def driver_schedule(did):
         rows = conn.execute(text(sql), {"did": did, "mk": mk}).mappings().all()
         return jsonify([dict(r) for r in rows]), 200
 
-def find_overlaps(conn, *, driver_id=None, therapist_id=None, starts_at=None, ends_at=None):
-    """
-    Zwraca listę kolidujących slotów dla driver_id/therapist_id i podanego zakresu czasu.
-    """
-    # jeśli nie mamy pełnego zakresu – nic nie sprawdzamy (zapobiega błędowi z ':s')
-    if starts_at is None or ends_at is None:
-        return []
+#def find_overlaps(conn, *, driver_id=None, therapist_id=None, starts_at=None, ends_at=None):
+#    """
+##    Zwraca listę kolidujących slotów dla driver_id/therapist_id i podanego zakresu czasu.
+#    """
+#    # jeśli nie mamy pełnego zakresu – nic nie sprawdzamy (zapobiega błędowi z ':s')
+#    if starts_at is None or ends_at is None:
+#        return []
 
-    where, params = [], {"s": starts_at, "e": ends_at}
-    if driver_id is not None:
-        where.append("ss.driver_id = :driver_id")
-        params["driver_id"] = driver_id
-    if therapist_id is not None:
-        where.append("ss.therapist_id = :therapist_id")
-        params["therapist_id"] = therapist_id
-    if not where:
-        return []
+#    where, params = [], {"s": starts_at, "e": ends_at}
+#    if driver_id is not None:
+#        where.append("ss.driver_id = :driver_id")
+#        params["driver_id"] = driver_id
+#    if therapist_id is not None:
+#        where.append("ss.therapist_id = :therapist_id")
+#        params["therapist_id"] = therapist_id
+#    if not where:
+#        return []
 
-    sql = f"""
-    SELECT
-      ss.id, ss.kind, ss.starts_at, ss.ends_at, ss.status,
-      ss.driver_id, d.full_name AS driver_name,
-      ss.therapist_id, t.full_name AS therapist_name,
-      ss.client_id, c.full_name AS client_name
-    FROM schedule_slots ss
-    LEFT JOIN drivers d    ON d.id = ss.driver_id
-    LEFT JOIN therapists t ON t.id = ss.therapist_id
-    LEFT JOIN clients c    ON c.id = ss.client_id
-    WHERE {" AND ".join(where)}
-      AND tstzrange(ss.starts_at, ss.ends_at, '[)') &&
-          tstzrange(:s, :e, '[)')
-    ORDER BY ss.starts_at
-    """
-    stmt = text(sql).bindparams(
-        bindparam("s", type_=TIMESTAMP(timezone=True)),
-        bindparam("e", type_=TIMESTAMP(timezone=True)),
-    )
-    return [dict(r) for r in conn.execute(stmt, params).mappings().all()]
+#    sql = f"""
+#    SELECT
+#      ss.id, ss.kind, ss.starts_at, ss.ends_at, ss.status,
+#      ss.driver_id, d.full_name AS driver_name,
+#      ss.therapist_id, t.full_name AS therapist_name,
+#      ss.client_id, c.full_name AS client_name
+#    FROM schedule_slots ss
+#    LEFT JOIN drivers d    ON d.id = ss.driver_id
+##    LEFT JOIN therapists t ON t.id = ss.therapist_id
+#    LEFT JOIN clients c    ON c.id = ss.client_id
+#    WHERE {" AND ".join(where)}
+#      AND tstzrange(ss.starts_at, ss.ends_at, '[)') &&
+#          tstzrange(:s, :e, '[)')
+#    ORDER BY ss.starts_at
+#    """
+#    stmt = text(sql).bindparams(
+##        bindparam("s", type_=TIMESTAMP(timezone=True)),
+#        bindparam("e", type_=TIMESTAMP(timezone=True)),
+#    )
+#    return [dict(r) for r in conn.execute(stmt, params).mappings().all()]
 
 @app.post("/api/schedule/check")
 def check_schedule_conflicts():
@@ -2224,41 +2398,60 @@ def check_schedule_conflicts():
     """
     data = request.get_json(silent=True) or {}
     therapy = data.get("therapy") or {}
-    pickup  = data.get("pickup") or None
-    dropoff = data.get("dropoff") or None
+    pickup = data.get("pickup")
+    dropoff = data.get("dropoff")
 
-    result = {"therapy": [], "pickup": [], "dropoff": []}
+    messages = {"therapy": [], "pickup": [], "dropoff": []}
+    total_conflicts = 0
 
     with engine.begin() as conn:
-      # terapeuta
-      if therapy and therapy.get("therapist_id"):
-          s = datetime.fromisoformat(therapy["starts_at"]).replace(tzinfo=TZ)
-          e = datetime.fromisoformat(therapy["ends_at"]).replace(tzinfo=TZ)
-          result["therapy"] = find_overlaps(conn,
-                              therapist_id=int(therapy["therapist_id"]),
-                              starts_at=s, ends_at=e)
+        def format_time(dt_obj):
+            if not dt_obj: return ""
+            # Upewnij się, że data ma strefę czasową przed konwersją
+            if dt_obj.tzinfo is None:
+                dt_obj = dt_obj.replace(tzinfo=TZ)
+            return dt_obj.astimezone(TZ).strftime('%H:%M')
 
-      # pickup kierowca
-      if pickup and pickup.get("driver_id"):
-          s = datetime.fromisoformat(pickup["starts_at"]).replace(tzinfo=TZ)
-          e = datetime.fromisoformat(pickup["ends_at"]).replace(tzinfo=TZ)
-          result["pickup"] = find_overlaps(conn,
-                              driver_id=int(pickup["driver_id"]),
-                              starts_at=s, ends_at=e)
+        def check_person(person_type, person_id, start_str, end_str, category):
+            nonlocal total_conflicts
+            if not all([person_id, start_str, end_str]):
+                return
 
-      # dropoff kierowca
-      if dropoff and dropoff.get("driver_id"):
-          s = datetime.fromisoformat(dropoff["starts_at"]).replace(tzinfo=TZ)
-          e = datetime.fromisoformat(dropoff["ends_at"]).replace(tzinfo=TZ)
-          result["dropoff"] = find_overlaps(conn,
-                               driver_id=int(dropoff["driver_id"]),
-                               starts_at=s, ends_at=e)
+            s = datetime.fromisoformat(start_str).replace(tzinfo=TZ)
+            e = datetime.fromisoformat(end_str).replace(tzinfo=TZ)
 
-    # policz łączną liczbę kolizji
-    total = sum(len(v) for v in result.values())
-    return jsonify({"conflicts": result, "total": total}), 200
+            find_kwargs = {f"{person_type}_id": int(person_id), "starts_at": s, "ends_at": e}
+            conflicts = find_overlaps(conn, **find_kwargs)
+            total_conflicts += len(conflicts)
 
-def ensure_shared_run_id_for_driver(conn, driver_id, starts_at, ends_at):
+            for c in conflicts:
+                start_time = format_time(c['starts_at'])
+                end_time = format_time(c['ends_at'])
+                person_name = "Terapeuta" if person_type == "therapist" else "Kierowca"
+
+                if c.get('schedule_type') == 'tus_group':
+                    msg = f"{person_name} ma już sesję TUS '{c.get('client_name', 'N/A')}' od {start_time} do {end_time}."
+                else:
+                    msg = f"{person_name} ma już zajęcia ('{c.get('kind', 'N/A')}') z '{c.get('client_name', 'N/A')}' od {start_time} do {end_time}."
+                messages[category].append(msg)
+
+        # Sprawdzaj terapię zawsze
+        check_person("therapist", therapy.get("therapist_id"), therapy.get("starts_at"), therapy.get("ends_at"),
+                     "therapy")
+
+        # --- POCZĄTEK POPRAWKI ---
+        # Sprawdzaj pickup i dropoff tylko, jeśli istnieją w danych
+        if pickup:
+            check_person("driver", pickup.get("driver_id"), pickup.get("starts_at"), pickup.get("ends_at"), "pickup")
+        if dropoff:
+            check_person("driver", dropoff.get("driver_id"), dropoff.get("starts_at"), dropoff.get("ends_at"),
+                         "dropoff")
+        # --- KONIEC POPRAWKI ---
+
+    return jsonify({"conflicts": messages, "total": total_conflicts}), 200
+
+
+'''def ensure_shared_run_id_for_driver(conn, driver_id, starts_at, ends_at):
     """
     Jeżeli u kierowcy istnieje slot dokładnie o tym samym oknie czasu,
     to zwróć jego run_id (a gdy go nie ma, ustaw nowy na obu slotach).
@@ -2311,7 +2504,7 @@ def ensure_shared_session_id_for_therapist(conn, therapist_id, starts_at, ends_a
             {"sid": new_sid, "id": row["id"]}
         )
         return new_sid
-    return row["session_id"]
+    return row["session_id"]'''
 
 # BACKEND (Flask)
 @app.patch("/api/slots/<int:sid>")
@@ -2571,6 +2764,64 @@ def get_tus_schedule():
         ]
         return jsonify(results)
 
+#@app.get("/api/therapists/<int:tid>/schedule")
+#def therapist_schedule(tid):
+#    mk = request.args.get("month")
+#    if not mk:
+#        return jsonify({"error": "Parametr 'month' jest wymagany."}), 400
+
+#    all_results = []
+
+#    with engine.begin() as conn:
+#        # Query 1: Individual sessions
+#        # FIX: Explicitly convert timestamp to UTC
+#        sql_individual = text("""
+#            SELECT
+#                ss.id AS slot_id, 'individual' as type, ss.kind,
+#                ss.starts_at AT TIME ZONE 'UTC' as starts_at,
+#                ss.ends_at AT TIME ZONE 'UTC' as ends_at,
+#                ss.status, c.full_name AS client_name,
+#                ss.place_to, g.label AS group_name
+#            FROM schedule_slots ss
+#            JOIN clients c ON c.id = ss.client_id
+#            LEFT JOIN event_groups g ON g.id = ss.group_id
+#            WHERE ss.therapist_id = :tid
+#              AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM') = :mk
+#        """)
+#        individual_rows = conn.execute(sql_individual, {"tid": tid, "mk": mk}).mappings().all()
+#        all_results.extend(individual_rows)
+
+        # Query 2: TUS group sessions
+        # FIX: Explicitly create and convert timestamp to UTC
+#        sql_tus = text("""
+#            SELECT
+#                s.id AS slot_id, 'tus' as type, 'therapy' as kind,
+#                ((s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw') AT TIME ZONE 'UTC' AS starts_at,
+#                ((s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw') AT TIME ZONE 'UTC' AS ends_at,
+#                'planned' as status, g.name AS client_name,
+#                'Poradnia' as place_to, g.name AS group_name
+#            FROM tus_sessions s
+#            JOIN tus_groups g ON s.group_id = g.id
+#            WHERE (g.therapist_id = :tid OR g.assistant_therapist_id = :tid)
+#              AND to_char(s.session_date, 'YYYY-MM') = :mk
+#        """)
+#        tus_rows = conn.execute(sql_tus, {"tid": tid, "mk": mk}).mappings().all()
+#        all_results.extend(tus_rows)
+
+    # Sorting will now work correctly
+#    all_results.sort(key=lambda r: r.get('starts_at') or datetime.max.replace(tzinfo=ZoneInfo("UTC")))
+
+    # Formatting the dates to strings for the frontend
+#    results = [
+#        {**r,
+#         'starts_at': r['starts_at'].isoformat() if r.get('starts_at') else None,
+#         'ends_at': r['ends_at'].isoformat() if r.get('ends_at') else None
+#         } for r in all_results
+#    ]
+#    return jsonify(results)
+
+    # POPRAWIONE SORTOWANIE - konwertuj wszystkie daty do tej samej strefy czasowej
+
 
 @app.get("/api/therapists/<int:tid>/schedule")
 def therapist_schedule(tid):
@@ -2579,55 +2830,64 @@ def therapist_schedule(tid):
         return jsonify({"error": "Parametr 'month' jest wymagany."}), 400
 
     all_results = []
-
     with engine.begin() as conn:
-        # --- ZAPYTANIE 1: Zajęcia indywidualne ---
+        # Zapytanie 1: Zajęcia indywidualne
         sql_individual = text("""
             SELECT
                 ss.id AS slot_id, 'individual' as type, ss.kind,
                 ss.starts_at, ss.ends_at, ss.status, c.full_name AS client_name,
-                ss.place_to, g.label AS group_name
+                ss.place_to, g.label AS group_name, g.id::text as group_id
             FROM schedule_slots ss
             JOIN clients c ON c.id = ss.client_id
-            LEFT JOIN event_groups g ON g.id = ss.group_id
+            LEFT JOIN event_groups g ON g.id = CAST(ss.group_id AS UUID)
             WHERE ss.therapist_id = :tid
               AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM') = :mk
         """)
-        individual_rows = conn.execute(sql_individual, {"tid": tid, "mk": mk}).mappings().all()
-        all_results.extend(individual_rows)
-        # --- LINIA DIAGNOSTYCZNA ---
-        print(
-            f"DIAGNOSTYKA: Znaleziono {len(individual_rows)} wpisów indywidualnych dla terapeuty ID {tid} w miesiącu {mk}.")
+        all_results.extend(conn.execute(sql_individual, {"tid": tid, "mk": mk}).mappings().all())
 
-        # --- ZAPYTANIE 2: Zajęcia grupowe TUS ---
+        # Zapytanie 2: Zajęcia grupowe TUS
         sql_tus = text("""
             SELECT
                 s.id AS slot_id, 'tus' as type, 'therapy' as kind,
-                (s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
-                (s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
+                (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
+                (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
                 'planned' as status, g.name AS client_name,
-                'Poradnia' as place_to, g.name AS group_name
+                'Poradnia' as place_to, g.name AS group_name, g.id::text as group_id
             FROM tus_sessions s
             JOIN tus_groups g ON s.group_id = g.id
+            JOIN tus_group_members gm on g.id = gm.group_id
             WHERE (g.therapist_id = :tid OR g.assistant_therapist_id = :tid)
+              AND gm.client_id IS NOT NULL 
               AND to_char(s.session_date, 'YYYY-MM') = :mk
         """)
-        tus_rows = conn.execute(sql_tus, {"tid": tid, "mk": mk}).mappings().all()
-        all_results.extend(tus_rows)
-        # --- LINIA DIAGNOSTYCZNA ---
-        print(f"DIAGNOSTYKA: Znaleziono {len(tus_rows)} wpisów TUS dla terapeuty ID {tid} w miesiącu {mk}.")
+        all_results.extend(conn.execute(sql_tus, {"tid": tid, "mk": mk}).mappings().all())
 
-    # Sortowanie wyników w Pythonie
-    all_results.sort(key=lambda r: r.get('starts_at') or datetime.min.replace(tzinfo=ZoneInfo("Europe/Warsaw")))
+    # --- POCZĄTEK OSTATECZNEJ POPRAWKI ---
+    # Normalizujemy wszystkie daty PRZED sortowaniem, aby mieć pewność, że są świadome strefy czasowej
+    for r in all_results:
+        # Używamy dict(r), aby móc modyfikować słownik w miejscu
+        row_dict = dict(r)
+        if starts_at := row_dict.get('starts_at'):
+            if starts_at.tzinfo is None:
+                # Jeśli data jest "naiwna", zakładamy, że jest w naszej lokalnej strefie czasowej i oznaczamy ją
+                row_dict['starts_at'] = starts_at.replace(tzinfo=TZ)
+    # --- KONIEC OSTATECZNEJ POPRAWKI ---
 
-    # Formatowanie dat na stringi
-    results = [
-        {**r,
-         'starts_at': r['starts_at'].isoformat() if r.get('starts_at') else None,
-         'ends_at': r['ends_at'].isoformat() if r.get('ends_at') else None
-         } for r in all_results
-    ]
+    # Sortowanie będzie teraz działać poprawnie
+    all_results.sort(key=lambda r: r.get('starts_at') or datetime.max.replace(tzinfo=ZoneInfo("UTC")))
+
+    # Formatowanie dat na stringi w lokalnej strefie czasowej
+    results = []
+    for r in all_results:
+        row_dict = dict(r)
+        if starts_at_aware := row_dict.get('starts_at'):
+            row_dict['starts_at'] = starts_at_aware.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S')
+        if ends_at_aware := row_dict.get('ends_at'):
+            row_dict['ends_at'] = ends_at_aware.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S')
+        results.append(row_dict)
+
     return jsonify(results)
+
 
 
 
@@ -2645,110 +2905,82 @@ def create_group_with_slots():
     }
     """
     data = request.get_json(silent=True) or {}
-    gid = uuid.uuid4()                      # OBIEKT UUID (nie string)
+    gid = uuid.uuid4()
     status = data.get("status", "planned")
 
     try:
         with engine.begin() as conn:
-            # 1) event_groups (MUSI być najpierw – FK)
+            # 1) Utwórz nadrzędny pakiet w event_groups
             conn.execute(text("""
-                INSERT INTO event_groups (id, client_id, label)
-                VALUES (:id, :client_id, :label)
-            """), {
+                    INSERT INTO event_groups (id, client_id, label)
+                    VALUES (:id, :client_id, :label)
+                """), {
                 "id": gid,
                 "client_id": data["client_id"],
                 "label": data.get("label")
             })
 
-            # 2) THERAPY (z obsługą zajęć grupowych -> session_id)
+            # 2) Utwórz slot terapii i pobierz jego ID
             t = data["therapy"]
             ts = datetime.fromisoformat(t["starts_at"]).replace(tzinfo=TZ)
             te = datetime.fromisoformat(t["ends_at"]).replace(tzinfo=TZ)
+            session_id = ensure_shared_session_id_for_therapist(conn, int(t["therapist_id"]), ts, te)
 
-            session_id = ensure_shared_session_id_for_therapist(
-                conn, int(t["therapist_id"]), ts, te
-            )
+            therapy_slot_id = conn.execute(text("""
+                  INSERT INTO schedule_slots (
+                    group_id, client_id, therapist_id, kind, 
+                    starts_at, ends_at, place_to, status, session_id
+                  ) VALUES (
+                    :group_id, :client_id, :therapist_id, 'therapy', 
+                    :starts_at, :ends_at, :place, :status, :session_id
+                  ) RETURNING id
+                """), {
+                "group_id": str(gid), "client_id": data["client_id"], "therapist_id": t["therapist_id"],
+                "starts_at": ts, "ends_at": te, "place": t.get("place"),
+                "status": status, "session_id": session_id
+            }).scalar_one()
 
-            conn.execute(text("""
-              INSERT INTO schedule_slots (
-                group_id, client_id, therapist_id, driver_id, vehicle_id,
-                kind, starts_at, ends_at, place_from, place_to, status, session_id
-              )
-              VALUES (
-                :group_id, :client_id, :therapist_id, NULL, NULL,
-                'therapy', :starts_at, :ends_at, NULL, :place, :status, :session_id
-              )
-            """), {
-                "group_id": gid,
-                "client_id": data["client_id"],
-                "therapist_id": t["therapist_id"],
-                "starts_at": ts, "ends_at": te,
-                "place": t.get("place"),
-                "status": status,
-                "session_id": session_id  # None = indywidualne; UUID = grupa
-            })
-
-            # 3) PICKUP (opcjonalnie) – wspólny kurs -> run_id
-            if data.get("pickup"):
-                p = data["pickup"]
-                # NOWOŚĆ: Oblicz dystans
-                distance = get_route_distance(p.get("from"), p.get("to"))
-
-                s = datetime.fromisoformat(p["starts_at"]).replace(tzinfo=TZ)
-                e = datetime.fromisoformat(p["ends_at"]).replace(tzinfo=TZ)
-                run_id = ensure_shared_run_id_for_driver(conn, int(p["driver_id"]), s, e)
-
+            # --- POCZĄTEK POPRAWKI ---
+            # 3) Automatycznie utwórz wpis o obecności dla tego slotu terapii
+            if therapy_slot_id:
                 conn.execute(text("""
-                                 INSERT INTO schedule_slots (
-                                   group_id, client_id, driver_id, vehicle_id, kind, 
-                                   starts_at, ends_at, place_from, place_to, status, run_id, distance_km
-                                 )
-                                 VALUES (
-                                   :group_id, :client_id, :driver_id, :vehicle_id, 'pickup', 
-                                   :starts_at, :ends_at, :from, :to, :status, :run_id, :distance
-                                 )
-                               """), {
-                    "group_id": gid,
-                    "client_id": data["client_id"],
-                    "driver_id": p["driver_id"],
-                    "vehicle_id": p.get("vehicle_id"),
-                    "starts_at": s, "ends_at": e,
-                    "from": p.get("from"), "to": p.get("to"),
-                    "status": status,
-                    "run_id": run_id,
-                    "distance": distance
+                        INSERT INTO individual_session_attendance (slot_id, status)
+                        VALUES (:slot_id, 'obecny')
+                    """), {"slot_id": therapy_slot_id})
+
+            # --- KONIEC POPRAWKI ---
+
+            # Funkcja pomocnicza do tworzenia slotów dowozu/odwozu
+            def insert_run(run_data, kind):
+                if not run_data: return
+                s = datetime.fromisoformat(run_data["starts_at"]).replace(tzinfo=TZ)
+                e = datetime.fromisoformat(run_data["ends_at"]).replace(tzinfo=TZ)
+                run_id = ensure_shared_run_id_for_driver(conn, int(run_data["driver_id"]), s, e)
+                conn.execute(text("""
+                        INSERT INTO schedule_slots (
+                            group_id, client_id, driver_id, vehicle_id, kind, 
+                            starts_at, ends_at, place_from, place_to, status, run_id
+                        ) VALUES (
+                            :group_id, :client_id, :driver_id, :vehicle_id, :kind, 
+                            :starts_at, :ends_at, :from, :to, :status, :run_id
+                        )
+                    """), {
+                    "group_id": str(gid), "client_id": data["client_id"], "driver_id": run_data["driver_id"],
+                    "vehicle_id": run_data.get("vehicle_id"), "kind": kind, "starts_at": s, "ends_at": e,
+                    "from": run_data.get("from"), "to": run_data.get("to"), "status": status, "run_id": run_id
                 })
 
-            # 4) DROPOFF (opcjonalnie) – wspólny kurs -> run_id
-            if data.get("dropoff"):
-                d = data["dropoff"]
-                distance = get_route_distance(d.get("from"), d.get("to"))
-                s = datetime.fromisoformat(d["starts_at"]).replace(tzinfo=TZ)
-                e = datetime.fromisoformat(d["ends_at"]).replace(tzinfo=TZ)
-                run_id = ensure_shared_run_id_for_driver(conn, int(d["driver_id"]), s, e)
-
-                conn.execute(text("""
-                                  INSERT INTO schedule_slots (
-                                    group_id, client_id, driver_id, vehicle_id, kind, 
-                                    starts_at, ends_at, place_from, place_to, status, run_id, distance_km
-                                  )
-                                  VALUES (
-                                    :group_id, :client_id, :driver_id, :vehicle_id, 'dropoff', 
-                                    :starts_at, :ends_at, :from, :to, :status, :run_id, :distance
-                                  )
-                                """), {
-                    "group_id": gid,
-                    "client_id": data["client_id"],
-                    "driver_id": d["driver_id"],
-                    "vehicle_id": d.get("vehicle_id"),
-                    "starts_at": s, "ends_at": e,
-                    "from": d.get("from"), "to": d.get("to"),
-                    "status": status,
-                    "run_id": run_id,
-                    "distance": distance
-                })
+            # 4) Utwórz sloty dowozu i odwozu
+            insert_run(data.get("pickup"), "pickup")
+            insert_run(data.get("dropoff"), "dropoff")
 
         return jsonify({"group_id": str(gid), "ok": True}), 201
+
+    except IntegrityError as e:
+        pgcode = getattr(e.orig, "pgcode", None)
+        if pgcode == errorcodes.FOREIGN_KEY_VIOLATION:
+            return jsonify({"error": "Naruszenie klucza obcego (sprawdź ID).", "details": str(e.orig)}), 400
+        return jsonify({"error": "Błąd bazy danych", "details": str(e.orig)}), 400
 
     except IntegrityError as e:
         # 23503: FOREIGN_KEY_VIOLATION (np. nieistniejący client_id/therapist_id/driver_id)
@@ -2765,8 +2997,8 @@ def create_group_with_slots():
 @app.get("/api/clients/<int:client_id>/tus-groups")
 def get_client_tus_groups(client_id):
     """Zwraca listę grup TUS, do których należy dany klient."""
-    with session_scope() as session:
-        groups = session.query(TUSGroup) \
+    with session_scope() as db_session:
+        groups = db_session.query(TUSGroup) \
             .join(TUSGroup.member_associations) \
             .filter(TUSGroupMember.client_id == client_id) \
             .all()
@@ -2783,8 +3015,8 @@ def get_client_tus_groups(client_id):
 @app.get("/api/tus/sessions/<int:session_id>/bonuses")
 def get_session_bonuses(session_id):
     """Pobiera listę bonusów indywidualnych przyznanych w danej sesji."""
-    with session_scope() as session:
-        bonuses = session.query(TUSMemberBonus) \
+    with session_scope() as db_session:
+        bonuses = db_session.query(TUSMemberBonus) \
             .filter(TUSMemberBonus.session_id == session_id).all()
 
         result = {b.client_id: b.points for b in bonuses}
@@ -2797,9 +3029,9 @@ def save_session_bonuses(session_id):
     data = request.get_json(silent=True) or {}
     bonuses_data = data.get("bonuses", [])  # Oczekujemy listy: [{"client_id": 1, "points": 5}, ...]
 
-    with session_scope() as session:
+    with session_scope() as db_session:
         # 1. Usuń stare bonusy dla tej sesji, aby uniknąć duplikatów
-        session.query(TUSMemberBonus).filter(TUSMemberBonus.session_id == session_id).delete()
+        db_session.query(TUSMemberBonus).filter(TUSMemberBonus.session_id == session_id).delete()
 
         # 2. Dodaj nowe bonusy
         for bonus in bonuses_data:
@@ -2809,7 +3041,7 @@ def save_session_bonuses(session_id):
                     client_id=bonus["client_id"],
                     points=bonus["points"]
                 )
-                session.add(new_bonus)
+                db_session.add(new_bonus)
 
     return jsonify({"ok": True}), 200
 
@@ -2819,9 +3051,9 @@ def save_session_bonuses(session_id):
 @app.get("/api/tus/sessions/<int:session_id>")
 def get_tus_session_details(session_id: int):
     """Zwraca szczegóły pojedynczej sesji TUS, w tym listę jej uczestników."""
-    with session_scope() as session:
+    with session_scope() as db_session:
         # Krok 1: Pobierz sesję i od razu jej temat (prosta relacja)
-        session_obj = session.query(TUSSession).options(
+        session_obj = db_session.query(TUSSession).options(
             joinedload(TUSSession.topic)
         ).filter(TUSSession.id == session_id).first()
 
@@ -2830,7 +3062,7 @@ def get_tus_session_details(session_id: int):
 
         # Krok 2: Pobierz grupę tej sesji i jej członków
         # To zapytanie jest bezpieczniejsze i korzysta z poprawnie skonfigurowanej relacji
-        group = session.query(TUSGroup).options(
+        group = db_session.query(TUSGroup).options(
             joinedload(TUSGroup.member_associations).joinedload(TUSGroupMember.client)
         ).filter(TUSGroup.id == session_obj.group_id).first()
 
@@ -2857,34 +3089,42 @@ def get_bonus_details(group_id: int):
     print("\n--- URUCHOMIONO get_bonus_details ---")
     print(f"--- Grupa ID: {group_id} ---")
 
-    with session_scope() as session:
-        group = session.query(TUSGroup).options(
+    # POPRAWKA: Zmiana nazwy zmiennej na 'db_session' dla spójności
+    with session_scope() as db_session:
+        group = db_session.query(TUSGroup).options(
             joinedload(TUSGroup.member_associations).joinedload(TUSGroupMember.client)
         ).filter(TUSGroup.id == group_id).first()
 
         if not group:
-            print("!!! BŁĄD: Nie znaleziono grupy.")
+            # ...
             return jsonify({"error": "Group not found"}), 404
 
         member_ids = [member.id for member in group.members]
-        print(f"Znaleziono członków o ID: {member_ids}")
         if not member_ids:
             return jsonify([])
 
-        # Subzapytania... (bez zmian)
-        behavior_scores_sq = session.query(TUSSessionMemberScore.client_id,
-                                           func.sum(TUSSessionMemberScore.points).label("total_behavior")).join(
-            TUSSession, TUSSession.id == TUSSessionMemberScore.session_id).filter(
-            TUSSession.group_id == group_id).group_by(TUSSessionMemberScore.client_id).subquery()
-        session_bonuses_sq = session.query(TUSMemberBonus.client_id,
-                                           func.sum(TUSMemberBonus.points).label("total_session_bonus")).join(
-            TUSSession, TUSSession.id == TUSMemberBonus.session_id).filter(TUSSession.group_id == group_id).group_by(
-            TUSMemberBonus.client_id).subquery()
-        general_bonuses_sq = session.query(TUSGeneralBonus.client_id,
-                                           func.sum(TUSGeneralBonus.points).label("total_general_bonus")).filter(
-            TUSGeneralBonus.group_id == group_id).group_by(TUSGeneralBonus.client_id).subquery()
+        # POPRAWKA: Użycie 'db_session' we wszystkich zapytaniach
+        behavior_scores_sq = db_session.query(
+            TUSSessionMemberScore.client_id,
+            func.sum(TUSSessionMemberScore.points).label("total_behavior")
+        ).join(TUSSession, TUSSession.id == TUSSessionMemberScore.session_id) \
+            .filter(TUSSession.group_id == group_id) \
+            .group_by(TUSSessionMemberScore.client_id).subquery()
 
-        results_query = session.query(
+        session_bonuses_sq = db_session.query(
+            TUSMemberBonus.client_id,
+            func.sum(TUSMemberBonus.points).label("total_session_bonus")
+        ).join(TUSSession, TUSSession.id == TUSMemberBonus.session_id) \
+            .filter(TUSSession.group_id == group_id) \
+            .group_by(TUSMemberBonus.client_id).subquery()
+
+        general_bonuses_sq = db_session.query(
+            TUSGeneralBonus.client_id,
+            func.sum(TUSGeneralBonus.points).label("total_general_bonus")
+        ).filter(TUSGeneralBonus.group_id == group_id) \
+            .group_by(TUSGeneralBonus.client_id).subquery()
+
+        results_query = db_session.query(
             Client.id, Client.full_name,
             func.coalesce(behavior_scores_sq.c.total_behavior, 0),
             func.coalesce(session_bonuses_sq.c.total_session_bonus, 0),
@@ -2895,16 +3135,11 @@ def get_bonus_details(group_id: int):
             .filter(Client.id.in_(member_ids)).order_by(Client.full_name)
 
         final_results = []
-        print("\n--- Rozpoczynam obliczenia dla każdego członka: ---")
         for client_id, full_name, behavior_pts, session_pts, general_pts in results_query.all():
-            print(f"\n  Obliczam dla: {full_name} (ID: {client_id})")
-            print(f"    - Pobrane pkt. za zachowania: {behavior_pts}")
-            print(f"    - Pobrane bonusy z sesji: {session_pts}")
-            print(f"    - Pobrane bonusy ogólne: {general_pts}")
-
-            total_points = int(session_pts) + int(general_pts)
-
-            print(f"    - Obliczona suma (sesja + ogólne): {session_pts} + {general_pts} = {total_points}")
+            # --- POCZĄTEK POPRAWKI ---
+            # Dodaj 'behavior_pts' do sumy
+            total_points = int(behavior_pts) + int(session_pts) + int(general_pts)
+            # --- KONIEC POPRAWKI ---
 
             final_results.append({
                 "client_id": client_id, "full_name": full_name,
@@ -2914,15 +3149,11 @@ def get_bonus_details(group_id: int):
                 "total_points": total_points
             })
 
-        print("\n--- Zakończono obliczenia. Wynik końcowy zostanie wysłany do przeglądarki. ---")
         return jsonify(final_results)
 
 
 @app.post("/api/tus/groups/<int:group_id>/award-general-bonus")
 def award_general_bonus(group_id: int):
-    """
-    Przyznaje bonus ogólny (niepowiązany z sesją) dla członka grupy.
-    """
     data = request.get_json(silent=True) or {}
     client_id = data.get("client_id")
     points = data.get("points")
@@ -2937,24 +3168,24 @@ def award_general_bonus(group_id: int):
             raise ValueError()
     except (ValueError, TypeError):
         return jsonify({"error": "Points must be a positive integer"}), 400
-
-    with session_scope() as session:
-        # Sprawdź, czy klient należy do grupy (dla bezpieczeństwa)
-        is_member = session.query(TUSGroupMember).filter_by(
+        # Mnożymy przyznane punkty razy 10
+    points *= 10
+    # POPRAWKA: Użycie 'db_session' z 'session_scope'
+    with session_scope() as db_session:
+        is_member = db_session.query(TUSGroupMember).filter_by(
             group_id=group_id, client_id=client_id
         ).first()
 
         if not is_member:
             return jsonify({"error": "Client is not a member of this group"}), 403
 
-        # Dodaj nowy bonus ogólny
         new_bonus = TUSGeneralBonus(
             client_id=client_id,
             group_id=group_id,
             points=points,
             reason=reason
         )
-        session.add(new_bonus)
+        db_session.add(new_bonus)
 
     return jsonify({"ok": True}), 201
 
@@ -2962,8 +3193,8 @@ def award_general_bonus(group_id: int):
 @app.get("/api/tus/groups/<int:group_id>/general-bonus-history")
 def get_general_bonus_history(group_id: int):
     """Zwraca historię przyznanych bonusów ogólnych dla grupy."""
-    with session_scope() as session:
-        history = session.query(
+    with session_scope() as db_session:
+        history = db_session.query(
             TUSGeneralBonus.awarded_at,
             TUSGeneralBonus.points,
             TUSGeneralBonus.reason,
@@ -2982,7 +3213,678 @@ def get_general_bonus_history(group_id: int):
         ]
         return jsonify(results)
 
+@app.put('/api/tus/groups/<int:group_id>/schedule')
+def save_group_schedule(group_id):
+    data = request.get_json(silent=True) or {}
+    schedule_days_str = data.get('schedule_days', [])
+
+    if not isinstance(schedule_days_str, list):
+        return jsonify({"error": "Oczekiwano tablicy 'schedule_days'."}), 400
+
+    with session_scope() as session:
+        group = session.get(TUSGroup, group_id)
+        if not group:
+            return jsonify({"error": "Nie znaleziono grupy."}), 404
+
+        # Konwertuj stringi na obiekty dat
+        group.schedule_days = sorted([date.fromisoformat(d) for d in set(schedule_days_str)])
+        session.commit()
+
+    return jsonify({"ok": True})
 
 
+@app.get("/api/tus/sessions-for-day")
+def get_sessions_for_day():
+    """Zwraca listę sesji TUS dla podanej daty."""
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify({"error": "Parametr 'date' jest wymagany."}), 400
 
+    try:
+        query_date = date.fromisoformat(date_str)
+    except ValueError:
+        return jsonify({"error": "Nieprawidłowy format daty."}), 400
+
+    with session_scope() as db_session:
+        sessions = db_session.query(
+            TUSSession.id,
+            TUSSession.session_time,
+            TUSGroup.name,
+            TUSTopic.title
+        ).join(TUSGroup).join(TUSTopic).filter(TUSSession.session_date == query_date).order_by(
+            TUSSession.session_time).all()
+
+        result = [
+            {
+                "session_id": s.id,
+                "session_time": s.session_time.strftime('%H:%M:%S') if s.session_time else None,
+                "group_name": s.name,
+                "topic_title": s.title
+            } for s in sessions
+        ]
+        return jsonify(result)
+
+
+@app.get("/api/tus/sessions/<int:session_id>/attendance")
+def get_attendance(session_id):
+    """Pobiera listę uczestników i ich status obecności dla danej sesji."""
+    with session_scope() as db_session:
+        session = db_session.query(TUSSession).filter_by(id=session_id).first()
+        if not session:
+            return jsonify({"error": "Sesja nie znaleziona"}), 404
+
+        members = db_session.query(Client.id, Client.full_name) \
+            .join(TUSGroupMember) \
+            .filter(TUSGroupMember.group_id == session.group_id).order_by(Client.full_name).all()
+
+        attendance_records = db_session.query(TUSSessionAttendance) \
+            .filter_by(session_id=session_id).all()
+
+        attendance_map = {rec.client_id: rec.status for rec in attendance_records}
+
+        return jsonify({
+            "group_name": session.group.name,
+            "members": [{"id": m.id, "full_name": m.full_name} for m in members],
+            "attendance": attendance_map
+        })
+
+
+@app.post("/api/tus/sessions/<int:session_id>/attendance")
+def save_attendance(session_id):
+    """Zapisuje listę obecności dla sesji."""
+    data = request.get_json()
+    if not isinstance(data, list):
+        return jsonify({"error": "Oczekiwano listy obiektów."}), 400
+
+    with session_scope() as db_session:
+        # Usuń stare wpisy, aby uniknąć konfliktów
+        db_session.query(TUSSessionAttendance).filter_by(session_id=session_id).delete()
+
+        # Dodaj nowe wpisy
+        for item in data:
+            new_attendance = TUSSessionAttendance(
+                session_id=session_id,
+                client_id=item['client_id'],
+                status=item['status']
+            )
+            db_session.add(new_attendance)
+
+    return jsonify({"message": "Obecność zapisana pomyślnie."}), 200
+
+@app.get("/api/clients/<int:client_id>/attendance")
+def get_client_attendance(client_id):
+    """Zwraca miesięczny raport obecności dla danego klienta."""
+    month_str = request.args.get('month') # Oczekiwany format: YYYY-MM
+    if not month_str:
+        return jsonify({"error": "Parametr 'month' jest wymagany."}), 400
+
+    try:
+        year, month = map(int, month_str.split('-'))
+    except ValueError:
+        return jsonify({"error": "Nieprawidłowy format miesiąca. Oczekiwano YYYY-MM."}), 400
+
+    with session_scope() as db_session:
+        # Zapytanie do bazy o obecności dla danego klienta i miesiąca
+        attendance_records = db_session.query(
+            TUSSession.session_date,
+            TUSSessionAttendance.status,
+            TUSGroup.name.label('group_name'),
+            TUSTopic.title.label('topic_title')
+        ).join(TUSSessionAttendance, TUSSession.id == TUSSessionAttendance.session_id)\
+         .join(TUSGroup, TUSSession.group_id == TUSGroup.id)\
+         .join(TUSTopic, TUSSession.topic_id == TUSTopic.id)\
+         .filter(
+            TUSSessionAttendance.client_id == client_id,
+            func.extract('year', TUSSession.session_date) == year,
+            func.extract('month', TUSSession.session_date) == month
+        ).order_by(TUSSession.session_date).all()
+
+        # Formatowanie wyników do wysłania jako JSON
+        result = [
+            {
+                "session_date": record.session_date.isoformat(),
+                "status": record.status,
+                "group_name": record.group_name,
+                "topic_title": record.topic_title
+            } for record in attendance_records
+        ]
+        return jsonify(result)
+
+
+@app.get("/api/clients/<int:client_id>/all-attendance")
+def get_client_all_attendance(client_id):
+    """Zwraca kompletny miesięczny raport obecności (TUS + indywidualne) dla klienta."""
+    month_str = request.args.get('month')
+    if not month_str:
+        return jsonify({"error": "Parametr 'month' jest wymagany."}), 400
+
+    try:
+        year, month = map(int, month_str.split('-'))
+    except ValueError:
+        return jsonify({"error": "Nieprawidłowy format miesiąca."}), 400
+
+    with session_scope() as db_session:
+        # 1. Pobierz obecności z sesji TUS
+        tus_records = db_session.query(
+            TUSSession.session_date.label("date"),
+            TUSSessionAttendance.status,
+            TUSGroup.name.label('group_name'),
+            TUSTopic.title.label('topic_title')
+        ).join(TUSSessionAttendance).join(TUSGroup).join(TUSTopic) \
+            .filter(
+            TUSSessionAttendance.client_id == client_id,
+            func.extract('year', TUSSession.session_date) == year,
+            func.extract('month', TUSSession.session_date) == month
+        ).all()
+
+        # 2. Pobierz obecności ze spotkań indywidualnych
+        individual_records = db_session.query(
+            ScheduleSlot.starts_at.label("date"),
+            IndividualSessionAttendance.status,
+            Therapist.full_name.label('therapist_name')
+        ).join(IndividualSessionAttendance) \
+            .join(Therapist, Therapist.id == ScheduleSlot.therapist_id) \
+            .filter(
+            ScheduleSlot.client_id == client_id,
+            ScheduleSlot.kind == 'therapy',
+            func.extract('year', ScheduleSlot.starts_at) == year,
+            func.extract('month', ScheduleSlot.starts_at) == month
+        ).all()
+
+        # 3. Połącz i sformatuj wyniki
+        all_records = []
+        for record in tus_records:
+            all_records.append({
+                "date": record.date.isoformat(),
+                "description": f"Grupa: {record.group_name}",
+                "details": f"Temat: {record.topic_title}",
+                "status": record.status
+            })
+
+        for record in individual_records:
+            all_records.append({
+                "date": record.date.isoformat(),
+                "description": "Spotkanie indywidualne",
+                "details": f"Terapeuta: {record.therapist_name}",
+                "status": record.status
+            })
+
+        # Sortuj po dacie
+        all_records.sort(key=lambda x: x['date'])
+
+        return jsonify(all_records)
+
+
+@app.get("/api/individual-sessions-for-day")
+def get_individual_sessions_for_day():
+    """Zwraca listę indywidualnych sesji terapeutycznych dla podanej daty wraz z ich statusem obecności."""
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify({"error": "Parametr 'date' jest wymagany."}), 400
+
+    try:
+        query_date = date.fromisoformat(date_str)
+    except ValueError:
+        return jsonify({"error": "Nieprawidłowy format daty."}), 400
+
+    with session_scope() as db_session:
+        sessions = db_session.query(
+            ScheduleSlot.id.label("slot_id"),
+            ScheduleSlot.starts_at,
+            Client.full_name.label("client_name"),
+            Therapist.full_name.label("therapist_name"),
+            IndividualSessionAttendance.status.label("attendance_status")
+        ).join(Client, Client.id == ScheduleSlot.client_id) \
+            .join(Therapist, Therapist.id == ScheduleSlot.therapist_id) \
+            .outerjoin(IndividualSessionAttendance, ScheduleSlot.id == IndividualSessionAttendance.slot_id) \
+            .filter(
+            func.date(ScheduleSlot.starts_at) == query_date,
+            ScheduleSlot.kind == 'therapy'
+        ).order_by(ScheduleSlot.starts_at).all()
+
+        result = [
+            {
+                "slot_id": s.slot_id,
+                "starts_at": s.starts_at.isoformat(),
+                "client_name": s.client_name,
+                "therapist_name": s.therapist_name,
+                "attendance_status": s.attendance_status or 'obecny'  # Domyślnie 'obecny', jeśli brak wpisu
+            } for s in sessions
+        ]
+        return jsonify(result)
+
+
+@app.patch("/api/individual-attendance/<int:slot_id>")
+def update_individual_attendance(slot_id):
+    """Aktualizuje lub tworzy (UPSERT) status obecności dla pojedynczego slotu."""
+    data = request.get_json()
+    new_status = data.get('status')
+    if not new_status:
+        return jsonify({"error": "Status jest wymagany."}), 400
+
+    with session_scope() as db_session:
+        # Spróbuj znaleźć istniejący wpis
+        attendance_record = db_session.query(IndividualSessionAttendance).filter_by(slot_id=slot_id).first()
+
+        if attendance_record:
+            # Jeśli istnieje, zaktualizuj
+            attendance_record.status = new_status
+        else:
+            # Jeśli nie istnieje, stwórz nowy
+            new_attendance = IndividualSessionAttendance(slot_id=slot_id, status=new_status)
+            db_session.add(new_attendance)
+
+    return jsonify({"message": "Status obecności zaktualizowany."})
+
+@app.get("/individual_attendance.html")
+def individual_attendance_page():
+    # Tutaj można dodać @login_required, jeśli strona ma być chroniona
+    return app.send_static_file("individual_attendance.html")
+
+
+def find_best_match(name_to_find, name_list):
+    """Prosta funkcja do znajdowania najlepszego dopasowania na liście nazw."""
+    if not name_to_find or not name_list:
+        return None
+
+    name_to_find_lower = name_to_find.lower()
+
+    for name in name_list:
+        if name.lower() == name_to_find_lower:
+            return name
+    for name in name_list:
+        if name.lower().startswith(name_to_find_lower) or name_to_find_lower.startswith(name.lower()):
+            return name
+
+    return None
+
+
+@app.post("/api/parse-schedule-image")
+def parse_schedule_image():
+    """Parsuje obraz harmonogramu i dopasowuje skrócone nazwy do pełnych z bazy"""
+    if 'schedule_image' not in request.files:
+        return jsonify({"error": "Brak pliku obrazu w zapytaniu."}), 400
+
+    # Pobierz kontekst z formularza
+    scope = request.form.get('scope')
+    therapist_from_form = request.form.get('therapist_name')
+    date_from_form = request.form.get('date') if scope == 'day' else None
+    month_from_form = request.form.get('month') if scope == 'month' else None
+
+    if not therapist_from_form or (scope == 'day' and not date_from_form) or (scope == 'month' and not month_from_form):
+        return jsonify({"error": "Zakres, data/miesiąc i terapeuta są wymagani."}), 400
+
+    file = request.files['schedule_image']
+
+    try:
+        image = Image.open(file.stream).convert("RGB")
+        buffered = io.BytesIO()
+        image.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    except Exception as e:
+        return jsonify({"error": f"Błąd przetwarzania obrazu: {e}"}), 500
+
+    # Pobierz dane z bazy
+    with session_scope() as db_session:
+        all_clients = [c.full_name for c in db_session.query(Client).all()]
+        all_groups = [g.name for g in db_session.query(TUSGroup).all()]
+
+    # Przygotuj prompt dla AI
+    if scope == 'month':
+        schema = {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "date": {"type": "STRING", "description": "Data w formacie RRRR-MM-DD"},
+                    "start_time": {"type": "STRING"},
+                    "end_time": {"type": "STRING"},
+                    "client_name": {"type": "STRING"},
+                    "type": {"type": "STRING"}
+                },
+                "required": ["date", "start_time", "end_time", "client_name", "type"]
+            }
+        }
+        prompt = f"""
+        Przeanalizuj obraz harmonogramu dla miesiąca {month_from_form}, terapeuta: {therapist_from_form}.
+
+        Dostępni klienci: {', '.join(all_clients[:10])}... (łącznie {len(all_clients)})
+        Dostępne grupy: {', '.join(all_groups)}
+
+        Dla każdego wpisu podaj: datę, godziny, nazwę klienta/grupy, typ zajęć (indywidualne/tus).
+        Dopasuj skrócone nazwy do pełnych z listy.
+        """
+    else:
+        schema = {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "start_time": {"type": "STRING"},
+                    "end_time": {"type": "STRING"},
+                    "client_name": {"type": "STRING"},
+                    "type": {"type": "STRING"}
+                },
+                "required": ["start_time", "end_time", "client_name", "type"]
+            }
+        }
+        prompt = f"""
+        Przeanalizuj obraz harmonogramu dla dnia {date_from_form}, terapeuta: {therapist_from_form}.
+
+        Dostępni klienci: {', '.join(all_clients[:10])}... (łącznie {len(all_clients)})
+        Dostępne grupy: {', '.join(all_groups)}
+
+        Wyodrębnij godziny, nazwy klientów/grup, typ zajęć.
+        Dopasuj skrócone nazwy do pełnych z listy.
+        """
+
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": "image/png", "data": img_str}}
+            ]
+        }],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": schema
+        }
+    }
+
+    # Użyj swojego klucza API
+    api_key = "AIzaSyDbkt_jhBU9LNd40MAJm1GazLUPeywYo1E"
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
+
+    try:
+        response = requests.post(api_url, json=payload, headers={'Content-Type': 'application/json'}, timeout=90)
+        response.raise_for_status()
+        result = response.json()
+
+        if 'candidates' not in result or not result['candidates']:
+            return jsonify({"error": "AI nie zwróciło wyników", "response": result}), 500
+
+        json_text = result['candidates'][0]['content']['parts'][0]['text']
+        parsed_data = json.loads(json_text)
+
+        # Dopasuj nazwy po stronie serwera
+        processed_data = []
+        for item in parsed_data:
+            original_name = item.get('client_name', '')
+
+            if item.get('type', '').lower() == 'tus':
+                matched_name = find_best_match(original_name, all_groups)
+            else:
+                matched_name = find_best_match(original_name, all_clients)
+
+            processed_item = {
+                'date': item.get('date', date_from_form),
+                'start_time': item.get('start_time'),
+                'end_time': item.get('end_time'),
+                'client_name': matched_name or original_name,
+                'type': item.get('type', 'indywidualne'),
+                'therapist_name': therapist_from_form,
+                'original_name': original_name,
+                'matched': matched_name is not None
+            }
+
+            processed_data.append(processed_item)
+
+        return jsonify({
+            "success": True,
+            "data": processed_data,
+            "matched_count": len([d for d in processed_data if d['matched']]),
+            "total_count": len(processed_data)
+        })
+
+    except Exception as e:
+        print(f"Błąd w parse_schedule_image: {traceback.format_exc()}")
+        return jsonify({"error": f"Wystąpił błąd: {str(e)}"}), 500
+
+
+@app.get("/api/test-name-matching")
+def test_name_matching():
+    """Endpoint do testowania dopasowywania nazw - dla diagnostyki"""
+    name_to_match = request.args.get('name')
+
+    with session_scope() as db_session:
+        all_clients = [c.full_name for c in db_session.query(Client).all()]
+        all_groups = [g.name for g in db_session.query(TUSGroup).all()]
+
+    print(f"\n=== TEST DOPASOWYWANIA DLA: '{name_to_match}' ===")
+
+    client_match = find_best_match(name_to_match, all_clients)
+    group_match = find_best_match(name_to_match, all_groups)
+
+    # Znajdź wszystkich klientów którzy mogą pasować
+    potential_client_matches = []
+    for client in all_clients:
+        if name_to_match.lower() in client.lower():
+            potential_client_matches.append(client)
+
+    return jsonify({
+        'input': name_to_match,
+        'client_match': client_match,
+        'group_match': group_match,
+        'potential_matches': potential_client_matches,
+        'available_clients': all_clients,
+        'available_groups': all_groups
+    })
+
+@app.before_request
+def list_routes():
+    if request.endpoint:
+        print(f"Endpoint: {request.endpoint}, Method: {request.method}")
+
+# Lub dodaj specjalny endpoint do wyświetlenia wszystkich routes:
+@app.route("/api/routes")
+def list_all_routes():
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append({
+            'endpoint': rule.endpoint,
+            'methods': list(rule.methods),
+            'path': str(rule)
+        })
+    return jsonify(routes)
+
+
+# ===== DODAJ TEN ENDPOINT PRZED OSTATNIĄ LINIĄ =====
+
+@app.post("/api/save-parsed-schedule")
+def save_parsed_schedule():
+    """Zapisuje przetworzone dane harmonogramu do bazy"""
+    print("=== ENDPOINT save_parsed_schedule WYWOŁANY ===")
+
+    try:
+        data = request.get_json()
+        print(f"Otrzymane dane: {data}")
+
+        if not isinstance(data, list):
+            return jsonify({
+                "success": False,
+                "error": "Oczekiwano tablicy obiektów.",
+                "saved_count": 0,
+                "total_count": 0,
+                "errors": []
+            }), 400
+
+        saved_count = 0
+        errors = []
+
+        with session_scope() as db_session:
+            # Pobierz mapowania nazw do ID
+            therapists = db_session.query(Therapist).all()
+            clients = db_session.query(Client).all()
+            groups = db_session.query(TUSGroup).all()
+
+            therapists_map = {t.full_name.lower(): t.id for t in therapists}
+            clients_map = {c.full_name.lower(): c.id for c in clients}
+            groups_map = {g.name.lower(): g.id for g in groups}
+
+            print(f"Dostępni terapeuci: {list(therapists_map.keys())}")
+            print(f"Dostępni klienci: {list(clients_map.keys())[:5]}...")
+            print(f"Dostępne grupy: {list(groups_map.keys())}")
+
+            # KROK 1: Najpierw sprawdź wszystkie konflikty
+            conflicts_found = []
+            valid_items = []
+
+            for i, item in enumerate(data):
+                try:
+                    print(f"Sprawdzanie wiersza {i + 1}: {item}")
+
+                    # Walidacja wymaganych pól
+                    required_fields = ['date', 'start_time', 'end_time', 'client_name', 'therapist_name', 'type']
+                    missing_fields = [field for field in required_fields if not item.get(field)]
+                    if missing_fields:
+                        errors.append(f"Wiersz {i + 1}: Brak pól: {', '.join(missing_fields)}")
+                        continue
+
+                    # Znajdź ID terapeuty
+                    therapist_name = item['therapist_name'].lower()
+                    if therapist_name not in therapists_map:
+                        errors.append(f"Wiersz {i + 1}: Nieznany terapeuta '{item['therapist_name']}'")
+                        continue
+                    therapist_id = therapists_map[therapist_name]
+
+                    # Przygotuj daty
+                    try:
+                        starts_at = datetime.fromisoformat(f"{item['date']}T{item['start_time']}:00").replace(tzinfo=TZ)
+                        ends_at = datetime.fromisoformat(f"{item['date']}T{item['end_time']}:00").replace(tzinfo=TZ)
+                    except ValueError as e:
+                        errors.append(f"Wiersz {i + 1}: Nieprawidłowy format daty/czasu - {e}")
+                        continue
+
+                    # Sprawdź czy klient/grupa istnieje
+                    client_name = item['client_name'].lower()
+                    item_type = item.get('type', '').lower()
+
+                    if item_type == 'tus':
+                        if client_name not in groups_map:
+                            errors.append(f"Wiersz {i + 1}: Nieznana grupa TUS '{item['client_name']}'")
+                            continue
+                    else:
+                        if client_name not in clients_map:
+                            errors.append(f"Wiersz {i + 1}: Nieznany klient '{item['client_name']}'")
+                            continue
+
+                    # Sprawdź konflikty czasowe
+                    try:
+                        conflicts = find_overlaps(db_session.connection(), therapist_id=therapist_id,
+                                                  starts_at=starts_at, ends_at=ends_at)
+                        if conflicts:
+                            conflict_msg = f"Wiersz {i + 1}: Konflikt czasowy {item['start_time']}-{item['end_time']} z istniejącymi zajęciami"
+                            conflicts_found.append(conflict_msg)
+                            errors.append(conflict_msg)
+                            print(f"  → KONFLIKT: {conflict_msg}")
+                            continue
+                    except Exception as e:
+                        print(f"Ostrzeżenie: Błąd sprawdzania konfliktów: {e}")
+                        # Kontynuuj mimo błędu sprawdzania konfliktów
+
+                    # Jeśli wszystko OK, dodaj do listy poprawnych
+                    valid_items.append({
+                        'index': i,
+                        'item': item,
+                        'therapist_id': therapist_id,
+                        'starts_at': starts_at,
+                        'ends_at': ends_at,
+                        'item_type': item_type,
+                        'client_name': client_name
+                    })
+
+                    print(f"  → Wiersz {i + 1} OK")
+
+                except Exception as e:
+                    error_msg = f"Wiersz {i + 1}: Błąd walidacji - {str(e)}"
+                    errors.append(error_msg)
+                    print(f"  → BŁĄD: {error_msg}")
+                    continue
+
+            print(f"Znaleziono {len(valid_items)} poprawnych wpisów do zapisania")
+            print(f"Znaleziono {len(conflicts_found)} konfliktów")
+
+            # KROK 2: Zapisz tylko poprawne wpisy bez konfliktów
+            for valid in valid_items:
+                i = valid['index']
+                item = valid['item']
+                therapist_id = valid['therapist_id']
+                starts_at = valid['starts_at']
+                ends_at = valid['ends_at']
+                item_type = valid['item_type']
+                client_name = valid['client_name']
+
+                try:
+                    if item_type == 'tus':
+                        # Zapisz sesję TUS
+                        group_id = groups_map[client_name]
+                        new_session = TUSSession(
+                            group_id=group_id,
+                            topic_id=1,  # domyślny temat
+                            session_date=starts_at.date(),
+                            session_time=starts_at.time()
+                        )
+                        db_session.add(new_session)
+                        print(f"  → Zapisano sesję TUS: {item['client_name']}")
+
+                    else:
+                        # Zapisz sesję indywidualną
+                        client_id = clients_map[client_name]
+
+                        # Utwórz grupę wydarzeń
+                        new_group_id = uuid.uuid4()
+                        new_event_group = EventGroup(
+                            id=new_group_id,
+                            client_id=client_id,
+                            label=f"Import {item['date']} {item['client_name']}"
+                        )
+
+                        # Utwórz slot terapii z session_id aby uniknąć konfliktów
+                        session_id = str(uuid.uuid4())
+                        new_slot = ScheduleSlot(
+                            group_id=new_group_id,
+                            client_id=client_id,
+                            therapist_id=therapist_id,
+                            kind='therapy',
+                            starts_at=starts_at,
+                            ends_at=ends_at,
+                            status='planned',
+                            session_id=session_id  # Ważne: ustaw session_id
+                        )
+
+                        db_session.add(new_event_group)
+                        db_session.add(new_slot)
+                        print(f"  → Zapisano sesję indywidualną: {item['client_name']}")
+
+                    saved_count += 1
+
+                except Exception as e:
+                    error_msg = f"Wiersz {i + 1}: Błąd zapisu - {str(e)}"
+                    errors.append(error_msg)
+                    print(f"  → BŁĄD ZAPISU: {error_msg}")
+
+        print(f"=== ZAPIS ZAKOŃCZONY: {saved_count}/{len(data)} ===")
+
+        return jsonify({
+            "success": True,
+            "saved_count": saved_count,
+            "total_count": len(data),
+            "errors": errors,
+            "conflicts_count": len(conflicts_found),
+            "message": f"Zapisano {saved_count} z {len(data)} wpisów. Znaleziono {len(conflicts_found)} konfliktów."
+        })
+
+    except Exception as e:
+        print(f"BŁĄD KRYTYCZNY w save_parsed_schedule: {traceback.format_exc()}")
+        return jsonify({
+            "success": False,
+            "error": f"Wewnętrzny błąd serwera: {str(e)}",
+            "saved_count": 0,
+            "total_count": 0,
+            "errors": []
+        }), 500
+
+# === URUCHOMIENIE APLIKACJI ===
+#if __name__ == "__main__":
+#    app.run(debug=True, port=5000)
 
