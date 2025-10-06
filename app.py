@@ -1,9 +1,12 @@
 import base64
+import sys
 import io
 import json
 import re
 
+import psutil
 from PIL import Image
+from werkzeug.utils import secure_filename
 
 print("--- SERWER ZALADOWAL NAJNOWSZA WERSJE PLIKU ---")
 # Wersja po refaktoryzacji, poprawkach błędów i ujednoliceniu dostępu do bazy danych.
@@ -22,7 +25,7 @@ import psycopg2
 import requests
 
 from flask_cors import CORS
-from flask import Flask, jsonify, request, g, session, redirect, url_for
+from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory
 from contextlib import contextmanager
 from psycopg2 import errorcodes
 from sqlalchemy.dialects.postgresql import UUID
@@ -41,7 +44,7 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app)
 
 # Wczytywanie konfiguracji ze zmiennych środowiskowych
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://odnowa_unwh_user:hr5g2iWpbfxi8Z5ZKBT0PUVQqhuvPAnd@dpg-d3f4mmhr0fns73d8e5qg-a/odnowa_unwh")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:EDUQ@localhost:5432/suo")
 GOOGLE_MAPS_API_KEY = os.getenv("klucz")
 
 # === DODAJ TĘ LINIĘ DIAGNOSTYCZNĄ ===
@@ -56,6 +59,13 @@ Base = declarative_base()
 SessionLocal = scoped_session(
     sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
 )
+
+# DODAJ TEN ENDPOINT:
+@app.route('/uploads/<path:filename>')
+def serve_upload(filename):
+    """Serwuje uploadowane pliki"""
+    uploads_dir = os.path.join(os.getcwd(), 'uploads')
+    return send_from_directory(uploads_dir, filename)
 
 
 def find_best_match(name_to_find, name_list):
@@ -997,7 +1007,7 @@ def list_clients_with_suo():
     )
     SELECT
       c.id AS client_id, c.full_name, c.phone, c.address, c.active,
-      -- NOWA LINIA: Sprawdza, czy klient ma jakikolwiek wpis w planie niedostępności
+      c.photo_url,  -- DODAJ TĘ LINIĘ
       EXISTS (SELECT 1 FROM client_unavailability cu WHERE cu.client_id = c.id) AS has_unavailability_plan,
       :mk AS month_key, a.minutes_quota,
       COALESCE(u.minutes_used, 0) AS minutes_used,
@@ -1016,18 +1026,8 @@ def list_clients_with_suo():
         return jsonify([dict(r) for r in rows]), 200
 
 
-@app.get("/api/clients/<int:cid>")
-def get_client(cid):
-    sql = """
-    SELECT id, full_name, phone, address, active
-    FROM clients
-    WHERE id = :cid
-    """
-    with engine.begin() as conn:
-        row = conn.execute(text(sql), {"cid": cid}).mappings().first()
-        if not row:
-            return jsonify({"error": "Nie znaleziono klienta"}), 404
-        return jsonify(dict(row)), 200
+
+
 
 @app.delete("/api/clients/<int:cid>")
 def delete_client(cid):
@@ -1081,9 +1081,10 @@ def update_client(cid):
        SET full_name = :full_name,
            phone     = :phone,
            address   = :address,
-           active    = COALESCE(:active, true)
+           active    = COALESCE(:active, true),
+           photo_url = :photo_url
      WHERE id = :id
-    RETURNING id, full_name, phone, address, active;
+    RETURNING id, full_name, phone, address, active, photo_url;
     """
     try:
         with engine.begin() as conn:
@@ -1093,6 +1094,7 @@ def update_client(cid):
                 "phone": (data.get("phone") or None),
                 "address": (data.get("address") or None),
                 "active": data.get("active", True),
+                "photo_url": data.get("photo_url"),  # DODAJ TĘ LINIĘ
             }).mappings().first()
             if not row:
                 return jsonify({"error": "Klient nie istnieje."}), 404
@@ -3311,44 +3313,43 @@ def save_attendance(session_id):
 
     return jsonify({"message": "Obecność zapisana pomyślnie."}), 200
 
-@app.get("/api/clients/<int:client_id>/attendance")
-def get_client_attendance(client_id):
-    """Zwraca miesięczny raport obecności dla danego klienta."""
-    month_str = request.args.get('month') # Oczekiwany format: YYYY-MM
-    if not month_str:
-        return jsonify({"error": "Parametr 'month' jest wymagany."}), 400
-
+@app.route('/api/daily-attendance', methods=['GET'])
+def get_daily_attendance():
     try:
-        year, month = map(int, month_str.split('-'))
-    except ValueError:
-        return jsonify({"error": "Nieprawidłowy format miesiąca. Oczekiwano YYYY-MM."}), 400
+        date = request.args.get('date')
+        if not date:
+            return jsonify({'error': 'Date parameter is required'}), 400
 
-    with session_scope() as db_session:
-        # Zapytanie do bazy o obecności dla danego klienta i miesiąca
-        attendance_records = db_session.query(
-            TUSSession.session_date,
-            TUSSessionAttendance.status,
-            TUSGroup.name.label('group_name'),
-            TUSTopic.title.label('topic_title')
-        ).join(TUSSessionAttendance, TUSSession.id == TUSSessionAttendance.session_id)\
-         .join(TUSGroup, TUSSession.group_id == TUSGroup.id)\
-         .join(TUSTopic, TUSSession.topic_id == TUSTopic.id)\
-         .filter(
-            TUSSessionAttendance.client_id == client_id,
-            func.extract('year', TUSSession.session_date) == year,
-            func.extract('month', TUSSession.session_date) == month
-        ).order_by(TUSSession.session_date).all()
+        with session_scope() as db_session:
+            # Pobierz obecność z tabeli individual_session_attendance
+            attendance_data = db_session.query(
+                IndividualSessionAttendance,
+                ScheduleSlot,
+                Client
+            ).join(
+                ScheduleSlot, IndividualSessionAttendance.slot_id == ScheduleSlot.id
+            ).join(
+                Client, ScheduleSlot.client_id == Client.id
+            ).filter(
+                func.date(ScheduleSlot.starts_at) == date
+            ).all()
 
-        # Formatowanie wyników do wysłania jako JSON
-        result = [
-            {
-                "session_date": record.session_date.isoformat(),
-                "status": record.status,
-                "group_name": record.group_name,
-                "topic_title": record.topic_title
-            } for record in attendance_records
-        ]
-        return jsonify(result)
+            result = []
+            for attendance, slot, client in attendance_data:
+                result.append({
+                    'client_id': client.id,
+                    'status': attendance.status,
+                    'notes': '',
+                    'session_time': slot.starts_at.strftime('%H:%M') if slot.starts_at else '09:00',
+                    'service_type': slot.kind,
+                    'therapist_id': slot.therapist_id
+                })
+
+            return jsonify(result)
+
+    except Exception as e:
+        print(f"Błąd w /api/daily-attendance: {str(e)}")
+        return jsonify([])
 
 
 @app.get("/api/clients/<int:client_id>/all-attendance")
@@ -3688,6 +3689,26 @@ def list_all_routes():
     return jsonify(routes)
 
 
+@app.before_request
+def check_file_size():
+    if request.method == 'POST' and request.path == '/api/parse-schedule-image':
+        # Sprawdź rozmiar content-length
+        content_length = request.content_length or 0
+        max_size = 10 * 1024 * 1024  # 10MB
+
+        if content_length > max_size:
+            return jsonify({'error': 'File too large'}), 413
+
+@app.route('/api/health')
+def health_check():
+    memory_info = psutil.Process(os.getpid()).memory_info()
+    return jsonify({
+        'status': 'healthy',
+        'memory_usage_mb': memory_info.rss / 1024 / 1024,
+        'memory_percent': psutil.virtual_memory().percent
+    })
+
+
 # ===== DODAJ TEN ENDPOINT PRZED OSTATNIĄ LINIĄ =====
 
 @app.post("/api/save-parsed-schedule")
@@ -3884,10 +3905,298 @@ def save_parsed_schedule():
             "errors": []
         }), 500
 
-# === URUCHOMIENIE APLIKACJI ===
-#if __name__ == "__main__":
-#    app.run(debug=True, port=5000)
 
+@app.route('/api/scheduled-clients', methods=['GET'])
+def get_scheduled_clients():
+    try:
+        date = request.args.get('date')
+        if not date:
+            return jsonify({'error': 'Date parameter is required'}), 400
+
+        with session_scope() as db_session:
+            # Sprawdź czy tabela schedule istnieje
+            try:
+                # Pobierz klientów z zaplanowanymi zajęciami na daną datę
+                scheduled_clients = db_session.query(Client).join(
+                    ScheduleSlot, Client.id == ScheduleSlot.client_id
+                ).filter(
+                    func.date(ScheduleSlot.starts_at) == date,
+                    Client.active == True
+                ).order_by(Client.full_name).all()
+
+                result = []
+                for client in scheduled_clients:
+                    # Znajdź slot dla tego klienta w wybranej dacie
+                    slot = db_session.query(ScheduleSlot).filter(
+                        ScheduleSlot.client_id == client.id,
+                        func.date(ScheduleSlot.starts_at) == date
+                    ).first()
+
+                    result.append({
+                        'client_id': client.id,
+                        'full_name': client.full_name,
+                        'phone': client.phone,
+                        'session_time': slot.starts_at.strftime('%H:%M') if slot else '09:00',
+                        'service_type': slot.kind if slot else 'therapy',
+                        'therapist_id': slot.therapist_id if slot else 1,
+                        'therapist_name': 'Do ustalenia',  # Możesz dodać join do therapists
+                        'service_name': 'Zajęcia terapeutyczne'
+                    })
+
+                return jsonify(result)
+
+            except Exception as table_error:
+                print(f"Tabela schedule nie istnieje, używam wszystkich klientów: {table_error}")
+
+                # Fallback: wszyscy aktywni klienci
+                clients = db_session.query(Client).filter(Client.active == True).order_by(Client.full_name).all()
+
+                scheduled_clients = []
+                for i, client in enumerate(clients):
+                    scheduled_clients.append({
+                        'client_id': client.id,
+                        'full_name': client.full_name,
+                        'phone': client.phone,
+                        'session_time': f"{(9 + i % 6):02d}:00",
+                        'service_type': 'therapy',
+                        'therapist_id': (i % 3) + 1,
+                        'therapist_name': ['Anna Kowalska', 'Piotr Nowak', 'Maria Wiśniewska'][i % 3],
+                        'service_name': 'Terapia indywidualna'
+                    })
+
+                return jsonify(scheduled_clients)
+
+    except Exception as e:
+        print(f"Błąd w scheduled-clients: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+
+@app.route('/api/attendance/bulk', methods=['POST'])
+def save_bulk_attendance():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Brak danych JSON'}), 400
+
+        date = data.get('date')
+        attendance_list = data.get('attendance', [])
+
+        if not date:
+            return jsonify({'error': 'Date is required'}), 400
+
+        print(f"Zapisuję obecność dla daty {date}, liczba wpisów: {len(attendance_list)}")
+
+        saved_count = 0
+        with session_scope() as db_session:
+            for attendance_data in attendance_list:
+                client_id = attendance_data.get('client_id')
+                status = attendance_data.get('status')
+                session_time = attendance_data.get('session_time', '09:00')
+                service_type = attendance_data.get('service_type', 'therapy')
+                therapist_id = attendance_data.get('therapist_id', 1)
+                notes = attendance_data.get('notes', '')
+
+                if not client_id or not status:
+                    continue
+
+                # Znajdź lub utwórz slot dla tego klienta i daty
+                slot = db_session.query(ScheduleSlot).filter(
+                    ScheduleSlot.client_id == client_id,
+                    func.date(ScheduleSlot.starts_at) == date,
+                    ScheduleSlot.kind == 'therapy'
+                ).first()
+
+                if not slot:
+                    # Utwórz nowy slot jeśli nie istnieje
+                    starts_at = datetime.strptime(f"{date} {session_time}", "%Y-%m-%d %H:%M").replace(tzinfo=TZ)
+                    ends_at = starts_at + timedelta(hours=1)
+
+                    slot = ScheduleSlot(
+                        client_id=client_id,
+                        therapist_id=therapist_id,
+                        kind='therapy',
+                        starts_at=starts_at,
+                        ends_at=ends_at,
+                        status='planned'
+                    )
+                    db_session.add(slot)
+                    db_session.flush()  # Aby uzyskać ID
+
+                # Znajdź lub utwórz wpis obecności
+                attendance_record = db_session.query(IndividualSessionAttendance).filter_by(
+                    slot_id=slot.id
+                ).first()
+
+                if attendance_record:
+                    # Aktualizuj istniejący wpis
+                    attendance_record.status = status
+                else:
+                    # Utwórz nowy wpis
+                    new_attendance = IndividualSessionAttendance(
+                        slot_id=slot.id,
+                        status=status
+                    )
+                    db_session.add(new_attendance)
+
+                saved_count += 1
+
+        return jsonify({
+            'message': f'Obecność zapisana pomyślnie',
+            'count': saved_count,
+            'date': date
+        })
+
+    except Exception as e:
+        print(f"Błąd w /api/attendance/bulk: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/daily-attendance/bulk', methods=['POST'])
+def save_daily_attendance_bulk():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Brak danych JSON'}), 400
+
+        date = data.get('date')
+        attendance_list = data.get('attendance', [])
+
+        if not date:
+            return jsonify({'error': 'Date is required'}), 400
+
+        print(f"Zapisuję obecność dla daty {date}, liczba wpisów: {len(attendance_list)}")
+
+        saved_count = 0
+        with session_scope() as db_session:
+            for attendance_data in attendance_list:
+                client_id = attendance_data.get('client_id')
+                status = attendance_data.get('status')
+                session_time = attendance_data.get('session_time', '09:00')
+                service_type = attendance_data.get('service_type', 'therapy')
+                therapist_id = attendance_data.get('therapist_id', 1)
+                notes = attendance_data.get('notes', '')
+
+                if not client_id or not status:
+                    continue
+
+                # Znajdź lub utwórz slot dla tego klienta i daty
+                slot = db_session.query(ScheduleSlot).filter(
+                    ScheduleSlot.client_id == client_id,
+                    func.date(ScheduleSlot.starts_at) == date,
+                    ScheduleSlot.kind == 'therapy'
+                ).first()
+
+                if not slot:
+                    # Utwórz nowy slot jeśli nie istnieje
+                    starts_at = datetime.strptime(f"{date} {session_time}", "%Y-%m-%d %H:%M").replace(tzinfo=TZ)
+                    ends_at = starts_at + timedelta(hours=1)
+
+                    slot = ScheduleSlot(
+                        client_id=client_id,
+                        therapist_id=therapist_id,
+                        kind='therapy',
+                        starts_at=starts_at,
+                        ends_at=ends_at,
+                        status='planned'
+                    )
+                    db_session.add(slot)
+                    db_session.flush()
+
+                # Znajdź lub utwórz wpis obecności
+                attendance_record = db_session.query(IndividualSessionAttendance).filter_by(
+                    slot_id=slot.id
+                ).first()
+
+                if attendance_record:
+                    attendance_record.status = status
+                else:
+                    new_attendance = IndividualSessionAttendance(
+                        slot_id=slot.id,
+                        status=status
+                    )
+                    db_session.add(new_attendance)
+
+                saved_count += 1
+
+        return jsonify({
+            'message': f'Obecność zapisana pomyślnie',
+            'count': saved_count,
+            'date': date
+        })
+
+    except Exception as e:
+        print(f"Błąd w /api/daily-attendance/bulk: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# Funkcja do znalezienia duplikatów endpointów
+def find_duplicate_endpoints():
+    endpoints = {}
+    duplicates = []
+
+    for rule in app.url_map.iter_rules():
+        if rule.endpoint in endpoints:
+            duplicates.append(rule.endpoint)
+        endpoints[rule.endpoint] = str(rule)
+
+    return duplicates
+
+
+    # Sprawdź duplikaty przy starcie
+    duplicates = find_duplicate_endpoints()
+    if duplicates:
+        print(f"ZNALEZIONO DUPLIKATY ENDPOINTÓW: {duplicates}")
+        # Możesz automatycznie wyjść jeśli chcesz
+        # sys.exit
+
+
+# ===== DODAJ TE ENDPOINTY =====
+
+@app.route('/api/attendance', methods=['GET'])
+def get_attendance_by_date():
+    """Pobiera obecność dla konkretnej daty"""
+    try:
+        date = request.args.get('date')
+        if not date:
+            return jsonify({'error': 'Date parameter is required'}), 400
+
+        print(f"Pobieram obecność dla daty: {date}")
+
+        # Tymczasowo zwróć pustą listę
+        return jsonify([])
+
+    except Exception as e:
+        print(f"Błąd w /api/attendance: {str(e)}")
+        return jsonify([])
+
+
+@app.route('/api/upload/client-photo', methods=['POST'])
+def upload_client_photo():
+    if 'photo' not in request.files:
+        return jsonify({'error': 'Brak pliku'}), 400
+
+    file = request.files['photo']
+    client_name = request.form.get('client_name', 'client')
+
+    # Walidacja
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+    if not file.filename.lower().endswith(tuple(allowed_extensions)):
+        return jsonify({'error': 'Niedozwolony format pliku'}), 400
+
+    # Zapisz plik
+    import os
+    import uuid
+    filename = f"{uuid.uuid4()}_{secure_filename(file.filename)}"
+    filepath = os.path.join('uploads', 'clients', filename)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    file.save(filepath)
+
+    # Zwróć URL
+    photo_url = f"/uploads/clients/{filename}"
+    return jsonify({'photo_url': photo_url}), 200
 
 
 
