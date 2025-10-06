@@ -4199,7 +4199,6 @@ def upload_client_photo():
     photo_url = f"/uploads/clients/{filename}"
     return jsonify({'photo_url': photo_url}), 200
 
-# === URUCHOMIENIE APLIKACJI ===
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+
+
 
