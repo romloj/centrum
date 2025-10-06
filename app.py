@@ -1935,7 +1935,7 @@ def create_tus_topic():
 
 @app.get("/api/tus/behaviors")
 def get_behaviors():
-    with Session() as s:
+    with SessionLocal() as s:
         rows = s.query(TUSBehavior).filter_by(active=True).order_by(TUSBehavior.title).all()
         return jsonify([{"id": b.id, "title": b.title, "default_max_points": b.default_max_points} for b in rows])
 
@@ -1946,7 +1946,7 @@ def create_behavior():
     dmp = int(data.get("default_max_points") or 3)
     if not title:
         return jsonify({"error":"title required"}), 400
-    with Session() as s:
+    with SessionLocal() as s:
         b = TUSBehavior(title=title, default_max_points=dmp)
         s.add(b)
         try:
@@ -1958,7 +1958,7 @@ def create_behavior():
 
 @app.delete("/api/tus/behaviors/<int:bid>")
 def delete_behavior(bid):
-    with Session() as s:
+    with SessionLocal() as s:
         b = s.query(TUSBehavior).filter_by(id=bid).first()
         if not b: return "", 204
         b.active = False
@@ -4199,6 +4199,7 @@ def upload_client_photo():
     # Zwróć URL
     photo_url = f"/uploads/clients/{filename}"
     return jsonify({'photo_url': photo_url}), 200
+
 
 
 
