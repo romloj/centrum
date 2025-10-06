@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>IPET - Dokumenty Klienta</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .main-card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    .header-section {
+      background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+      color: white;
+      padding: 2rem;
+    }
+    .upload-zone {
+      border: 3px dashed #667eea;
+      border-radius: 15px;
+      padding: 3rem;
+      text-align: center;
+      background: #f8f9fa;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      background: #e7f3ff;
+      border-color: #3498db;
+      transform: scale(1.02);
+    }
+    .upload-zone i {
+      font-size: 4rem;
+      color: #667eea;
+    }
+    .document-card {
+      border: 1px solid #dee2e6;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      transition: all 0.3s;
+      background: white;
+    }
+    .document-card:hover {
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+    }
+    .doc-icon {
+      font-size: 2.5rem;
+      color: #667eea;
+    }
+    .doc-type-pdf { color: #dc3545; }
+    .doc-type-img { color: #28a745; }
+    .doc-type-doc { color: #007bff; }
+    .badge-new {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .camera-preview {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-top: 1rem;
+    }
+    .stats-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .fab-container {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 1050;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      gap: 1rem;
+    }
+    .fab-main {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      transition: all 0.3s;
+    }
+    .fab-main:hover {
+      transform: scale(1.1);
+    }
+    .fab-main i {
+      transition: transform 0.3s ease;
+    }
+    .fab-container.open .fab-main i {
+      transform: rotate(45deg);
+    }
+    .fab-menu {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 0.75rem;
+      opacity: 0;
+      transform: translateY(20px) scale(0.8);
+      pointer-events: none;
+      transition: all 0.3s;
+    }
+    .fab-container.open .fab-menu {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: all;
+    }
+    .fab-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .fab-label {
+      background: white;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      font-size: 0.875rem;
+      font-weight: 500;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateX(10px);
+      transition: all 0.3s ease;
+    }
+    .fab-container.open .fab-label {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .fab-button {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      text-decoration: none;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+    }
+    .fab-button:hover {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      transform: scale(1.15);
+    }
+    .fab-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 1049;
+    }
+    .fab-container.open ~ .fab-backdrop {
+      opacity: 1;
+      pointer-events: all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="main-card">
+      <!-- Nagłówek -->
+      <div class="header-section">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h1 class="h3 mb-1"><i class="bi bi-file-earmark-medical"></i> Dokumenty IPET</h1>
+            <p class="mb-0 opacity-75">Zarządzanie dokumentacją klienta</p>
+          </div>
+          <button class="btn btn-light" onclick="window.location.href='klienci.html'">
+            <i class="bi bi-arrow-left"></i> Powrót
+          </button>
+        </div>
+      </div>
+
+      <!-- Wybór klienta -->
+      <div class="p-4 bg-light border-bottom">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-8">
+            <label class="form-label fw-bold">Wybierz klienta</label>
+            <select class="form-select form-select-lg" id="clientSelect" onchange="loadClientDocuments()">
+              <option value="">-- Wybierz klienta --</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <div id="clientInfo" class="d-none">
+              <small class="text-muted d-block">Telefon:</small>
+              <strong id="clientPhone">-</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statystyki -->
+      <div class="p-4 bg-white" id="statsSection" style="display: none;">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <div class="stats-card">
+              <h3 id="totalDocs">0</h3>
+              <small>Dokumentów</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
+              <h3 id="pdfCount">0</h3>
+              <small>PDF</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);">
+              <h3 id="imageCount">0</h3>
+              <small>Obrazy</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);">
+              <h3 id="otherCount">0</h3>
+              <small>Inne</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4">
+        <!-- Alert Box -->
+        <div id="alertBox"></div>
+
+        <!-- Strefa przesyłania -->
+        <div class="mb-4" id="uploadSection" style="display: none;">
+          <h5 class="mb-3">Dodaj nowy dokument</h5>
+          
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+            <i class="bi bi-cloud-upload"></i>
+            <h5 class="mt-3">Przeciągnij i upuść pliki tutaj</h5>
+            <p class="text-muted mb-3">lub kliknij aby wybrać pliki</p>
+            <p class="small text-muted">Obsługiwane formaty: PDF, JPG, PNG, DOCX (max 10MB)</p>
+            <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="display: none;" onchange="handleFileSelect(event)">
+          </div>
+
+          <!-- Przyciski akcji -->
+          <div class="row mt-3 g-2">
+            <div class="col-md-4">
+              <button class="btn btn-primary w-100" onclick="document.getElementById('fileInput').click()">
+                <i class="bi bi-file-earmark-plus"></i> Wybierz pliki
+              </button>
+            </div>
+            <div class="col-md-4">
+              <button class="btn btn-info w-100" onclick="openCamera()">
+                <i class="bi bi-camera"></i> Zrób zdjęcie
+              </button>
+            </div>
+            <div class="col-md-4">
+              <button class="btn btn-success w-100" onclick="scanDocument()">
+                <i class="bi bi-upc-scan"></i> Skanuj dokument
+              </button>
+            </div>
+          </div>
+
+          <!-- Podgląd kamery -->
+          <div id="cameraSection" class="mt-3" style="display: none;">
+            <video id="cameraPreview" class="camera-preview" autoplay></video>
+            <div class="text-center mt-2">
+              <button class="btn btn-success" onclick="capturePhoto()">
+                <i class="bi bi-camera-fill"></i> Zrób zdjęcie
+              </button>
+              <button class="btn btn-secondary" onclick="closeCamera()">
+                <i class="bi bi-x-lg"></i> Anuluj
+              </button>
+            </div>
+          </div>
+
+          <!-- Podgląd wybranych plików -->
+          <div id="filePreview" class="mt-3"></div>
+        </div>
+
+        <!-- Lista dokumentów -->
+        <div id="documentsSection" style="display: none;">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Dokumenty klienta</h5>
+            <div class="btn-group">
+              <button class="btn btn-sm btn-outline-secondary" onclick="sortDocuments('date')">
+                <i class="bi bi-sort-down"></i> Data
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="sortDocuments('name')">
+                <i class="bi bi-sort-alpha-down"></i> Nazwa
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="sortDocuments('type')">
+                <i class="bi bi-file-earmark"></i> Typ
+              </button>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <input type="text" class="form-control" id="searchDocs" placeholder="Szukaj dokumentów..." oninput="filterDocuments()">
+          </div>
+
+          <div id="documentsList">
+            <!-- Dokumenty będą ładowane dynamicznie -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Podgląd dokumentu -->
+  <div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="previewTitle">Podgląd dokumentu</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body text-center" id="previewBody">
+          <!-- Podgląd będzie ładowany tutaj -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" id="downloadBtn">
+            <i class="bi bi-download"></i> Pobierz
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAB Menu -->
+  <div class="fab-container" id="fabContainer">
+    <div class="fab-menu">
+      <div class="fab-item">
+        <span class="fab-label">Strona główna</span>
+        <a href="indexik.html" class="fab-button">
+          <i class="bi bi-house-fill"></i>
+        </a>
+      </div>
+      <div class="fab-item">
+        <span class="fab-label">Klienci</span>
+        <a href="klienci.html" class="fab-button">
+          <i class="bi bi-people-fill"></i>
+        </a>
+      </div>
+      <div class="fab-item">
+        <span class="fab-label">Plan SUO</span>
+        <a href="panel.html" class="fab-button">
+          <i class="bi bi-calendar3"></i>
+        </a>
+      </div>
+      <div class="fab-item">
+        <span class="fab-label">Lista obecności</span>
+        <a href="lista.html" class="fab-button">
+          <i class="bi bi-list-check"></i>
+        </a>
+      </div>
+    </div>
+    <button class="fab-main" id="fabMainBtn">
+      <i class="bi bi-plus-lg"></i>
+    </button>
+  </div>
+  <div class="fab-backdrop" id="fabBackdrop"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const API = "";
+    let currentClientId = null;
+    let currentDocuments = [];
+    let cameraStream = null;
+
+    // Inicjalizacja
+    document.addEventListener('DOMContentLoaded', () => {
+      loadClients();
+      setupDragAndDrop();
+      setupFAB();
+    });
+
+    // FAB Menu
+    function setupFAB() {
+      const fabContainer = document.getElementById('fabContainer');
+      const fabMainBtn = document.getElementById('fabMainBtn');
+      const fabBackdrop = document.getElementById('fabBackdrop');
+
+      fabMainBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fabContainer.classList.toggle('open');
+      });
+
+      fabBackdrop.addEventListener('click', () => {
+        fabContainer.classList.remove('open');
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') fabContainer.classList.remove('open');
+      });
+    }
+
+    // Załaduj listę klientów
+    async function loadClients() {
+      try {
+        const res = await fetch(`${API}/api/clients`);
+        if (!res.ok) throw new Error('Błąd ładowania klientów');
+        
+        const clients = await res.json();
+        const select = document.getElementById('clientSelect');
+        
+        select.innerHTML = '<option value="">-- Wybierz klienta --</option>' +
+          clients.filter(c => c.active !== false)
+            .map(c => `<option value="${c.id || c.client_id}">${c.full_name}</option>`)
+            .join('');
+      } catch (err) {
+        showAlert('Błąd ładowania listy klientów: ' + err.message, 'danger');
+      }
+    }
+
+    // Załaduj dokumenty klienta
+    async function loadClientDocuments() {
+      const select = document.getElementById('clientSelect');
+      currentClientId = select.value;
+
+      if (!currentClientId) {
+        document.getElementById('uploadSection').style.display = 'none';
+        document.getElementById('documentsSection').style.display = 'none';
+        document.getElementById('statsSection').style.display = 'none';
+        document.getElementById('clientInfo').classList.add('d-none');
+        return;
+      }
+
+      // Pokaż info o kliencie
+      const clientName = select.options[select.selectedIndex].text;
+      document.getElementById('clientInfo').classList.remove('d-none');
+      
+      // Pokaż sekcje
+      document.getElementById('uploadSection').style.display = 'block';
+      document.getElementById('documentsSection').style.display = 'block';
+      document.getElementById('statsSection').style.display = 'block';
+
+      try {
+        const res = await fetch(`${API}/api/clients/${currentClientId}/documents`);
+        if (!res.ok) {
+          // Jeśli endpoint nie istnieje, pokaż pustą listę
+          if (res.status === 404) {
+            currentDocuments = [];
+            displayDocuments([]);
+            updateStats();
+            showAlert('Brak dokumentów dla tego klienta', 'info');
+            return;
+          }
+          throw new Error('Błąd ładowania dokumentów');
+        }
+
+        currentDocuments = await res.json();
+        displayDocuments(currentDocuments);
+        updateStats();
+
+        if (currentDocuments.length === 0) {
+          showAlert('Brak dokumentów. Dodaj pierwszy dokument dla tego klienta.', 'info');
+        }
+      } catch (err) {
+        showAlert('Błąd: ' + err.message, 'danger');
+        currentDocuments = [];
+        displayDocuments([]);
+        updateStats();
+      }
+    }
+
+    // Wyświetl dokumenty
+    function displayDocuments(docs) {
+      const container = document.getElementById('documentsList');
+      
+      if (docs.length === 0) {
+        container.innerHTML = `
+          <div class="text-center text-muted py-5">
+            <i class="bi bi-inbox display-1"></i>
+            <p class="mt-3">Brak dokumentów</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = docs.map(doc => {
+        const icon = getDocIcon(doc.file_type);
+        const iconClass = getDocIconClass(doc.file_type);
+        const date = new Date(doc.upload_date).toLocaleDateString('pl-PL');
+        const size = formatFileSize(doc.file_size);
+
+        return `
+          <div class="document-card">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <i class="bi ${icon} doc-icon ${iconClass}"></i>
+              </div>
+              <div class="col">
+                <h6 class="mb-1">${doc.file_name}</h6>
+                <small class="text-muted">
+                  <i class="bi bi-calendar3"></i> ${date} • 
+                  <i class="bi bi-hdd"></i> ${size} • 
+                  <i class="bi bi-tag"></i> ${doc.document_type || 'Dokument'}
+                </small>
+                ${doc.notes ? `<p class="mb-0 mt-1 small">${doc.notes}</p>` : ''}
+              </div>
+              <div class="col-auto">
+                <div class="btn-group">
+                  <button class="btn btn-sm btn-outline-primary" onclick="previewDocument(${doc.id})">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-success" onclick="downloadDocument(${doc.id})">
+                    <i class="bi bi-download"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" onclick="deleteDocument(${doc.id})">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Aktualizuj statystyki
+    function updateStats() {
+      const total = currentDocuments.length;
+      const pdf = currentDocuments.filter(d => d.file_type === 'application/pdf').length;
+      const images = currentDocuments.filter(d => d.file_type.startsWith('image/')).length;
+      const other = total - pdf - images;
+
+      document.getElementById('totalDocs').textContent = total;
+      document.getElementById('pdfCount').textContent = pdf;
+      document.getElementById('imageCount').textContent = images;
+      document.getElementById('otherCount').textContent = other;
+    }
+
+    // Obsługa wyboru plików
+    function handleFileSelect(event) {
+      const files = event.target.files;
+      displayFilePreview(files);
+    }
+
+    // Podgląd wybranych plików
+    function displayFilePreview(files) {
+      const preview = document.getElementById('filePreview');
+      if (files.length === 0) {
+        preview.innerHTML = '';
+        return;
+      }
+
+      let html = '<h6>Wybrane pliki:</h6><div class="row g-2">';
+      
+      Array.from(files).forEach((file, index) => {
+        const icon = getDocIcon(file.type);
+        html += `
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body d-flex align-items-center">
+                <i class="bi ${icon} me-2" style="font-size: 2rem;"></i>
+                <div class="flex-grow-1">
+                  <strong>${file.name}</strong>
+                  <small class="d-block text-muted">${formatFileSize(file.size)}</small>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      });
+      
+      html += '</div>';
+      html += `
+        <div class="mt-3">
+          <label class="form-label">Typ dokumentu (opcjonalnie)</label>
+          <select class="form-select mb-2" id="docType">
+            <option value="IPET">IPET</option>
+            <option value="Diagnoza">Diagnoza</option>
+            <option value="Orzeczenie">Orzeczenie</option>
+            <option value="Zgoda">Zgoda rodzica/opiekuna</option>
+            <option value="Wywiad">Wywiad</option>
+            <option value="Raport">Raport</option>
+            <option value="Inne">Inne</option>
+          </select>
+          <label class="form-label">Notatki (opcjonalnie)</label>
+          <textarea class="form-control mb-3" id="docNotes" rows="2" placeholder="Dodatkowe informacje o dokumencie..."></textarea>
+          <button class="btn btn-primary w-100" onclick="uploadFiles()">
+            <i class="bi bi-cloud-upload"></i> Prześlij pliki
+          </button>
+        </div>`;
+      
+      preview.innerHTML = html;
+    }
+
+    // Prześlij pliki
+    async function uploadFiles() {
+      const fileInput = document.getElementById('fileInput');
+      const files = fileInput.files;
+      
+      if (files.length === 0) {
+        showAlert('Nie wybrano plików', 'warning');
+        return;
+      }
+
+      if (!currentClientId) {
+        showAlert('Najpierw wybierz klienta', 'warning');
+        return;
+      }
+
+      const docType = document.getElementById('docType').value;
+      const notes = document.getElementById('docNotes').value;
+
+      const formData = new FormData();
+      formData.append('client_id', currentClientId);
+      formData.append('document_type', docType);
+      formData.append('notes', notes);
+
+      Array.from(files).forEach(file => {
+        formData.append('files', file);
+      });
+
+      try {
+        showAlert('Przesyłanie plików...', 'info');
+        
+        const res = await fetch(`${API}/api/clients/${currentClientId}/documents`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!res.ok) throw new Error('Błąd przesyłania');
+
+        const result = await res.json();
+        showAlert(`Przesłano ${result.count || files.length} plików`, 'success');
+        
+        // Wyczyść formularz
+        fileInput.value = '';
+        document.getElementById('filePreview').innerHTML = '';
+        
+        // Odśwież listę
+        loadClientDocuments();
+      } catch (err) {
+        showAlert('Błąd przesyłania: ' + err.message, 'danger');
+      }
+    }
+
+    // Drag & Drop
+    function setupDragAndDrop() {
+      const zone = document.getElementById('uploadZone');
+      
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        zone.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        zone.addEventListener(eventName, () => zone.classList.add('drag-over'));
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        zone.addEventListener(eventName, () => zone.classList.remove('drag-over'));
+      });
+
+      zone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        document.getElementById('fileInput').files = files;
+        displayFilePreview(files);
+      });
+    }
+
+    // Kamera
+    async function openCamera() {
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        document.getElementById('cameraPreview').srcObject = cameraStream;
+        document.getElementById('cameraSection').style.display = 'block';
+      } catch (err) {
+        showAlert('Błąd dostępu do kamery: ' + err.message, 'danger');
+      }
+    }
+
+    function closeCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      document.getElementById('cameraSection').style.display = 'none';
+    }
+
+    async function capturePhoto() {
+      const video = document.getElementById('cameraPreview');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], `zdjecie_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        document.getElementById('fileInput').files = dataTransfer.files;
+        displayFilePreview(dataTransfer.files);
+        closeCamera();
+      }, 'image/jpeg');
+    }
+
+    // Skanowanie (wymaga zewnętrznego API lub urządzenia)
+    function scanDocument() {
+      showAlert('Funkcja skanowania wymaga podłączonego skanera lub aplikacji mobilnej', 'info');
+    }
+
+    // Pomocnicze funkcje
+    function getDocIcon(type) {
+      if (type.includes('pdf')) return 'bi-file-pdf';
+      if (type.includes('image')) return 'bi-file-image';
+      if (type.includes('word') || type.includes('document')) return 'bi-file-word';
+      return 'bi-file-earmark';
+    }
+
+    function getDocIconClass(type) {
+      if (type.includes('pdf')) return 'doc-type-pdf';
+      if (type.includes('image')) return 'doc-type-img';
+      if (type.includes('word')) return 'doc-type-doc';
+      return '';
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function showAlert(message, type) {
+      const alertBox = document.getElementById('alertBox');
+      alertBox.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>`;
+      
+      if (type !== 'danger') {
+        setTimeout(() => {
+          const alert = alertBox.querySelector('.alert');
+          if (alert) alert.remove();
+        }, 5000);
+      }
+    }
+
+    // Podgląd dokumentu
+    async function previewDocument(docId) {
+      const doc = currentDocuments.find(d => d.id === docId);
+      if (!doc) return;
+
+      const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+      document.getElementById('previewTitle').textContent = doc.file_name;
+      
+      const body = document.getElementById('previewBody');
+      
+      if (doc.file_type.includes('image')) {
+        body.innerHTML = `<img src="${API}/api/documents/${docId}/download" class="img-fluid" style="max-height: 70vh;">`;
+      } else if (doc.file_type.includes('pdf')) {
+        body.innerHTML = `<iframe src="${API}/api/documents/${docId}/download" style="width: 100%; height: 70vh; border: none;"></iframe>`;
+      } else {
+        body.innerHTML = `
+          <div class="text-center py-5">
+            <i class="bi bi-file-earmark display-1 text-muted"></i>
+            <p class="mt-3">Podgląd niedostępny dla tego typu pliku</p>
+            <p class="text-muted">Kliknij "Pobierz" aby otworzyć plik</p>
+          </div>`;
+      }
+
+      document.getElementById('downloadBtn').onclick = () => downloadDocument(docId);
+      modal.show();
+    }
+
+    // Pobierz dokument
+    function downloadDocument(docId) {
+      const doc = currentDocuments.find(d => d.id === docId);
+      if (!doc) return;
+
+      const link = document.createElement('a');
+      link.href = `${API}/api/documents/${docId}/download`;
+      link.download = doc.file_name;
+      link.click();
+    }
+
+    // Usuń dokument
+    async function deleteDocument(docId) {
+      const doc = currentDocuments.find(d => d.id === docId);
+      if (!doc) return;
+
+      if (!confirm(`Czy na pewno chcesz usunąć dokument "${doc.file_name}"?`)) return;
+
+      try {
+        const res = await fetch(`${API}/api/documents/${docId}`, {
+          method: 'DELETE'
+        });
+
+        if (!res.ok) throw new Error('Błąd usuwania dokumentu');
+
+        showAlert('Dokument został usunięty', 'success');
+        loadClientDocuments();
+      } catch (err) {
+        showAlert('Błąd usuwania: ' + err.message, 'danger');
+      }
+    }
+
+    // Sortowanie dokumentów
+    function sortDocuments(sortBy) {
+      let sorted = [...currentDocuments];
+      
+      switch(sortBy) {
+        case 'date':
+          sorted.sort((a, b) => new Date(b.upload_date) - new Date(a.upload_date));
+          break;
+        case 'name':
+          sorted.sort((a, b) => a.file_name.localeCompare(b.file_name));
+          break;
+        case 'type':
+          sorted.sort((a, b) => a.file_type.localeCompare(b.file_type));
+          break;
+      }
+      
+      displayDocuments(sorted);
+    }
+
+    // Filtrowanie dokumentów
+    function filterDocuments() {
+      const searchTerm = document.getElementById('searchDocs').value.toLowerCase();
+      
+      if (!searchTerm) {
+        displayDocuments(currentDocuments);
+        return;
+      }
+
+      const filtered = currentDocuments.filter(doc => 
+        doc.file_name.toLowerCase().includes(searchTerm) ||
+        (doc.document_type && doc.document_type.toLowerCase().includes(searchTerm)) ||
+        (doc.notes && doc.notes.toLowerCase().includes(searchTerm))
+      );
+
+      displayDocuments(filtered);
+    }
+  </script>
+</body>
+</html>
