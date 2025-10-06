@@ -44,62 +44,135 @@
     .muted-month { opacity:.55 }
     .sticky-month-title { position:sticky; top:0; background:var(--bs-body-bg); z-index:3; padding:.25rem 0 .5rem 0; }
     .fab-container {
-        position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        z-index: 1050;
-        display: flex;
-        flex-direction: column-reverse;
-        align-items: center;
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 1030;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 0.75rem;
+    pointer-events: none;
+}
+
+.fab-main,
+.fab-button,
+.fab-label,
+.fab-menu {
+    pointer-events: auto;
+}
+
+.fab-main {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.fab-main:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.fab-main i {
+    transition: transform 0.3s ease;
+}
+
+.fab-container.open .fab-main i {
+    transform: rotate(45deg);
+}
+
+.fab-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fab-container.open .fab-menu {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.fab-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    justify-content: flex-end;
+}
+
+/* Etykiety zawsze widoczne po otwarciu menu */
+.fab-label {
+    background: white;
+    color: #333;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 1; /* Zawsze widoczne */
+    transition: all 0.3s ease;
+}
+
+.fab-item:hover .fab-label {
+    background: #f8f9fa;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+}
+
+.fab-button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: white;
+    color: #667eea;
+    border: 2px solid #667eea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    text-decoration: none;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.fab-button:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transform: scale(1.15);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.5);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .fab-container {
+        bottom: 1rem;
+        right: 1rem;
     }
-    .fab-button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        background-color: var(--bs-primary);
-        color: white;
-        font-size: 1.8rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        text-decoration: none;
-        transition: transform 0.3s ease, background-color 0.3s ease;
-        border: none;
+
+    .fab-label {
+        font-size: 0.813rem;
+        padding: 0.4rem 0.8rem;
     }
-    .fab-button:hover {
-        transform: scale(1.1);
-        background-color: var(--bs-primary-dark);
-    }
-    .fab-menu {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        margin-bottom: 1rem;
-        display: flex;
-        flex-direction: column-reverse;
-        align-items: center;
-        gap: 0.75rem;
-        transform: scaleY(0);
-        transform-origin: bottom;
-        transition: transform 0.3s ease;
-    }
-    .fab-container.open .fab-menu {
-        transform: scaleY(1);
-    }
-    .fab-menu-item a {
-        width: 48px;
-        height: 48px;
-        font-size: 1.4rem;
-        background-color: var(--bs-secondary);
-    }
-    .fab-container.open #fab-main-icon {
-        transform: rotate(45deg);
-    }
-    #fab-main-icon {
-        transition: transform 0.3s ease;
-    }
+}
   </style>
+    <script src="fab-menu.js"></script>
 </head>
 <body>
   <div class="container-fluid">
@@ -135,31 +208,42 @@
       <!-- tutaj renderuję tydzień lub miesiąc -->
     </div>
   </div>
-    <!-- menu-->
-    <div class="fab-container" id="fab-container">
+    <!-- fab-menu.js-->
+    <div class="fab-container" id="fabContainer">
     <ul class="fab-menu">
-        <li class="fab-menu-item">
-            <a href="therapist.html" class="fab-button" title="Plan terapeuty"><i class="bi bi-heart-pulse"></i></a>
+        <li class="fab-item">
+            <span class="fab-label">Plan terapeuty</span>
+            <a href="therapist.html" class="fab-button" title="Plan terapeuty">
+                <i class="bi bi-heart-pulse"></i>
+            </a>
         </li>
-        <li class="fab-menu-item">
-            <a href="tus.html" class="fab-button" title="Moduł TUS"><i class="bi bi-star-fill"></i></a>
+        <li class="fab-item">
+            <span class="fab-label">Moduł TUS</span>
+            <a href="tus.html" class="fab-button" title="Moduł TUS">
+                <i class="bi bi-star-fill"></i>
+            </a>
         </li>
-        <li class="fab-menu-item">
-            <a href="klienci.html" class="fab-button" title="Lista klientów"><i class="bi bi-people-fill"></i></a>
+        <li class="fab-item">
+            <span class="fab-label">Lista klientów</span>
+            <a href="klienci.html" class="fab-button" title="Lista klientów">
+                <i class="bi bi-people-fill"></i>
+            </a>
         </li>
-
-         <li class="fab-menu-item">
-            <a href="client_history.html" class="fab-button" title="Historia klientów"><i class="bi bi-people-fill"></i></a>
+        <li class="fab-item">
+            <span class="fab-label">Historia klientów</span>
+            <a href="client_history.html" class="fab-button" title="Historia klientów">
+                <i class="bi bi-clock-history"></i>
+            </a>
         </li>
-         <li class="fab-menu-item">
-            <a href="index.html" class="fab-button" title="Strona główna"><i class="bi bi-house-x-fill"></i></a>
+        <li class="fab-item">
+            <span class="fab-label">Strona główna</span>
+            <a href="panel.html" class="fab-button" title="Strona główna">
+                <i class="bi bi-house-fill"></i>
+            </a>
         </li>
-
-
-
     </ul>
-    <button class="fab-button" id="fab-main-btn" aria-label="Rozwiń menu">
-        <i class="bi bi-plus-lg" id="fab-main-icon"></i>
+    <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg"></i>
     </button>
 </div>
 

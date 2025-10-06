@@ -5,64 +5,141 @@
   <title>Zarządzanie Klientami</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
-    <style>
+  <style>
     .fab-container {
-        position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        z-index: 1050;
-        display: flex;
-        flex-direction: column-reverse;
-        align-items: center;
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 1030;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: flex-end;
+      gap: 0.75rem;
+      pointer-events: none;
     }
-    .fab-button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        background-color: var(--bs-primary);
-        color: white;
-        font-size: 1.8rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        text-decoration: none;
-        transition: transform 0.3s ease, background-color 0.3s ease;
-        border: none;
-    }
-    .fab-button:hover {
-        transform: scale(1.1);
-        background-color: var(--bs-primary-dark);
-    }
+
+    .fab-main,
+    .fab-button,
+    .fab-label,
     .fab-menu {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        margin-bottom: 1rem;
-        display: flex;
-        flex-direction: column-reverse;
-        align-items: center;
-        gap: 0.75rem;
-        transform: scaleY(0);
-        transform-origin: bottom;
-        transition: transform 0.3s ease;
+      pointer-events: auto;
     }
+
+    .fab-main {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .fab-main:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    .fab-main i {
+      transition: transform 0.3s ease;
+    }
+
+    .fab-container.open .fab-main i {
+      transform: rotate(45deg);
+    }
+
+    .fab-menu {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 0.75rem;
+      opacity: 0;
+      transform: translateY(10px) scale(0.9);
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
     .fab-container.open .fab-menu {
-        transform: scaleY(1);
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
     }
-    .fab-menu-item a {
-        width: 48px;
-        height: 48px;
-        font-size: 1.4rem;
-        background-color: var(--bs-secondary);
+
+    .fab-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      justify-content: flex-end;
     }
-    .fab-container.open #fab-main-icon {
-        transform: rotate(45deg);
+
+    .fab-label {
+      background: white;
+      color: #333;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      font-size: 0.875rem;
+      font-weight: 500;
+      white-space: nowrap;
+      opacity: 1;
+      transition: all 0.3s ease;
     }
-    #fab-main-icon {
-        transition: transform 0.3s ease;
+
+    .fab-item:hover .fab-label {
+      background: #f8f9fa;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+    }
+
+    .fab-button {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      text-decoration: none;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+    }
+
+    .fab-button:hover {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      transform: scale(1.15);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.5);
+    }
+
+    .client-photo {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #dee2e6;
+    }
+
+    @media (max-width: 768px) {
+      .fab-container {
+        bottom: 1rem;
+        right: 1rem;
+      }
+      .fab-label {
+        font-size: 0.813rem;
+        padding: 0.4rem 0.8rem;
+      }
     }
   </style>
 </head>
@@ -70,36 +147,35 @@
   <div class="container py-4">
     <header class="d-flex flex-wrap align-items-center gap-2 mb-4">
       <h1 class="h4 m-0">👥 Zarządzanie Klientami</h1>
-      <!-- POCZĄTEK ZMIANY: Dodano pole wyszukiwania -->
       <div class="ms-auto d-flex gap-2">
         <input type="text" id="searchInput" class="form-control" placeholder="Szukaj po nazwisku..." style="width: 250px;">
         <button id="addClientBtn" class="btn btn-primary">Dodaj klienta</button>
       </div>
-      <!-- KONIEC ZMIANY -->
     </header>
 
     <div id="alertBox" class="mb-3"></div>
 
     <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Imię i nazwisko</th>
-                            <th>Telefon</th>
-                            <th>Adres</th>
-                            <th>Status</th>
-                            <th class="text-end">Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody id="clientsTableBody">
-                        <!-- Wiersze będą wstawiane tutaj przez JavaScript -->
-                    </tbody>
-                </table>
-            </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Zdjęcie</th>
+                <th>ID</th>
+                <th>Imię i nazwisko</th>
+                <th>Telefon</th>
+                <th>Adres</th>
+                <th>Status</th>
+                <th class="text-end">Akcje</th>
+              </tr>
+            </thead>
+            <tbody id="clientsTableBody">
+              <tr><td colspan="7" class="text-center">Ładowanie...</td></tr>
+            </tbody>
+          </table>
         </div>
+      </div>
     </div>
   </div>
 
@@ -114,6 +190,24 @@
         <div class="modal-body">
           <form id="clientForm">
             <input type="hidden" id="clientId">
+
+            <!-- Podgląd zdjęcia -->
+            <div class="text-center mb-3">
+              <img id="clientPhotoPreview" src="" alt="Zdjęcie klienta"
+                   class="rounded-circle"
+                   style="width: 120px; height: 120px; object-fit: cover; border: 3px solid #dee2e6; display: none;">
+              <div id="photoPlaceholder" class="rounded-circle d-inline-flex align-items-center justify-content-center"
+                   style="width: 120px; height: 120px; background: #e9ecef; border: 3px solid #dee2e6;">
+                <i class="bi bi-person-circle text-muted" style="font-size: 4rem;"></i>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="clientPhoto" class="form-label">Zdjęcie profilowe</label>
+              <input type="file" class="form-control" id="clientPhoto" accept="image/*">
+              <small class="text-muted">Dozwolone: JPG, PNG, max 5MB</small>
+            </div>
+
             <div class="mb-3">
               <label for="clientName" class="form-label">Imię i nazwisko</label>
               <input type="text" class="form-control" id="clientName" required>
@@ -134,195 +228,308 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-          <button type="button" class="btn btn-primary" id="saveClientBtn">Zapisz</button>
+          <button type="button" class="btn btn-primary" id="saveClientBtn">
+            <span class="spinner-border spinner-border-sm d-none" id="saveSpinner"></span>
+            Zapisz
+          </button>
         </div>
       </div>
     </div>
   </div>
-  <!-- menu-->
-    <div class="fab-container" id="fab-container">
+
+  <!-- FAB Menu -->
+  <div class="fab-container" id="fabContainer">
     <ul class="fab-menu">
-        <li class="fab-menu-item">
-            <a href="therapist.html" class="fab-button" title="Plan terapeuty"><i class="bi bi-heart-pulse"></i></a>
-        </li>
-        <li class="fab-menu-item">
-            <a href="tus.html" class="fab-button" title="Moduł TUS"><i class="bi bi-star-fill"></i></a>
-        </li>
-        <li class="fab-menu-item">
-            <a href="klienci.html" class="fab-button" title="Lista klientów"><i class="bi bi-people-fill"></i></a>
-        </li>
-
-         <li class="fab-menu-item">
-            <a href="client_history.html" class="fab-button" title="Historia klientów"><i class="bi bi-people-fill"></i></a>
-        </li>
-         <li class="fab-menu-item">
-            <a href="index.html" class="fab-button" title="Strona główna"><i class="bi bi-house-x-fill"></i></a>
-        </li>
-
-
-
+      <li class="fab-item">
+        <span class="fab-label">Plan terapeuty</span>
+        <a href="therapist.html" class="fab-button" title="Plan terapeuty">
+          <i class="bi bi-heart-pulse"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Moduł TUS</span>
+        <a href="tus.html" class="fab-button" title="Moduł TUS">
+          <i class="bi bi-star-fill"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Lista klientów</span>
+        <a href="klienci.html" class="fab-button" title="Lista klientów">
+          <i class="bi bi-people-fill"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Historia klientów</span>
+        <a href="client_history.html" class="fab-button" title="Historia klientów">
+          <i class="bi bi-clock-history"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Strona główna</span>
+        <a href="panel.html" class="fab-button" title="Strona główna">
+          <i class="bi bi-house-fill"></i>
+        </a>
+      </li>
     </ul>
-    <button class="fab-button" id="fab-main-btn" aria-label="Rozwiń menu">
-        <i class="bi bi-plus-lg" id="fab-main-icon"></i>
+    <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
+      <i class="bi bi-plus-lg"></i>
     </button>
-</div>
+  </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const API = "";
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const API = "";
 
-    const addClientBtn = document.getElementById('addClientBtn');
-    const clientsTableBody = document.getElementById('clientsTableBody');
-    const clientModal = new bootstrap.Modal(document.getElementById('clientModal'));
-    const saveClientBtn = document.getElementById('saveClientBtn');
-    const clientForm = document.getElementById('clientForm');
-    const searchInput = document.getElementById('searchInput');
+      const addClientBtn = document.getElementById('addClientBtn');
+      const clientsTableBody = document.getElementById('clientsTableBody');
+      const clientModal = new bootstrap.Modal(document.getElementById('clientModal'));
+      const saveClientBtn = document.getElementById('saveClientBtn');
+      const clientForm = document.getElementById('clientForm');
+      const searchInput = document.getElementById('searchInput');
+      const clientPhoto = document.getElementById('clientPhoto');
+      const photoPreview = document.getElementById('clientPhotoPreview');
+      const photoPlaceholder = document.getElementById('photoPlaceholder');
 
-    const showAlert = (msg, type = "success") => {
+      const showAlert = (msg, type = "success") => {
         const box = document.getElementById("alertBox");
         box.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
-            ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
-    };
+          ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+      };
 
-    async function fetchJSON(url, options = {}) {
-        try {
-            const response = await fetch(url, options);
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: `Błąd serwera: ${response.status}` }));
-                throw new Error(errorData.error);
-            }
-            return response.json();
-        } catch (error) {
-            console.error("Błąd API:", error);
-            throw error;
-        }
-    }
+      // Podgląd zdjęcia
+      clientPhoto.addEventListener('change', function(e) {
+        const file = e.target.files[0];
 
-    // POCZĄTEK POPRAWKI: Zmieniono sposób budowania URL
-    async function loadClients() {
-        clientsTableBody.innerHTML = '<tr><td colspan="6" class="text-center">Ładowanie...</td></tr>';
-
-        const query = searchInput.value;
-        const params = new URLSearchParams({
-            include_inactive: 'true'
-        });
-        if (query) {
-            params.set('q', query);
-        }
-
-        const url = `${API}/api/clients?${params.toString()}`;
-
-        try {
-            const clients = await fetchJSON(url);
-            renderClients(clients);
-        } catch (error) {
-            clientsTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">Wystąpił błąd: ${error.message}</td></tr>`;
-        }
-    }
-    // KONIEC POPRAWKI
-
-    function renderClients(clients) {
-        if (!clients || clients.length === 0) {
-            clientsTableBody.innerHTML = '<tr><td colspan="6" class="text-center">Brak zdefiniowanych klientów.</td></tr>';
+        if (file) {
+          // Walidacja
+          if (file.size > 5 * 1024 * 1024) {
+            showAlert('Plik jest zbyt duży. Maksymalny rozmiar to 5MB.', 'warning');
+            e.target.value = '';
             return;
-        }
-        clientsTableBody.innerHTML = clients.map(client => `
-            <tr>
-                <td>${client.client_id}</td>
-                <td>${client.full_name}</td>
-                <td>${client.phone || '—'}</td>
-                <td>${client.address || '—'}</td>
-                <td>
-                    <span class="badge ${client.active ? 'text-bg-success' : 'text-bg-secondary'}">
-                        ${client.active ? 'Aktywny' : 'Nieaktywny'}
-                    </span>
-                </td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary" onclick="handleEdit(${client.client_id})">Edytuj</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="handleDelete(${client.client_id})">Usuń</button>
-                </td>
-            </tr>
-        `).join('');
-    }
+          }
 
-    function openModalForCreate() {
+          if (!file.type.startsWith('image/')) {
+            showAlert('Proszę wybrać plik graficzny (JPG, PNG).', 'warning');
+            e.target.value = '';
+            return;
+          }
+
+          // Podgląd
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            photoPreview.src = e.target.result;
+            photoPreview.style.display = 'block';
+            photoPlaceholder.style.display = 'none';
+          };
+          reader.readAsDataURL(file);
+        } else {
+          photoPreview.style.display = 'none';
+          photoPlaceholder.style.display = 'inline-flex';
+        }
+      });
+
+      async function fetchJSON(url, options = {}) {
+        try {
+          const response = await fetch(url, options);
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: `Błąd serwera: ${response.status}` }));
+            throw new Error(errorData.error);
+          }
+          return response.json();
+        } catch (error) {
+          console.error("Błąd API:", error);
+          throw error;
+        }
+      }
+
+      async function loadClients() {
+          clientsTableBody.innerHTML = '<tr><td colspan="7" class="text-center">Ładowanie...</td></tr>';
+
+          const query = searchInput.value;
+          const params = new URLSearchParams({ include_inactive: 'true' });
+          if (query) params.set('q', query);
+
+          try {
+            const clients = await fetchJSON(`${API}/api/clients?${params.toString()}`);
+            console.log('👥 Klienci z API:', clients); // DODAJ TO - sprawdź czy photo_url jest w danych
+            renderClients(clients);
+          } catch (error) {
+            clientsTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Błąd: ${error.message}</td></tr>`;
+          }
+        }
+
+      function renderClients(clients) {
+        if (!clients || clients.length === 0) {
+          clientsTableBody.innerHTML = '<tr><td colspan="7" class="text-center">Brak klientów.</td></tr>';
+          return;
+        }
+
+        clientsTableBody.innerHTML = clients.map(client => {
+          const initials = (client.full_name || 'K').charAt(0).toUpperCase();
+          const avatarSVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50'%3E%3Ccircle cx='25' cy='25' r='25' fill='%23667eea'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.35em' fill='white' font-size='22' font-family='Arial'%3E${initials}%3C/text%3E%3C/svg%3E`;
+
+          return `
+            <tr>
+              <td>
+                <img src="${client.photo_url || avatarSVG}"
+                     alt="${client.full_name}"
+                     class="client-photo"
+                     onerror="this.src='${avatarSVG}'">
+              </td>
+              <td>${client.client_id}</td>
+              <td>${client.full_name}</td>
+              <td>${client.phone || '—'}</td>
+              <td>${client.address || '—'}</td>
+              <td>
+                <span class="badge ${client.active ? 'text-bg-success' : 'text-bg-secondary'}">
+                  ${client.active ? 'Aktywny' : 'Nieaktywny'}
+                </span>
+              </td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-primary" onclick="handleEdit(${client.client_id})">Edytuj</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="handleDelete(${client.client_id})">Usuń</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      function openModalForCreate() {
         clientForm.reset();
         document.getElementById('clientId').value = '';
         document.getElementById('clientModalLabel').textContent = 'Dodaj nowego klienta';
         document.getElementById('clientActive').checked = true;
+        photoPreview.style.display = 'none';
+        photoPlaceholder.style.display = 'inline-flex';
         clientModal.show();
+      }
+
+      window.handleEdit = async (clientId) => {
+  clientForm.reset();
+  document.getElementById('clientModalLabel').textContent = 'Edytuj dane klienta';
+  try {
+    // Pobierz listę klientów i znajdź właściwego
+    const params = new URLSearchParams({ include_inactive: 'true' });
+    const clients = await fetchJSON(`${API}/api/clients?${params.toString()}`);
+    const client = clients.find(c => c.client_id === clientId);
+
+    if (!client) {
+      throw new Error('Nie znaleziono klienta');
     }
 
-    window.handleEdit = async (clientId) => {
-        clientForm.reset();
-        document.getElementById('clientModalLabel').textContent = 'Edytuj dane klienta';
-        try {
-            const client = await fetchJSON(`${API}/api/clients/${clientId}`);
-            document.getElementById('clientId').value = client.id;
-            document.getElementById('clientName').value = client.full_name;
-            document.getElementById('clientPhone').value = client.phone || '';
-            document.getElementById('clientAddress').value = client.address || '';
-            document.getElementById('clientActive').checked = client.active;
-            clientModal.show();
-        } catch (error) {
-            showAlert(error.message, 'danger');
-        }
-    };
+    document.getElementById('clientId').value = client.client_id; // Użyj client_id
+    document.getElementById('clientName').value = client.full_name;
+    document.getElementById('clientPhone').value = client.phone || '';
+    document.getElementById('clientAddress').value = client.address || '';
+    document.getElementById('clientActive').checked = client.active;
 
-    window.handleDelete = async (clientId) => {
-        if (confirm('Czy na pewno chcesz trwale usunąć tego klienta? Tej operacji nie można cofnąć.')) {
-            try {
-                await fetchJSON(`${API}/api/clients/${clientId}`, { method: 'DELETE' });
-                showAlert('Klient został usunięty.', 'success');
-                loadClients();
-            } catch (error) {
-                showAlert(error.message, 'danger');
-            }
-        }
-    };
+    if (client.photo_url) {
+      photoPreview.src = client.photo_url;
+      photoPreview.style.display = 'block';
+      photoPlaceholder.style.display = 'none';
+    } else {
+      photoPreview.style.display = 'none';
+      photoPlaceholder.style.display = 'inline-flex';
+    }
 
-    async function saveClient() {
-        const clientId = document.getElementById('clientId').value;
-        const payload = {
-            full_name: document.getElementById('clientName').value,
-            phone: document.getElementById('clientPhone').value,
-            address: document.getElementById('clientAddress').value,
-            active: document.getElementById('clientActive').checked
-        };
+    clientModal.show();
+  } catch (error) {
+    showAlert(error.message, 'danger');
+  }
+};
 
-        const url = clientId ? `${API}/api/clients/${clientId}` : `${API}/api/clients`;
-        const method = clientId ? 'PUT' : 'POST';
-
-        try {
-            await fetchJSON(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            clientModal.hide();
-            showAlert(`Dane klienta zostały ${clientId ? 'zaktualizowane' : 'zapisane'}.`, 'success');
+      window.handleDelete = async (clientId) => {
+        if (confirm('Czy na pewno chcesz trwale usunąć tego klienta?')) {
+          try {
+            await fetchJSON(`${API}/api/clients/${clientId}`, { method: 'DELETE' });
+            showAlert('Klient został usunięty.', 'success');
             loadClients();
-        } catch (error) {
+          } catch (error) {
             showAlert(error.message, 'danger');
+          }
         }
+      };
+
+      async function saveClient() {
+  const clientId = document.getElementById('clientId').value;
+  const photoFile = clientPhoto.files[0];
+  const spinner = document.getElementById('saveSpinner');
+
+  spinner.classList.remove('d-none');
+  saveClientBtn.disabled = true;
+
+  try {
+    let photo_url = null;
+
+    // Upload zdjęcia
+    if (photoFile) {
+      const formData = new FormData();
+      formData.append('photo', photoFile);
+      formData.append('client_name', document.getElementById('clientName').value);
+
+      const uploadRes = await fetch(`${API}/api/upload/client-photo`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (uploadRes.ok) {
+        const uploadData = await uploadRes.json();
+        photo_url = uploadData.photo_url;
+        console.log('✅ Upload sukces, photo_url:', photo_url); // DODAJ TO
+      } else {
+        console.error('❌ Błąd uploadu:', uploadRes.status);
+      }
     }
 
-    addClientBtn.addEventListener('click', openModalForCreate);
-    saveClientBtn.addEventListener('click', saveClient);
-    searchInput.addEventListener('input', loadClients);
+    // Zapisz dane klienta
+    const payload = {
+      full_name: document.getElementById('clientName').value,
+      phone: document.getElementById('clientPhone').value,
+      address: document.getElementById('clientAddress').value,
+      active: document.getElementById('clientActive').checked
+    };
 
-    loadClients();
-});
-    document.addEventListener('DOMContentLoaded', () => {
-        const fabContainer = document.getElementById('fab-container');
-        const fabMainBtn = document.getElementById('fab-main-btn');
+    if (photo_url) payload.photo_url = photo_url;
 
-        fabMainBtn.addEventListener('click', () => {
-            fabContainer.classList.toggle('open');
-        });
+    console.log('📤 Wysyłam payload:', payload); // DODAJ TO
+
+    const url = clientId ? `${API}/api/clients/${clientId}` : `${API}/api/clients`;
+    const method = clientId ? 'PUT' : 'POST';
+
+    const result = await fetchJSON(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-</script>
+
+    console.log('📥 Odpowiedź serwera:', result); // DODAJ TO
+
+    clientModal.hide();
+    showAlert(`Dane klienta zostały ${clientId ? 'zaktualizowane' : 'zapisane'}.`, 'success');
+    loadClients();
+  } catch (error) {
+    showAlert(error.message, 'danger');
+  } finally {
+    spinner.classList.add('d-none');
+    saveClientBtn.disabled = false;
+  }
+}
+
+      addClientBtn.addEventListener('click', openModalForCreate);
+      saveClientBtn.addEventListener('click', saveClient);
+      searchInput.addEventListener('input', loadClients);
+
+      // FAB Menu
+      const fabContainer = document.getElementById('fabContainer');
+      const fabMainBtn = document.getElementById('fabMainBtn');
+
+      fabMainBtn.addEventListener('click', () => {
+        fabContainer.classList.toggle('open');
+      });
+
+      loadClients();
+    });
+  </script>
 </body>
 </html>
-

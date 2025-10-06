@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>Panel Kierowców - Plan i Trasy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <style>
+    body { padding: 16px; background: #f8f9fa; }
+    @media (min-width: 992px) { body { padding: 24px; } }
+
+    .driver-card {
+      transition: transform 0.2s ease;
+      cursor: pointer;
+    }
+
+    .driver-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .route-item {
+      border-left: 3px solid #0d6efd;
+      padding-left: 1rem;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .route-item::before {
+      content: '';
+      position: absolute;
+      left: -7px;
+      top: 8px;
+      width: 11px;
+      height: 11px;
+      background: #0d6efd;
+      border-radius: 50%;
+    }
+
+    .route-pickup {
+      border-left-color: #0dcaf0;
+    }
+
+    .route-pickup::before {
+      background: #0dcaf0;
+    }
+
+    .route-dropoff {
+      border-left-color: #6c757d;
+    }
+
+    .route-dropoff::before {
+      background: #6c757d;
+    }
+
+    .timeline {
+      position: relative;
+      padding-left: 2rem;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 0.5rem;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #dee2e6;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="h4 mb-1">Panel Kierowców</h1>
+        <p class="text-muted mb-0">Plany tras i harmonogramy</p>
+      </div>
+      <a href="panel.html" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Powrót
+      </a>
+    </div>
+
+    <!-- Filtry -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Kierowca</label>
+            <select id="driverFilter" class="form-select">
+              <option value="">Wszyscy kierowcy</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Data</label>
+            <input type="date" id="dateFilter" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Status</label>
+            <select id="statusFilter" class="form-select">
+              <option value="">Wszystkie</option>
+              <option value="planned">Zaplanowane</option>
+              <option value="done">Wykonane</option>
+              <option value="cancelled">Anulowane</option>
+            </select>
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button id="loadBtn" class="btn btn-primary w-100">
+              <i class="bi bi-search"></i> Pokaż
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista kierowców -->
+    <div id="driversContainer" class="row g-4">
+      <div class="col-12 text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Ładowanie...</span>
+        </div>
+        <p class="text-muted mt-2">Ładowanie danych...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal szczegółów trasy -->
+  <div class="modal fade" id="routeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Szczegóły trasy</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="routeDetails">
+          <!-- Wypełniane dynamicznie -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const API = "";
+
+    // Ustaw dzisiejszą datę
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('dateFilter').value = today;
+
+    // Załaduj listę kierowców do filtra
+    async function loadDriversFilter() {
+      try {
+        const res = await fetch(`${API}/api/drivers`);
+        const drivers = await res.json();
+        const activeDrivers = drivers.filter(d => d.active !== false);
+
+        const select = document.getElementById('driverFilter');
+        select.innerHTML = '<option value="">Wszyscy kierowcy</option>' +
+          activeDrivers.map(d => `<option value="${d.id}">${d.full_name}</option>`).join('');
+      } catch (err) {
+        console.error('Błąd ładowania kierowców:', err);
+      }
+    }
+
+    // Załaduj dane kierowców z trasami
+    async function loadDriversSchedule() {
+  const driverId = document.getElementById('driverFilter').value;
+  const date = document.getElementById('dateFilter').value;
+  const status = document.getElementById('statusFilter').value;
+
+  const container = document.getElementById('driversContainer');
+  container.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border"></div></div>';
+
+  try {
+    let drivers = [];
+
+    if (driverId) {
+      // Jeden kierowca - pobierz schedule i dane z filtra
+      const routesRes = await fetch(`${API}/api/drivers/${driverId}/schedule?date=${date}`);
+      const routes = await routesRes.json();
+
+      // Pobierz dane kierowcy z listy wszystkich
+      const allRes = await fetch(`${API}/api/drivers`);
+      const allDrivers = await allRes.json();
+      const driverData = allDrivers.find(d => d.id == driverId);
+
+      if (driverData) {
+        drivers = [{...driverData, routes}];
+      }
+    } else {
+      // Wszyscy kierowcy
+      const res = await fetch(`${API}/api/drivers`);
+      const allDrivers = await res.json();
+
+      for (const driver of allDrivers.filter(d => d.active !== false)) {
+        const routesRes = await fetch(`${API}/api/drivers/${driver.id}/schedule?date=${date}`);
+        const routes = await routesRes.json();
+        drivers.push({...driver, routes});
+      }
+    }
+
+    // Filtruj po statusie
+    if (status) {
+      drivers.forEach(d => {
+        d.routes = d.routes.filter(r => r.status === status);
+      });
+    }
+
+    // Renderuj
+    renderDrivers(drivers);
+
+  } catch (err) {
+    container.innerHTML = `<div class="col-12"><div class="alert alert-danger">Błąd: ${err.message}</div></div>`;
+  }
+}
+
+    function renderDrivers(drivers) {
+      const container = document.getElementById('driversContainer');
+
+      if (!drivers.length || drivers.every(d => !d.routes || d.routes.length === 0)) {
+        container.innerHTML = '<div class="col-12 text-center py-5"><p class="text-muted">Brak tras dla wybranych kryteriów</p></div>';
+        return;
+      }
+
+      container.innerHTML = drivers.map(driver => {
+        if (!driver.routes || driver.routes.length === 0) return '';
+
+        const totalTime = driver.routes.reduce((sum, r) => {
+          const start = new Date(r.starts_at);
+          const end = new Date(r.ends_at);
+          return sum + (end - start) / 60000;
+        }, 0);
+
+        const totalDistance = driver.routes.reduce((sum, r) => sum + (r.distance_km || 0), 0);
+
+        return `
+          <div class="col-md-6 col-lg-4">
+            <div class="card driver-card h-100" onclick="showDriverDetails(${driver.id}, '${driver.full_name}')">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                  <div>
+                    <h5 class="card-title mb-1">
+                      <i class="bi bi-person-circle text-primary"></i>
+                      ${driver.full_name}
+                    </h5>
+                    <small class="text-muted">${driver.phone || ''}</small>
+                  </div>
+                  <span class="badge bg-primary">${driver.routes.length} tras${driver.routes.length === 1 ? 'a' : driver.routes.length < 5 ? 'y' : ''}</span>
+                </div>
+
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <div class="small text-muted">Czas jazdy</div>
+                    <div class="fw-bold">${Math.floor(totalTime / 60)}h ${totalTime % 60}min</div>
+                  </div>
+                  <div class="col-6">
+                    <div class="small text-muted">Dystans</div>
+                    <div class="fw-bold">${totalDistance.toFixed(1)} km</div>
+                  </div>
+                </div>
+
+                <div class="timeline">
+                  ${driver.routes.slice(0, 3).map(route => `
+                    <div class="route-item route-${route.kind} mb-2">
+                      <div class="small text-muted">${formatTime(route.starts_at)}</div>
+                      <div class="fw-semibold">${route.client_name}</div>
+                      <div class="small text-muted">
+                        <i class="bi bi-geo-alt"></i>
+                        ${route.place_from || '?'} → ${route.place_to || '?'}
+                      </div>
+                    </div>
+                  `).join('')}
+                  ${driver.routes.length > 3 ? `<div class="text-muted small">...i ${driver.routes.length - 3} więcej</div>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function formatTime(dateStr) {
+      const d = new Date(dateStr);
+      return d.toLocaleTimeString('pl-PL', {hour: '2-digit', minute: '2-digit'});
+    }
+
+    async function showDriverDetails(driverId, driverName) {
+      const date = document.getElementById('dateFilter').value;
+      const modal = new bootstrap.Modal(document.getElementById('routeModal'));
+      const details = document.getElementById('routeDetails');
+
+      details.innerHTML = '<div class="text-center"><div class="spinner-border"></div></div>';
+      modal.show();
+
+      try {
+        const res = await fetch(`${API}/api/drivers/${driverId}/schedule?date=${date}`);
+        const routes = await res.json();
+
+        details.innerHTML = `
+          <h6 class="mb-3">${driverName} - ${new Date(date).toLocaleDateString('pl-PL')}</h6>
+          <div class="timeline">
+            ${routes.map(route => `
+              <div class="route-item route-${route.kind} p-3 bg-light rounded mb-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <span class="badge bg-${route.kind === 'pickup' ? 'info' : 'secondary'} mb-2">${route.kind}</span>
+                    <h6 class="mb-1">${route.client_name}</h6>
+                  </div>
+                  <span class="badge bg-${route.status === 'done' ? 'success' : route.status === 'cancelled' ? 'danger' : 'warning'}">
+                    ${route.status}
+                  </span>
+                </div>
+                <div class="row g-2 small">
+                  <div class="col-6">
+                    <i class="bi bi-clock"></i> ${formatTime(route.starts_at)} - ${formatTime(route.ends_at)}
+                  </div>
+                  <div class="col-6">
+                    <i class="bi bi-geo-alt"></i> ${route.place_from} → ${route.place_to}
+                  </div>
+                  ${route.distance_km ? `
+                    <div class="col-6">
+                      <i class="bi bi-speedometer"></i> ${route.distance_km} km
+                    </div>
+                  ` : ''}
+                  ${route.vehicle_id ? `
+                    <div class="col-6">
+                      <i class="bi bi-car-front"></i> Pojazd #${route.vehicle_id}
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch (err) {
+        details.innerHTML = `<div class="alert alert-danger">Błąd: ${err.message}</div>`;
+      }
+    }
+
+    // Event listeners
+    document.getElementById('loadBtn').addEventListener('click', loadDriversSchedule);
+
+    // Inicjalizacja
+    loadDriversFilter();
+    loadDriversSchedule();
+  </script>
+</body>
+</html>

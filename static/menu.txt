@@ -1,5 +1,4 @@
-/* --- POCZĄTEK ZMIANY: Style dla pływającego menu --- */
-    .fab-container {
+ .fab-container {
         position: fixed;
         bottom: 2rem;
         right: 2rem;
