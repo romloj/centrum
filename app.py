@@ -44,7 +44,8 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app)
 
 # Wczytywanie konfiguracji ze zmiennych środowiskowych
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:EDUQ@localhost:5432/suo")
+#DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:EDUQ@localhost:5432/suo")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://odnowa_unwh_user:hr5g2iWpbfxi8Z5ZKBT0PUVQqhuvPAnd@dpg-d3f4mmhr0fns73d8e5qg-a/odnowa_unwh")
 GOOGLE_MAPS_API_KEY = os.getenv("klucz")
 
 # === DODAJ TĘ LINIĘ DIAGNOSTYCZNĄ ===
@@ -4198,5 +4199,7 @@ def upload_client_photo():
     photo_url = f"/uploads/clients/{filename}"
     return jsonify({'photo_url': photo_url}), 200
 
-
+# === URUCHOMIENIE APLIKACJI ===
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
 
