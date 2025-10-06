@@ -3662,3 +3662,398 @@ def list_all_routes():
 
 
 
+def init_documents_db():
+    """Inicjalizacja tabeli dokumentów"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS client_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_type TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            document_type TEXT,
+            notes TEXT,
+            upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            uploaded_by TEXT,
+            FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # Indeksy dla szybszego wyszukiwania
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_client_documents_client_id 
+        ON client_documents(client_id)
+    ''')
+    
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_client_documents_upload_date 
+        ON client_documents(upload_date)
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def allowed_file(filename):
+    """Sprawdź czy rozszerzenie pliku jest dozwolone"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_safe_filepath(client_id, filename):
+    """Generuj bezpieczną ścieżkę do pliku"""
+    # Katalog dla klienta
+    client_folder = os.path.join(UPLOAD_FOLDER, str(client_id))
+    os.makedirs(client_folder, exist_ok=True)
+    
+    # Unikalna nazwa pliku z timestampem
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    safe_name = secure_filename(filename)
+    name, ext = os.path.splitext(safe_name)
+    unique_filename = f"{name}_{timestamp}{ext}"
+    
+    return os.path.join(client_folder, unique_filename)
+
+# ========== ENDPOINTY API ==========
+
+@app.route('/api/clients/<int:client_id>/documents', methods=['GET'])
+def get_client_documents(client_id):
+    """Pobierz wszystkie dokumenty klienta"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Sprawdź czy klient istnieje
+        cursor.execute('SELECT id FROM clients WHERE id = ?', (client_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Klient nie istnieje'}), 404
+        
+        # Pobierz dokumenty
+        cursor.execute('''
+            SELECT id, client_id, file_name, file_type, file_size,
+                   document_type, notes, upload_date, uploaded_by
+            FROM client_documents
+            WHERE client_id = ?
+            ORDER BY upload_date DESC
+        ''', (client_id,))
+        
+        documents = []
+        for row in cursor.fetchall():
+            documents.append({
+                'id': row['id'],
+                'client_id': row['client_id'],
+                'file_name': row['file_name'],
+                'file_type': row['file_type'],
+                'file_size': row['file_size'],
+                'document_type': row['document_type'],
+                'notes': row['notes'],
+                'upload_date': row['upload_date'],
+                'uploaded_by': row['uploaded_by']
+            })
+        
+        conn.close()
+        return jsonify(documents)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clients/<int:client_id>/documents', methods=['POST'])
+def upload_client_documents(client_id):
+    """Prześlij dokumenty dla klienta"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Sprawdź czy klient istnieje
+        cursor.execute('SELECT id FROM clients WHERE id = ?', (client_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Klient nie istnieje'}), 404
+        
+        # Sprawdź czy są pliki
+        if 'files' not in request.files:
+            return jsonify({'error': 'Brak plików'}), 400
+        
+        files = request.files.getlist('files')
+        if not files or files[0].filename == '':
+            return jsonify({'error': 'Nie wybrano plików'}), 400
+        
+        # Pobierz dodatkowe dane
+        document_type = request.form.get('document_type', 'Inne')
+        notes = request.form.get('notes', '')
+        uploaded_by = request.form.get('uploaded_by', 'system')
+        
+        uploaded_files = []
+        errors = []
+        
+        for file in files:
+            if file and allowed_file(file.filename):
+                try:
+                    # Sprawdź rozmiar pliku
+                    file.seek(0, os.SEEK_END)
+                    file_size = file.tell()
+                    file.seek(0)
+                    
+                    if file_size > MAX_FILE_SIZE:
+                        errors.append(f'{file.filename}: Plik za duży (max 10MB)')
+                        continue
+                    
+                    # Zapisz plik
+                    filepath = get_safe_filepath(client_id, file.filename)
+                    file.save(filepath)
+                    
+                    # Zapisz informacje do bazy
+                    file_type = mimetypes.guess_type(file.filename)[0] or 'application/octet-stream'
+                    
+                    cursor.execute('''
+                        INSERT INTO client_documents 
+                        (client_id, file_name, file_path, file_type, file_size, 
+                         document_type, notes, uploaded_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (client_id, file.filename, filepath, file_type, file_size,
+                          document_type, notes, uploaded_by))
+                    
+                    uploaded_files.append({
+                        'id': cursor.lastrowid,
+                        'file_name': file.filename,
+                        'file_size': file_size
+                    })
+                    
+                except Exception as e:
+                    errors.append(f'{file.filename}: {str(e)}')
+            else:
+                errors.append(f'{file.filename}: Niedozwolony typ pliku')
+        
+        conn.commit()
+        conn.close()
+        
+        response = {
+            'count': len(uploaded_files),
+            'uploaded': uploaded_files
+        }
+        
+        if errors:
+            response['errors'] = errors
+        
+        return jsonify(response), 201
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/documents/<int:doc_id>/download', methods=['GET'])
+def download_document(doc_id):
+    """Pobierz dokument"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT file_name, file_path, file_type
+            FROM client_documents
+            WHERE id = ?
+        ''', (doc_id,))
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            return jsonify({'error': 'Dokument nie istnieje'}), 404
+        
+        file_path = row['file_path']
+        
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'Plik nie został znaleziony na dysku'}), 404
+        
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=row['file_name'],
+            mimetype=row['file_type']
+        )
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/documents/<int:doc_id>', methods=['DELETE'])
+def delete_document(doc_id):
+    """Usuń dokument"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Pobierz ścieżkę do pliku
+        cursor.execute('SELECT file_path FROM client_documents WHERE id = ?', (doc_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            return jsonify({'error': 'Dokument nie istnieje'}), 404
+        
+        file_path = row['file_path']
+        
+        # Usuń plik z dysku
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        
+        # Usuń rekord z bazy
+        cursor.execute('DELETE FROM client_documents WHERE id = ?', (doc_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': 'Dokument usunięty'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/documents/<int:doc_id>', methods=['PATCH'])
+def update_document(doc_id):
+    """Aktualizuj metadane dokumentu"""
+    try:
+        data = request.get_json()
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Sprawdź czy dokument istnieje
+        cursor.execute('SELECT id FROM client_documents WHERE id = ?', (doc_id,))
+        if not cursor.fetchone():
+            return jsonify({'error': 'Dokument nie istnieje'}), 404
+        
+        # Aktualizuj tylko podane pola
+        update_fields = []
+        values = []
+        
+        if 'document_type' in data:
+            update_fields.append('document_type = ?')
+            values.append(data['document_type'])
+        
+        if 'notes' in data:
+            update_fields.append('notes = ?')
+            values.append(data['notes'])
+        
+        if 'file_name' in data:
+            update_fields.append('file_name = ?')
+            values.append(data['file_name'])
+        
+        if not update_fields:
+            return jsonify({'error': 'Brak danych do aktualizacji'}), 400
+        
+        values.append(doc_id)
+        query = f"UPDATE client_documents SET {', '.join(update_fields)} WHERE id = ?"
+        
+        cursor.execute(query, values)
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'message': 'Dokument zaktualizowany'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/documents/search', methods=['GET'])
+def search_documents():
+    """Wyszukaj dokumenty"""
+    try:
+        query = request.args.get('q', '')
+        client_id = request.args.get('client_id', type=int)
+        doc_type = request.args.get('document_type')
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        sql = '''
+            SELECT d.*, c.full_name as client_name
+            FROM client_documents d
+            LEFT JOIN clients c ON d.client_id = c.id
+            WHERE 1=1
+        '''
+        params = []
+        
+        if query:
+            sql += ' AND (d.file_name LIKE ? OR d.notes LIKE ?)'
+            params.extend([f'%{query}%', f'%{query}%'])
+        
+        if client_id:
+            sql += ' AND d.client_id = ?'
+            params.append(client_id)
+        
+        if doc_type:
+            sql += ' AND d.document_type = ?'
+            params.append(doc_type)
+        
+        if date_from:
+            sql += ' AND d.upload_date >= ?'
+            params.append(date_from)
+        
+        if date_to:
+            sql += ' AND d.upload_date <= ?'
+            params.append(date_to)
+        
+        sql += ' ORDER BY d.upload_date DESC'
+        
+        cursor.execute(sql, params)
+        
+        documents = []
+        for row in cursor.fetchall():
+            documents.append({
+                'id': row['id'],
+                'client_id': row['client_id'],
+                'client_name': row['client_name'],
+                'file_name': row['file_name'],
+                'file_type': row['file_type'],
+                'file_size': row['file_size'],
+                'document_type': row['document_type'],
+                'notes': row['notes'],
+                'upload_date': row['upload_date']
+            })
+        
+        conn.close()
+        return jsonify(documents)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/documents/stats', methods=['GET'])
+def get_documents_stats():
+    """Statystyki dokumentów"""
+    try:
+        client_id = request.args.get('client_id', type=int)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        if client_id:
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN file_type LIKE '%pdf%' THEN 1 ELSE 0 END) as pdf_count,
+                    SUM(CASE WHEN file_type LIKE 'image%' THEN 1 ELSE 0 END) as image_count,
+                    SUM(file_size) as total_size
+                FROM client_documents
+                WHERE client_id = ?
+            ''', (client_id,))
+        else:
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN file_type LIKE '%pdf%' THEN 1 ELSE 0 END) as pdf_count,
+                    SUM(CASE WHEN file_type LIKE 'image%' THEN 1 ELSE 0 END) as image_count,
+                    SUM(file_size) as total_size
+                FROM client_documents
+            ''')
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        return jsonify({
+            'total': row['total'] or 0,
+            'pdf_count': row['pdf_count'] or 0,
+            'image_count': row['image_count'] or 0,
+            'other_count': (row['total'] or 0) - (row['pdf_count'] or 0) - (row['image_count'] or 0),
+            'total_size': row['total_size'] or 0
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
