@@ -609,10 +609,13 @@ def ai_gaps():
     """
     mk = request.args.get("month") or datetime.now(TZ).strftime("%Y-%m")
     first = datetime.fromisoformat(mk + "-01").date()
+    
+    # ✅ POPRAWIONY KOD:
     if first.month == 12:
         nxt = first.replace(year=first.year+1, month=1, day=1)
     else:
-        nxt = first.replace(month=first.replace(month=first.month+1, day=1)
+        nxt = first.replace(month=first.month+1, day=1)
+    
     days = []
     d = first
     while d < nxt:
@@ -659,7 +662,6 @@ def ai_gaps():
         "therapists_idle_days": therapists_idle,
         "drivers_idle_days": drivers_idle
     }), 200
-
 
 @app.post("/api/ai/suggest")
 def ai_suggest():
@@ -3657,5 +3659,6 @@ def list_all_routes():
             'path': str(rule)
         })
     return jsonify(routes)
+
 
 
