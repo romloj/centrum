@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Zarządzania Fundacją</title>
+    <link rel="stylesheet" href="menu_fab.css">
     <style>
         * {
             margin: 0;
@@ -315,10 +316,59 @@
             </div>
         </div>
 
+        <!-- Floating Action Menu - TYLKO RAZ, na końcu body -->
+    <div class="fab-container" id="fabContainer">
+    <ul class="fab-menu">
+        <li class="fab-item">
+            <span class="fab-label">Plan terapeuty</span>
+            <a href="therapist.html" class="fab-button" title="Plan terapeuty">
+                <i class="bi bi-heart-pulse"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Moduł TUS</span>
+            <a href="tus.html" class="fab-button" title="Moduł TUS">
+                <i class="bi bi-star-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Lista klientów</span>
+            <a href="klienci.html" class="fab-button" title="Lista klientów">
+                <i class="bi bi-people-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Historia klientów</span>
+            <a href="client_history.html" class="fab-button" title="Historia klientów">
+                <i class="bi bi-clock-history"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Moduł Kierowcy</span>
+            <a href="drivers.html" class="fab-button" title="Plan terapeuty">
+                <i class="bi bi-car-front-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Strona główna</span>
+            <a href="index.html" class="fab-button" title="Strona główna">
+                <i class="bi bi-house-fill"></i>
+            </a>
+        </li>
+    </ul>
+    <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg"></i>
+    </button>
+</div>
+    <div class="fab-backdrop" id="fabBackdrop"></div>
+
         <div class="footer">
             <p>&copy; 2025 Fundacja Odnowa. Wszystkie prawa zastrzeżone.</p>
         </div>
     </div>
+
+     <script src="fab-menu.js"></script>
+    <script src="panel.js"></script>
 
     <script>
         // Załaduj szybkie statystyki
@@ -372,3 +422,4 @@
 </body>
 
 </html>
+
