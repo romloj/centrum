@@ -618,9 +618,12 @@ def parse_json_only_when_needed():
 
 # === GŁÓWNE ENDPOINTY APLIKACJI ===
 
-@app.get("/")
+@app.route("/")
 def index():
-    return app.send_static_file("index.html")
+    try:
+        return app.send_static_file("index.html")
+    except Exception as e:
+        return f"<h1>Błąd ładowania strony głównej</h1><p>{str(e)}</p>", 500
 
 
 @app.get("/api/ai/gaps")
@@ -4192,6 +4195,7 @@ def upload_client_photo():
     # Zwróć URL
     photo_url = f"/uploads/clients/{filename}"
     return jsonify({'photo_url': photo_url}), 200
+
 
 
 
