@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projekty Fundacji</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .filters select {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+        }
+
+        .project-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .project-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .project-content {
+            padding: 20px;
+        }
+
+        .project-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .project-description {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.6;
+            max-height: 80px;
+            overflow: hidden;
+        }
+
+        .project-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .meta-item {
+            background: #f8f9fa;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-planowany {
+            background: #ffc107;
+            color: #856404;
+        }
+
+        .status-w_trakcie {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-zakończony {
+            background: #6c757d;
+            color: white;
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 10px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .project-actions button {
+            flex: 1;
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: white;
+            max-width: 800px;
+            margin: 50px auto;
+            border-radius: 15px;
+            padding: 30px;
+            position: relative;
+        }
+
+        .modal-header {
+            margin-bottom: 25px;
+        }
+
+        .modal-header h2 {
+            color: #667eea;
+        }
+
+        .close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+
+        .no-projects {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .no-projects h3 {
+            color: #999;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Projekty Fundacji</h1>
+            <button class="btn btn-primary" onclick="openAddModal()">+ Dodaj Projekt</button>
+        </div>
+
+        <div class="filters">
+            <label>Status:</label>
+            <select id="statusFilter" onchange="loadProjects()">
+                <option value="">Wszystkie</option>
+                <option value="planowany">Planowane</option>
+                <option value="w_trakcie">W trakcie</option>
+                <option value="zakończony">Zakończone</option>
+            </select>
+        </div>
+
+        <div class="projects-grid" id="projectsGrid"></div>
+    </div>
+
+    <!-- Modal dodawania/edycji -->
+    <div id="projectModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div class="modal-header">
+                <h2 id="modalTitle">Dodaj Projekt</h2>
+            </div>
+            <form id="projectForm" onsubmit="saveProject(event)">
+                <input type="hidden" id="projectId">
+                
+                <div class="form-group">
+                    <label>Tytuł projektu *</label>
+                    <input type="text" id="title" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Opis</label>
+                    <textarea id="description"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data rozpoczęcia</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Data zakończenia</label>
+                        <input type="date" id="endDate">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="status">
+                            <option value="planowany">Planowany</option>
+                            <option value="w_trakcie">W trakcie</option>
+                            <option value="zakończony">Zakończony</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Budżet (PLN)</label>
+                        <input type="number" id="budget" step="0.01">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Koordynator</label>
+                    <input type="text" id="coordinator">
+                </div>
+
+                <div class="form-group">
+                    <label>Partnerzy (oddziel przecinkami)</label>
+                    <input type="text" id="partners">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Liczba beneficjentów</label>
+                        <input type="number" id="beneficiaries">
+                    </div>
+                    <div class="form-group">
+                        <label>URL zdjęcia</label>
+                        <input type="url" id="photoUrl">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Anuluj</button>
+                    <button type="submit" class="btn btn-success">Zapisz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Załaduj projekty przy starcie
+        loadProjects();
+
+        async function loadProjects() {
+            const status = document.getElementById('statusFilter').value;
+            const url = status ? `/api/projects?status=${status}` : '/api/projects';
+            
+            try {
+                const response = await fetch(url);
+                const projects = await response.json();
+                displayProjects(projects);
+            } catch (error) {
+                console.error('Błąd ładowania projektów:', error);
+                alert('Błąd podczas ładowania projektów');
+            }
+        }
+
+        function displayProjects(projects) {
+            const grid = document.getElementById('projectsGrid');
+            
+            if (projects.length === 0) {
+                grid.innerHTML = `
+                    <div class="no-projects">
+                        <h3>Brak projektów</h3>
+                        <p>Dodaj pierwszy projekt, aby rozpocząć</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = projects.map(project => `
+                <div class="project-card">
+                    ${project.photo_url ? 
+                        `<img src="${project.photo_url}" alt="${project.title}" class="project-image">` :
+                        '<div class="project-image"></div>'
+                    }
+                    <div class="project-content">
+                        <h3 class="project-title">${project.title}</h3>
+                        <p class="project-description">${project.description || 'Brak opisu'}</p>
+                        
+                        <div class="project-meta">
+                            <span class="status-badge status-${project.status}">
+                                ${getStatusLabel(project.status)}
+                            </span>
+                            ${project.start_date ? `<span class="meta-item">📅 ${formatDate(project.start_date)}</span>` : ''}
+                            ${project.budget ? `<span class="meta-item">💰 ${formatMoney(project.budget)} PLN</span>` : ''}
+                            ${project.beneficiaries_count ? `<span class="meta-item">👥 ${project.beneficiaries_count}</span>` : ''}
+                        </div>
+
+                        ${project.coordinator ? `<p style="color: #666; margin: 10px 0;"><strong>Koordynator:</strong> ${project.coordinator}</p>` : ''}
+
+                        <div class="project-actions">
+                            <button class="btn btn-primary" onclick="editProject(${project.id})">Edytuj</button>
+                            <button class="btn btn-danger" onclick="deleteProject(${project.id})">Usuń</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getStatusLabel(status) {
+            const labels = {
+                'planowany': 'Planowany',
+                'w_trakcie': 'W trakcie',
+                'zakończony': 'Zakończony'
+            };
+            return labels[status] || status;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('pl-PL');
+        }
+
+        function formatMoney(amount) {
+            return new Intl.NumberFormat('pl-PL').format(amount);
+        }
+
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Dodaj Projekt';
+            document.getElementById('projectForm').reset();
+            document.getElementById('projectId').value = '';
+            document.getElementById('projectModal').style.display = 'block';
+        }
+
+        async function editProject(id) {
+            try {
+                const response = await fetch(`/api/projects/${id}`);
+                const project = await response.json();
+                
+                document.getElementById('modalTitle').textContent = 'Edytuj Projekt';
+                document.getElementById('projectId').value = project.id;
+                document.getElementById('title').value = project.title;
+                document.getElementById('description').value = project.description || '';
+                document.getElementById('startDate').value = project.start_date || '';
+                document.getElementById('endDate').value = project.end_date || '';
+                document.getElementById('status').value = project.status;
+                document.getElementById('budget').value = project.budget || '';
+                document.getElementById('coordinator').value = project.coordinator || '';
+                document.getElementById('partners').value = project.partners || '';
+                document.getElementById('beneficiaries').value = project.beneficiaries_count || '';
+                document.getElementById('photoUrl').value = project.photo_url || '';
+                
+                document.getElementById('projectModal').style.display = 'block';
+            } catch (error) {
+                console.error('Błąd:', error);
+                alert('Błąd podczas ładowania danych projektu');
+            }
+        }
+
+        async function saveProject(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('projectId').value;
+            const data = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                start_date: document.getElementById('startDate').value || null,
+                end_date: document.getElementById('endDate').value || null,
+                status: document.getElementById('status').value,
+                budget: document.getElementById('budget').value || null,
+                coordinator: document.getElementById('coordinator').value,
+                partners: document.getElementById('partners').value,
+                beneficiaries_count: document.getElementById('beneficiaries').value || null,
+                photo_url: document.getElementById('photoUrl').value
+            };
+
+            try {
+                const url = id ? `/api/projects/${id}` : '/api/projects';
+                const method = id ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    closeModal();
+                    loadProjects();
+                    alert(id ? 'Projekt zaktualizowany!' : 'Projekt utworzony!');
+                } else {
+                    const error = await response.json();
+                    alert('Błąd: ' + error.error);
+                }
+            } catch (error) {
+                console.error('Błąd:', error);
+                alert('Błąd podczas zapisywania projektu');
+            }
+        }
+
+        async function deleteProject(id) {
+            if (!confirm('Czy na pewno chcesz usunąć ten projekt?')) return;
+
+            try {
+                const response = await fetch(`/api/projects/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadProjects();
+                    alert('Projekt usunięty!');
+                } else {
+                    alert('Błąd podczas usuwania projektu');
+                }
+            } catch (error) {
+                console.error('Błąd:', error);
+                alert('Błąd podczas usuwania projektu');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('projectModal').style.display = 'none';
+        }
+
+        // Zamknij modal po kliknięciu poza nim
+        window.onclick = function(event) {
+            const modal = document.getElementById('projectModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
