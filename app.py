@@ -408,13 +408,7 @@ def session_scope():
     finally:
         session.close()
 
-Session = sessionmaker(bind=engine)
-with session_scope() as db_session:
-    # Pobieramy pierwszego terapeutę z bazy
-    pierwszy_terapeuta = db_session.query(Therapist).first()
 
-    if pierwszy_terapeuta:
-        print(f"Znaleziono terapeutę: {pierwszy_terapeuta.full_name}")
 
 
 
@@ -4198,5 +4192,6 @@ def upload_client_photo():
     # Zwróć URL
     photo_url = f"/uploads/clients/{filename}"
     return jsonify({'photo_url': photo_url}), 200
+
 
 
