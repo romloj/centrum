@@ -4200,6 +4200,457 @@ def upload_client_photo():
     photo_url = f"/uploads/clients/{filename}"
     return jsonify({'photo_url': photo_url}), 200
 
+def init_documents_table():
+    """Inicjalizacja tabeli dokumentów w PostgreSQL"""
+    with engine.begin() as conn:
+        conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS client_documents (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL,
+                file_name TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                file_type TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                document_type TEXT,
+                notes TEXT,
+                upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                uploaded_by TEXT,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+            )
+        '''))
+
+        conn.execute(text('''
+            CREATE INDEX IF NOT EXISTS idx_client_documents_client_id 
+            ON client_documents(client_id)
+        '''))
+
+    print("✓ Tabela client_documents zainicjalizowana")
+
+
+@app.route('/api/clients/<int:client_id>/documents', methods=['POST'])
+def upload_client_documents(client_id):
+    print(f"\n=== UPLOAD DOCUMENTS START dla klienta {client_id} ===")
+    try:
+        # Sprawdź czy klient istnieje
+        with engine.begin() as conn:
+            exists = conn.execute(
+                text('SELECT 1 FROM clients WHERE id = :cid'),
+                {"cid": client_id}
+            ).scalar()
+            print(f"Klient istnieje: {exists}")
+
+            if not exists:
+                return jsonify({'error': 'Klient nie istnieje'}), 404
+
+        if 'files' not in request.files:
+            print("Brak klucza 'files' w request.files")
+            return jsonify({'error': 'Brak plików'}), 400
+
+        files = request.files.getlist('files')
+        print(f"Liczba plików: {len(files)}")
+
+        if not files or files[0].filename == '':
+            return jsonify({'error': 'Nie wybrano plików'}), 400
+
+        document_type = request.form.get('document_type', 'Inne')
+        notes = request.form.get('notes', '')
+        uploaded_by = request.form.get('uploaded_by', 'system')
+
+        uploaded_files = []
+        errors = []
+
+        for idx, file in enumerate(files):
+            print(f"\n--- Przetwarzanie pliku {idx + 1}/{len(files)} ---")
+            print(f"Nazwa: {file.filename}")
+
+            if file and allowed_file(file.filename):
+                try:
+                    file.seek(0, os.SEEK_END)
+                    file_size = file.tell()
+                    file.seek(0)
+                    print(f"Rozmiar: {file_size} bajtów")
+
+                    if file_size > MAX_FILE_SIZE:
+                        errors.append(f'{file.filename}: Plik za duży')
+                        continue
+
+                    # Zapisz plik fizycznie
+                    filepath = get_safe_filepath(client_id, file.filename)
+                    file.save(filepath)
+                    print(f"Plik zapisany: {filepath}")
+
+                    file_type = mimetypes.guess_type(file.filename)[0] or 'application/octet-stream'
+                    print(f"Typ MIME: {file_type}")
+
+                    # KLUCZOWY MOMENT - zapis do bazy
+                    print("Rozpoczynam zapis do bazy...")
+                    with engine.begin() as conn:
+                        result = conn.execute(text('''
+                            INSERT INTO client_documents 
+                            (client_id, file_name, file_path, file_type, file_size, 
+                             document_type, notes, uploaded_by)
+                            VALUES (:cid, :fname, :fpath, :ftype, :fsize, :dtype, :notes, :uby)
+                            RETURNING id
+                        '''), {
+                            "cid": client_id,
+                            "fname": file.filename,
+                            "fpath": filepath,
+                            "ftype": file_type,
+                            "fsize": file_size,
+                            "dtype": document_type,
+                            "notes": notes,
+                            "uby": uploaded_by
+                        })
+
+                        doc_id = result.scalar()
+                        print(f"SUKCES! Dokument zapisany w bazie, ID: {doc_id}")
+
+                        uploaded_files.append({
+                            'id': doc_id,
+                            'file_name': file.filename,
+                            'file_size': file_size
+                        })
+
+                except Exception as e:
+                    print(f"BŁĄD dla pliku {file.filename}: {str(e)}")
+                    import traceback
+                    print(traceback.format_exc())
+                    errors.append(f'{file.filename}: {str(e)}')
+
+                    # Usuń plik fizyczny jeśli baza zawiodła
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                        print(f"Usunięto plik fizyczny: {filepath}")
+            else:
+                print(f"Niedozwolony typ pliku: {file.filename}")
+                errors.append(f'{file.filename}: Niedozwolony typ')
+
+        print(f"\n=== UPLOAD ZAKOŃCZONY ===")
+        print(f"Zapisane pliki: {len(uploaded_files)}")
+        print(f"Błędy: {len(errors)}")
+
+        response = {'count': len(uploaded_files), 'uploaded': uploaded_files}
+        if errors:
+            response['errors'] = errors
+
+        return jsonify(response), 201
+
+    except Exception as e:
+        print(f"BŁĄD KRYTYCZNY: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/clients/<int:client_id>/documents', methods=['GET'])
+def get_client_documents(client_id):
+    """Pobiera listę dokumentów klienta"""
+    print(f"=== GET DOCUMENTS dla klienta {client_id} ===")
+    try:
+        with engine.begin() as conn:
+            # Sprawdź czy klient istnieje
+            exists = conn.execute(
+                text('SELECT 1 FROM clients WHERE id = :cid'),
+                {"cid": client_id}
+            ).scalar()
+
+            if not exists:
+                print(f"Klient {client_id} nie istnieje")
+                return jsonify({'error': 'Klient nie istnieje'}), 404
+
+            # Pobierz dokumenty
+            result = conn.execute(text('''
+                SELECT id, client_id, file_name, file_type, file_size,
+                       document_type, notes, upload_date, uploaded_by
+                FROM client_documents
+                WHERE client_id = :cid
+                ORDER BY upload_date DESC
+            '''), {"cid": client_id})
+
+            documents = [dict(row) for row in result.mappings().all()]
+            print(f"Znaleziono {len(documents)} dokumentów")
+            return jsonify(documents), 200
+
+    except Exception as e:
+        print(f"Błąd: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/documents/<int:doc_id>/download', methods=['GET'])
+def download_document(doc_id):
+    print(f"\n=== DOWNLOAD DOCUMENT ID: {doc_id} ===")
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(text('''
+                SELECT file_name, file_path, file_type
+                FROM client_documents WHERE id = :did
+            '''), {"did": doc_id})
+
+            row = result.mappings().first()
+
+            if not row:
+                return jsonify({'error': 'Dokument nie istnieje'}), 404
+
+            file_path = os.path.normpath(row['file_path'])
+            print(f"Ścieżka: {file_path}")
+
+            if not os.path.exists(file_path):
+                return jsonify({'error': 'Plik nie został znaleziony'}), 404
+
+            # Użyj send_file z Flask (nie Werkzeug)
+            from flask import send_file as flask_send_file
+            return flask_send_file(
+                file_path,
+                mimetype=row['file_type'],
+                as_attachment=True,
+                download_name=row['file_name']
+            )
+
+    except Exception as e:
+        print(f"Błąd: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/documents/<int:doc_id>', methods=['DELETE'])
+def delete_document(doc_id):
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text('SELECT file_path FROM client_documents WHERE id = :did'),
+                {"did": doc_id}
+            )
+            row = result.mappings().first()
+
+            if not row:
+                return jsonify({'error': 'Dokument nie istnieje'}), 404
+
+            file_path = row['file_path']
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+            conn.execute(
+                text('DELETE FROM client_documents WHERE id = :did'),
+                {"did": doc_id}
+            )
+
+            return jsonify({'message': 'Dokument usunięty'}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# === PROJECTS API ===
+
+@app.route('/api/projects', methods=['GET'])
+def get_projects():
+    """Lista wszystkich projektów"""
+    status_filter = request.args.get('status')  # opcjonalny filtr
+
+    with engine.begin() as conn:
+        sql = text("""
+            SELECT id, title, description, start_date, end_date, status, 
+                   budget, coordinator, partners, beneficiaries_count, photo_url,
+                   created_at, updated_at
+            FROM projects
+            WHERE (:status IS NULL OR status = :status)
+            ORDER BY start_date DESC NULLS LAST, created_at DESC
+        """)
+
+        result = conn.execute(sql, {"status": status_filter})
+        projects = []
+
+        for row in result.mappings().all():
+            project = dict(row)
+            # Konwertuj daty na stringi
+            if project['start_date']:
+                project['start_date'] = project['start_date'].isoformat()
+            if project['end_date']:
+                project['end_date'] = project['end_date'].isoformat()
+            if project['created_at']:
+                project['created_at'] = project['created_at'].isoformat()
+            if project['updated_at']:
+                project['updated_at'] = project['updated_at'].isoformat()
+            projects.append(project)
+
+        return jsonify(projects), 200
+
+
+@app.route('/api/projects/<int:project_id>', methods=['GET'])
+def get_project(project_id):
+    """Szczegóły pojedynczego projektu"""
+    with engine.begin() as conn:
+        sql = text("""
+            SELECT id, title, description, start_date, end_date, status, 
+                   budget, coordinator, partners, beneficiaries_count, photo_url,
+                   created_at, updated_at
+            FROM projects
+            WHERE id = :pid
+        """)
+
+        result = conn.execute(sql, {"pid": project_id})
+        row = result.mappings().first()
+
+        if not row:
+            return jsonify({'error': 'Projekt nie znaleziony'}), 404
+
+        project = dict(row)
+        if project['start_date']:
+            project['start_date'] = project['start_date'].isoformat()
+        if project['end_date']:
+            project['end_date'] = project['end_date'].isoformat()
+        if project['created_at']:
+            project['created_at'] = project['created_at'].isoformat()
+        if project['updated_at']:
+            project['updated_at'] = project['updated_at'].isoformat()
+
+        return jsonify(project), 200
+
+
+@app.route('/api/projects', methods=['POST'])
+def create_project():
+    """Tworzenie nowego projektu"""
+    data = request.get_json(silent=True) or {}
+
+    if not data.get('title'):
+        return jsonify({'error': 'Tytuł jest wymagany'}), 400
+
+    with engine.begin() as conn:
+        sql = text("""
+            INSERT INTO projects 
+            (title, description, start_date, end_date, status, budget, 
+             coordinator, partners, beneficiaries_count, photo_url)
+            VALUES (:title, :desc, :start, :end, :status, :budget, 
+                    :coord, :partners, :benef, :photo)
+            RETURNING id
+        """)
+
+        result = conn.execute(sql, {
+            "title": data['title'],
+            "desc": data.get('description'),
+            "start": data.get('start_date'),
+            "end": data.get('end_date'),
+            "status": data.get('status', 'planowany'),
+            "budget": data.get('budget'),
+            "coord": data.get('coordinator'),
+            "partners": data.get('partners'),
+            "benef": data.get('beneficiaries_count'),
+            "photo": data.get('photo_url')
+        })
+
+        new_id = result.scalar()
+        return jsonify({'id': new_id, 'message': 'Projekt utworzony'}), 201
+
+
+@app.route('/api/projects/<int:project_id>', methods=['PUT'])
+def update_project(project_id):
+    """Aktualizacja projektu"""
+    data = request.get_json(silent=True) or {}
+
+    if not data.get('title'):
+        return jsonify({'error': 'Tytuł jest wymagany'}), 400
+
+    with engine.begin() as conn:
+        sql = text("""
+            UPDATE projects
+            SET title = :title,
+                description = :desc,
+                start_date = :start,
+                end_date = :end,
+                status = :status,
+                budget = :budget,
+                coordinator = :coord,
+                partners = :partners,
+                beneficiaries_count = :benef,
+                photo_url = :photo,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :pid
+            RETURNING id
+        """)
+
+        result = conn.execute(sql, {
+            "pid": project_id,
+            "title": data['title'],
+            "desc": data.get('description'),
+            "start": data.get('start_date'),
+            "end": data.get('end_date'),
+            "status": data.get('status', 'planowany'),
+            "budget": data.get('budget'),
+            "coord": data.get('coordinator'),
+            "partners": data.get('partners'),
+            "benef": data.get('beneficiaries_count'),
+            "photo": data.get('photo_url')
+        })
+
+        if not result.scalar():
+            return jsonify({'error': 'Projekt nie znaleziony'}), 404
+
+        return jsonify({'message': 'Projekt zaktualizowany'}), 200
+
+
+@app.route('/api/projects/<int:project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    """Usuwanie projektu"""
+    with engine.begin() as conn:
+        sql = text("DELETE FROM projects WHERE id = :pid RETURNING id")
+        result = conn.execute(sql, {"pid": project_id})
+
+        if not result.scalar():
+            return jsonify({'error': 'Projekt nie znaleziony'}), 404
+
+        return jsonify({'message': 'Projekt usunięty'}), 200
+
+
+@app.get("/api/projects/report")
+def get_projects_report():
+    """Generuje raport merytoryczny dla wybranego roku"""
+    year = request.args.get("year", type=int)
+    if not year:
+        year = datetime.now().year
+
+    with engine.begin() as conn:
+        # Projekty z danego roku
+        sql = text("""
+            SELECT 
+                id, title, description, status, 
+                start_date, end_date, budget, 
+                coordinator, partners, beneficiaries_count,
+                photo_url
+            FROM projects
+            WHERE 
+                EXTRACT(YEAR FROM start_date) = :year
+                OR EXTRACT(YEAR FROM end_date) = :year
+                OR (start_date <= :year_end AND (end_date >= :year_start OR end_date IS NULL))
+            ORDER BY start_date, title
+        """)
+
+        projects = conn.execute(sql, {
+            "year": year,
+            "year_start": f"{year}-01-01",
+            "year_end": f"{year}-12-31"
+        }).mappings().all()
+
+        # Podsumowanie
+        total_projects = len(projects)
+        completed_projects = sum(1 for p in projects if p['status'] == 'zakończony')
+        total_beneficiaries = sum(p['beneficiaries_count'] or 0 for p in projects)
+        total_budget = sum(float(p['budget'] or 0) for p in projects)
+
+        return jsonify({
+            "year": year,
+            "summary": {
+                "total_projects": total_projects,
+                "completed_projects": completed_projects,
+                "total_beneficiaries": total_beneficiaries,
+                "total_budget": total_budget
+            },
+            "projects": [dict(p) for p in projects]
+        })
+
+
+
 
 
 
