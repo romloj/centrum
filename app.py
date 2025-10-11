@@ -1,4 +1,5 @@
 import base64
+import mimetypes
 import sys
 import io
 import json
@@ -6,6 +7,7 @@ import re
 
 import psutil
 from PIL import Image
+from psycopg2.extras import RealDictCursor
 from werkzeug.utils import secure_filename
 
 print("--- SERWER ZALADOWAL NAJNOWSZA WERSJE PLIKU ---")
@@ -25,7 +27,7 @@ import psycopg2
 import requests
 
 from flask_cors import CORS
-from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory
+from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory,send_file
 from contextlib import contextmanager
 from psycopg2 import errorcodes
 from sqlalchemy.dialects.postgresql import UUID
@@ -36,6 +38,16 @@ from sqlalchemy import (Column, DateTime, ForeignKey, Integer, String, Table,
 from sqlalchemy.orm import declarative_base, selectinload
 from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base, relationship, joinedload, aliased
 from sqlalchemy.exc import IntegrityError
+from geopy.distance import geodesic
+
+
+# === KONFIGURACJA APLIKACJI ===
+TZ = ZoneInfo("Europe/Warsaw")
+app = Flask(__name__, static_folder="static", static_url_path="")
+CORS(app)
+app.config['DEBUG'] = True
+GOOGLE_MAPS_API_KEY="AIzaSyC5TGcemvDn-BZ5khdlQOOpPZVV2qLMYc8"
+
 
 
 # === KONFIGURACJA APLIKACJI ===
@@ -47,6 +59,19 @@ CORS(app)
 #DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:EDUQ@localhost:5432/suo")
 #DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://odnowa_unwh_user:hr5g2iWpbfxi8Z5ZKBT0PUVQqhuvPAnd@dpg-d3f4mmhr0fns73d8e5qg-a.frankfurt-postgres.render.com/odnowa_unwh")
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Dodaj na początku pliku, po innych importach
+UPLOAD_FOLDER = 'uploads/documents'
+ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+# Stwórz folder jeśli nie istnieje
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Dodaj do konfiguracji Flask
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set!")
@@ -64,6 +89,121 @@ Base = declarative_base()
 SessionLocal = scoped_session(
     sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
 )
+
+# Konfiguracja PostgreSQL - DOSTOSUJ DO SWOICH DANYCH
+DB_CONFIG = {
+    'host': 'localhost',
+    'port': 5432,
+    'database': 'odnowa_unwh',  # <-- ZMIEŃ
+    'user': 'odnowa_unwh_user',        # <-- ZMIEŃ
+    'password': 'hr5g2iWpbfxi8Z5ZKBT0PUVQqhuvPAnd'   # <-- ZMIEŃ
+}
+
+# Funkcja pomocnicza do walidacji daty
+def validate_date(date_string, field_name):
+    """Waliduje format daty"""
+    try:
+        datetime.fromisoformat(date_string)
+        return None
+    except (ValueError, TypeError):
+        return f'Nieprawidłowy format daty w polu {field_name}'
+
+# Funkcja pomocnicza do walidacji długości
+def validate_length(value, field_name, max_length):
+    """Waliduje długość tekstu"""
+    if value and len(value) > max_length:
+        return f'{field_name} zbyt długie (max {max_length} znaków)'
+    return None
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    if lat1 and lon1 and lat2 and lon2:
+        return geodesic((lat1, lon1), (lat2, lon2)).kilometers
+    return 0
+
+def get_db_connection():
+    """Tworzy połączenie z bazą PostgreSQL"""
+    try:
+        if DATABASE_URL:
+            # Wyłącz SSL dla połączenia lokalnego
+            conn = psycopg2.connect(DATABASE_URL, sslmode='disable')
+        else:
+            # Fallback na lokalne połączenie
+            conn = psycopg2.connect(
+                host='localhost',
+                port=5432,
+                database='suo',
+                user='postgres',
+                password='EDUQ',
+                sslmode='disable'  # Wyłącz SSL
+            )
+
+        conn.cursor_factory = RealDictCursor
+        return conn
+    except Exception as e:
+        print(f"Błąd połączenia z bazą: {e}")
+        raise
+
+
+def init_client_notes_table():
+    """Inicjalizacja tabeli notatek klientów"""
+    with engine.begin() as conn:
+        conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS client_notes (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                category VARCHAR(50) NOT NULL DEFAULT 'general',
+                created_by_name VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+            )
+        '''))
+
+        conn.execute(text('''
+            CREATE INDEX IF NOT EXISTS idx_client_notes_client_id 
+            ON client_notes(client_id)
+        '''))
+
+        conn.execute(text('''
+            CREATE INDEX IF NOT EXISTS idx_client_notes_category 
+            ON client_notes(category)
+        '''))
+
+    print("✓ Tabela client_notes zainicjalizowana")
+
+
+# 1. Najpierw dodaj funkcję inicjalizacji tabeli (wywołaj przy starcie)
+def init_waiting_clients_table():
+    """Inicjalizacja tabeli klientów oczekujących"""
+    with engine.begin() as conn:
+        conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS waiting_clients (
+                id SERIAL PRIMARY KEY,
+                first_name VARCHAR(100) NOT NULL,
+                last_name VARCHAR(100) NOT NULL,
+                birth_date DATE NOT NULL,
+                diagnosis TEXT,
+                registration_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                notes TEXT,
+                status VARCHAR(50) DEFAULT 'oczekujący',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        '''))
+
+        conn.execute(text('''
+            CREATE INDEX IF NOT EXISTS idx_waiting_clients_status 
+            ON waiting_clients(status)
+        '''))
+
+        conn.execute(text('''
+            CREATE INDEX IF NOT EXISTS idx_waiting_clients_registration 
+            ON waiting_clients(registration_date)
+        '''))
+
+    print("✓ Tabela waiting_clients zainicjalizowana")
+
 
 # DODAJ TEN ENDPOINT:
 @app.route('/uploads/<path:filename>')
@@ -164,6 +304,20 @@ def find_best_match(name_to_find, name_list):
 
     # Jeśli nie znaleziono dobrego dopasowania, zwróć None
     return None
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_safe_filepath(client_id, filename):
+    client_folder = os.path.join(UPLOAD_FOLDER, str(client_id))
+    os.makedirs(client_folder, exist_ok=True)
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    safe_name = secure_filename(filename)
+    name, ext = os.path.splitext(safe_name)
+    unique_filename = f"{name}_{timestamp}{ext}"
+
+    return os.path.join(client_folder, unique_filename)
 
 class TUSSessionAttendance(Base):
     __tablename__ = 'tus_session_attendance'
@@ -372,6 +526,22 @@ class TUSGroupTarget(Base):
 
     __table_args__ = (UniqueConstraint('group_id', 'school_year_start', 'semester'),)
 
+class Project(Base):
+    __tablename__ = 'projects'
+    id = Column(Integer, primary_key=True)
+    title = Column(String(255), nullable=False)
+    description = Column(String)
+    start_date = Column(Date)
+    end_date = Column(Date)
+    status = Column(String(50), default='planowany')  # planowany, w_trakcie, zakończony
+    budget = Column(Float)
+    coordinator = Column(String(255))
+    partners = Column(String)  # Lista partnerów (tekst)
+    beneficiaries_count = Column(Integer)
+    photo_url = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
 class EventGroup(Base):
     __tablename__ = 'event_groups'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -412,40 +582,83 @@ def session_scope():
     finally:
         session.close()
 
+Session = sessionmaker(bind=engine)
+with session_scope() as db_session:
+    # Pobieramy pierwszego terapeutę z bazy
+    pierwszy_terapeuta = db_session.query(Therapist).first()
 
-
-
-
+    if pierwszy_terapeuta:
+        print(f"Znaleziono terapeutę: {pierwszy_terapeuta.full_name}")
 
 
 def get_route_distance(origin, destination):
     """Oblicza dystans między dwoma punktami za pomocą Google Maps API."""
-    # POPRAWKA: Użycie klucza z konfiguracji
+    print(f"\n{'=' * 60}")
+    print(f"FUNKCJA get_route_distance() WYWOŁANA")
+    print(f"Origin: '{origin}'")
+    print(f"Destination: '{destination}'")
+
     api_key = GOOGLE_MAPS_API_KEY
+    print(f"Klucz API w funkcji: {api_key[:20]}..." if api_key else "❌ BRAK")
 
     if not api_key:
-        print("OSTRZEŻENIE: Brak klucza GOOGLE_MAPS_API_KEY. Obliczanie dystansu nie zadziała.")
+        print("⚠️ OSTRZEŻENIE: Brak klucza GOOGLE_MAPS_API_KEY. Obliczanie dystansu nie zadziała.")
         return None
 
     if not origin or not destination:
+        print("⚠️ OSTRZEŻENIE: Brak origin lub destination")
         return None
 
     origin_safe = requests.utils.quote(origin)
     destination_safe = requests.utils.quote(destination)
     url = f"https://maps.googleapis.com/maps/api/directions/json?origin={origin_safe}&destination={destination_safe}&key={api_key}"
 
+    print(f"📡 URL (bez klucza): ...{url[-50:]}")
+
     try:
-        response = requests.get(url, timeout=5)
+        print("📤 Wysyłam zapytanie do Google Maps...")
+        response = requests.get(url, timeout=10)  # Zwiększony timeout
+        print(f"📥 Status code: {response.status_code}")
+
         response.raise_for_status()
         data = response.json()
+
+        print(f"📊 Status API: {data.get('status')}")
+
         if data.get('status') == 'OK':
             distance_meters = data['routes'][0]['legs'][0]['distance']['value']
-            return round(distance_meters / 1000, 2)
+            distance_km = round(distance_meters / 1000, 2)
+            print(f"✅ SUKCES! Dystans: {distance_km} km")
+            print(f"{'=' * 60}\n")
+            return distance_km
+        else:
+            print(f"❌ Błąd API: {data.get('status')}")
+            print(f"   Komunikat: {data.get('error_message', 'Brak')}")
+            print(f"   Pełna odpowiedź: {data}")
+            print(f"{'=' * 60}\n")
+            return None
+
+    except requests.exceptions.Timeout:
+        print(f"⏱️ TIMEOUT: Zapytanie przekroczyło limit czasu")
+        print(f"{'=' * 60}\n")
+        return None
     except requests.exceptions.RequestException as e:
-        print(f"Błąd połączenia z Google Maps API: {e}")
-    except (KeyError, IndexError):
-        print(f"Nie udało się przetworzyć odpowiedzi z Google Maps dla trasy {origin} -> {destination}")
-    return None
+        print(f"❌ Błąd połączenia z Google Maps API: {e}")
+        print(f"{'=' * 60}\n")
+        return None
+    except (KeyError, IndexError) as e:
+        print(f"❌ Błąd parsowania odpowiedzi: {e}")
+        print(f"   Struktura danych: {data}")
+        print(f"{'=' * 60}\n")
+        return None
+    except Exception as e:
+        print(f"❌ Nieoczekiwany błąd: {type(e).__name__}: {e}")
+        import traceback
+        print(traceback.format_exc())
+        print(f"{'=' * 60}\n")
+        return None
+
+
 
 def _time_bucket(hhmm: str) -> str:
     """Zaokrągla czas do najbliższych 30 minut w dół (np. 09:10 -> 09:00)."""
@@ -491,13 +704,7 @@ def _softmax(x):
     s = sum(exps) or 1.0
     return [v/s for v in exps]
 
-def _score_ct_row(r):
-    """Heurystyka oceny dopasowania klient-terapeuta (fallback dla AI)."""
-    n = r.get("n_sessions", 0) or 0
-    mins = r.get("minutes_sum", 0) or 0
-    done = r.get("done_ratio", 0.0) or 0.0
-    rec = r.get("recency_weight", 0.0) or 0.0
-    return 0.5*rec + 0.3*done + 0.2*min(1.0, n/10.0) + 0.1*min(1.0, mins/600.0)
+
 
 def _score_cd_row(r):
     """Heurystyka oceny dopasowania klient-kierowca (fallback dla AI)."""
@@ -612,6 +819,9 @@ def ensure_shared_session_id_for_therapist(conn, therapist_id, starts_at, ends_a
     return row["session_id"]
 
 
+
+
+
 # === DEKORATORY I HOOKI FLASK ===
 @app.before_request
 def parse_json_only_when_needed():
@@ -622,12 +832,9 @@ def parse_json_only_when_needed():
 
 # === GŁÓWNE ENDPOINTY APLIKACJI ===
 
-@app.route("/")
+@app.get("/")
 def index():
-    try:
-        return app.send_static_file("index.html")
-    except Exception as e:
-        return f"<h1>Błąd ładowania strony głównej</h1><p>{str(e)}</p>", 500
+    return app.send_static_file("index.html")
 
 
 @app.get("/api/ai/gaps")
@@ -899,12 +1106,7 @@ def _score_ct_row(r):
     rec = r.get("recency_weight", 0.0) or 0.0
     return 0.5*rec + 0.3*done + 0.2*min(1.0, n/10.0) + 0.1*min(1.0, mins/600.0)
 
-def _score_cd_row(r):
-    n = r.get("n_runs", 0) or 0
-    mins = r.get("minutes_sum", 0) or 0
-    done = r.get("done_ratio", 0.0) or 0.0
-    rec = r.get("recency_weight", 0.0) or 0.0
-    return 0.5*rec + 0.3*done + 0.2*min(1.0, n/10.0) + 0.1*min(1.0, mins/600.0)
+
 
 @app.get("/api/ai/recommend")
 def ai_recommend():
@@ -1106,6 +1308,111 @@ def update_client(cid):
             return jsonify({"error": "Taki klient już istnieje (imię i nazwisko)."}), 409
         return jsonify({"error": "Błąd integralności bazy.", "details": str(e.orig)}), 409
 
+
+@app.route('/api/groups/<group_id>', methods=['GET'])
+def get_package_group(group_id):
+    """Pobiera pakiet na podstawie UUID group_id"""
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host='localhost',
+            port ='5432',
+            database='suo',  # ZMIEŃ
+            user='postgres',  # ZMIEŃ
+            password='EDUQ'  # ZMIEŃ
+        )
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Pobierz wszystkie sloty należące do grupy (UUID)
+        cur.execute("""
+            SELECT 
+                id as slot_id,
+                group_id::text as group_id,
+                client_id,
+                kind,
+                therapist_id,
+                driver_id,
+                vehicle_id,
+                starts_at,
+                ends_at,
+                place_from,
+                place_to,
+                status,
+                distance_km
+            FROM schedule_slots
+            WHERE group_id = %s::uuid
+            ORDER BY 
+                CASE kind 
+                    WHEN 'pickup' THEN 1
+                    WHEN 'therapy' THEN 2
+                    WHEN 'dropoff' THEN 3
+                    ELSE 4
+                END
+        """, (group_id,))
+
+        slots = cur.fetchall()
+
+        if not slots:
+            return jsonify({"error": "Pakiet nie znaleziony"}), 404
+
+        # Podstawowe info z pierwszego slotu
+        first = slots[0]
+        result = {
+            "group_id": first["group_id"],
+            "client_id": first["client_id"],
+            "status": first["status"],
+            "label": None  # Możesz dodać label jeśli masz w bazie
+        }
+
+        # Rozdziel sloty według typu
+        for slot in slots:
+            if slot["kind"] == "therapy":
+                result["therapy"] = {
+                    "slot_id": slot["slot_id"],
+                    "therapist_id": slot["therapist_id"],
+                    "starts_at": slot["starts_at"].isoformat() if slot["starts_at"] else None,
+                    "ends_at": slot["ends_at"].isoformat() if slot["ends_at"] else None,
+                    "place": slot["place_to"],
+                    "status": slot["status"]
+                }
+            elif slot["kind"] == "pickup":
+                result["pickup"] = {
+                    "slot_id": slot["slot_id"],
+                    "driver_id": slot["driver_id"],
+                    "vehicle_id": slot["vehicle_id"],
+                    "starts_at": slot["starts_at"].isoformat() if slot["starts_at"] else None,
+                    "ends_at": slot["ends_at"].isoformat() if slot["ends_at"] else None,
+                    "from": slot["place_from"],
+                    "to": slot["place_to"],
+                    "status": slot["status"]
+                }
+            elif slot["kind"] == "dropoff":
+                result["dropoff"] = {
+                    "slot_id": slot["slot_id"],
+                    "driver_id": slot["driver_id"],
+                    "vehicle_id": slot["vehicle_id"],
+                    "starts_at": slot["starts_at"].isoformat() if slot["starts_at"] else None,
+                    "ends_at": slot["ends_at"].isoformat() if slot["ends_at"] else None,
+                    "from": slot["place_from"],
+                    "to": slot["place_to"],
+                    "status": slot["status"]
+                }
+
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"BŁĄD w get_package_group: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 # === THERAPISTS ===
 @app.get("/api/therapists")
 def list_therapists():
@@ -1373,7 +1680,7 @@ def get_group(gid):
             ss.place_to, ss.status
         FROM event_groups eg
         JOIN schedule_slots ss ON eg.id = ss.group_id::uuid
-        WHERE eg.id = CAST(:gid AS UUID)
+        WHERE ss.id = %(slot_id)s
     """)
     # --- KONIEC POPRAWKI ---
 
@@ -1468,21 +1775,42 @@ def update_group(gid):
                     if ex: conn.execute(text("DELETE FROM schedule_slots WHERE id=:id"), {"id": ex["id"]})
                     return
 
+                # POPRAWKA: Oblicz dystans PRZED tworzeniem payload
                 distance = get_route_distance(block.get("from"), block.get("to"))
+
                 s = datetime.fromisoformat(block["starts_at"]).replace(tzinfo=TZ)
                 e = datetime.fromisoformat(block["ends_at"]).replace(tzinfo=TZ)
-                payload = {"did": block["driver_id"], "veh": block.get("vehicle_id"), "s": s, "e": e,
-                           "from": block.get("from"), "to": block.get("to"), "status": status, "gid": gid, "kind": kind,
-                           "distance": distance}
+
+                payload = {
+                    "did": block["driver_id"],
+                    "veh": block.get("vehicle_id"),
+                    "s": s,
+                    "e": e,
+                    "from": block.get("from"),
+                    "to": block.get("to"),
+                    "status": status,
+                    "gid": gid,
+                    "kind": kind,
+                    "distance": distance
+                }
 
                 if ex:
-                    conn.execute(text(
-                        "UPDATE schedule_slots SET driver_id=:did, vehicle_id=:veh, starts_at=:s, ends_at=:e, place_from=:from, place_to=:to, status=:status, distance_km=:distance WHERE id=:id"),
-                                 {**payload, "id": ex["id"]})
+                    conn.execute(text("""
+                        UPDATE schedule_slots 
+                        SET driver_id=:did, vehicle_id=:veh, starts_at=:s, ends_at=:e, 
+                            place_from=:from, place_to=:to, status=:status, 
+                            distance_km=:distance
+                        WHERE id=:id
+                    """), {**payload, "id": ex["id"]})
                 else:
                     conn.execute(text("""
-                        INSERT INTO schedule_slots (group_id, client_id, driver_id, vehicle_id, kind, starts_at, ends_at, place_from, place_to, status, distance_km)
-                        SELECT :gid, client_id, :did, :veh, :kind, :s, :e, :from, :to, :status, :distance FROM schedule_slots WHERE group_id=:gid AND kind='therapy' LIMIT 1
+                        INSERT INTO schedule_slots 
+                        (group_id, client_id, driver_id, vehicle_id, kind, starts_at, ends_at, 
+                         place_from, place_to, status, distance_km)
+                        SELECT :gid, client_id, :did, :veh, :kind, :s, :e, 
+                               :from, :to, :status, :distance 
+                        FROM schedule_slots 
+                        WHERE group_id=:gid AND kind='therapy' LIMIT 1
                     """), payload)
 
             upsert_run("pickup", pickup)
@@ -2339,7 +2667,8 @@ def driver_schedule(did):
       ss.place_from,
       ss.place_to,
       ss.vehicle_id,
-      ss.group_id
+      ss.group_id,
+      ss.distance_km
     FROM schedule_slots ss
     JOIN clients c ON c.id = ss.client_id
     WHERE ss.driver_id = :did
@@ -2353,162 +2682,8 @@ def driver_schedule(did):
         rows = conn.execute(text(sql), {"did": did, "mk": mk}).mappings().all()
         return jsonify([dict(r) for r in rows]), 200
 
-#def find_overlaps(conn, *, driver_id=None, therapist_id=None, starts_at=None, ends_at=None):
-#    """
-##    Zwraca listę kolidujących slotów dla driver_id/therapist_id i podanego zakresu czasu.
-#    """
-#    # jeśli nie mamy pełnego zakresu – nic nie sprawdzamy (zapobiega błędowi z ':s')
-#    if starts_at is None or ends_at is None:
-#        return []
-
-#    where, params = [], {"s": starts_at, "e": ends_at}
-#    if driver_id is not None:
-#        where.append("ss.driver_id = :driver_id")
-#        params["driver_id"] = driver_id
-#    if therapist_id is not None:
-#        where.append("ss.therapist_id = :therapist_id")
-#        params["therapist_id"] = therapist_id
-#    if not where:
-#        return []
-
-#    sql = f"""
-#    SELECT
-#      ss.id, ss.kind, ss.starts_at, ss.ends_at, ss.status,
-#      ss.driver_id, d.full_name AS driver_name,
-#      ss.therapist_id, t.full_name AS therapist_name,
-#      ss.client_id, c.full_name AS client_name
-#    FROM schedule_slots ss
-#    LEFT JOIN drivers d    ON d.id = ss.driver_id
-##    LEFT JOIN therapists t ON t.id = ss.therapist_id
-#    LEFT JOIN clients c    ON c.id = ss.client_id
-#    WHERE {" AND ".join(where)}
-#      AND tstzrange(ss.starts_at, ss.ends_at, '[)') &&
-#          tstzrange(:s, :e, '[)')
-#    ORDER BY ss.starts_at
-#    """
-#    stmt = text(sql).bindparams(
-##        bindparam("s", type_=TIMESTAMP(timezone=True)),
-#        bindparam("e", type_=TIMESTAMP(timezone=True)),
-#    )
-#    return [dict(r) for r in conn.execute(stmt, params).mappings().all()]
-
-@app.post("/api/schedule/check")
-def check_schedule_conflicts():
-    """
-    JSON (jak przy zapisie pakietu), zwraca { conflicts: {...} } bez zapisu:
-    {
-      "therapy": {...}, "pickup": {...?}, "dropoff": {...?}
-    }
-    """
-    data = request.get_json(silent=True) or {}
-    therapy = data.get("therapy") or {}
-    pickup = data.get("pickup")
-    dropoff = data.get("dropoff")
-
-    messages = {"therapy": [], "pickup": [], "dropoff": []}
-    total_conflicts = 0
-
-    with engine.begin() as conn:
-        def format_time(dt_obj):
-            if not dt_obj: return ""
-            # Upewnij się, że data ma strefę czasową przed konwersją
-            if dt_obj.tzinfo is None:
-                dt_obj = dt_obj.replace(tzinfo=TZ)
-            return dt_obj.astimezone(TZ).strftime('%H:%M')
-
-        def check_person(person_type, person_id, start_str, end_str, category):
-            nonlocal total_conflicts
-            if not all([person_id, start_str, end_str]):
-                return
-
-            s = datetime.fromisoformat(start_str).replace(tzinfo=TZ)
-            e = datetime.fromisoformat(end_str).replace(tzinfo=TZ)
-
-            find_kwargs = {f"{person_type}_id": int(person_id), "starts_at": s, "ends_at": e}
-            conflicts = find_overlaps(conn, **find_kwargs)
-            total_conflicts += len(conflicts)
-
-            for c in conflicts:
-                start_time = format_time(c['starts_at'])
-                end_time = format_time(c['ends_at'])
-                person_name = "Terapeuta" if person_type == "therapist" else "Kierowca"
-
-                if c.get('schedule_type') == 'tus_group':
-                    msg = f"{person_name} ma już sesję TUS '{c.get('client_name', 'N/A')}' od {start_time} do {end_time}."
-                else:
-                    msg = f"{person_name} ma już zajęcia ('{c.get('kind', 'N/A')}') z '{c.get('client_name', 'N/A')}' od {start_time} do {end_time}."
-                messages[category].append(msg)
-
-        # Sprawdzaj terapię zawsze
-        check_person("therapist", therapy.get("therapist_id"), therapy.get("starts_at"), therapy.get("ends_at"),
-                     "therapy")
-
-        # --- POCZĄTEK POPRAWKI ---
-        # Sprawdzaj pickup i dropoff tylko, jeśli istnieją w danych
-        if pickup:
-            check_person("driver", pickup.get("driver_id"), pickup.get("starts_at"), pickup.get("ends_at"), "pickup")
-        if dropoff:
-            check_person("driver", dropoff.get("driver_id"), dropoff.get("starts_at"), dropoff.get("ends_at"),
-                         "dropoff")
-        # --- KONIEC POPRAWKI ---
-
-    return jsonify({"conflicts": messages, "total": total_conflicts}), 200
 
 
-'''def ensure_shared_run_id_for_driver(conn, driver_id, starts_at, ends_at):
-    """
-    Jeżeli u kierowcy istnieje slot dokładnie o tym samym oknie czasu,
-    to zwróć jego run_id (a gdy go nie ma, ustaw nowy na obu slotach).
-    Jeśli brak takiego slotu – zwróć None (pojedynczy kurs).
-    """
-    q = text("""
-      SELECT id, run_id
-      FROM schedule_slots
-      WHERE driver_id = :did
-        AND starts_at = :s
-        AND ends_at   = :e
-      LIMIT 1
-    """)
-    row = conn.execute(q, {"did": driver_id, "s": starts_at, "e": ends_at}).mappings().first()
-    if not row:
-        return None
-
-    # jeśli tamten slot nie ma run_id – nadaj nowy i zwróć go
-    if row["run_id"] is None:
-        new_run = str(uuid.uuid4())
-        conn.execute(
-            text("UPDATE schedule_slots SET run_id = :rid WHERE id = :id"),
-            {"rid": new_run, "id": row["id"]}
-        )
-        return new_run
-
-    return row["run_id"]
-
-def ensure_shared_session_id_for_therapist(conn, therapist_id, starts_at, ends_at):
-    """
-    Jeśli istnieje slot terapeuty o tym samym oknie czasu, zwróć jego session_id.
-    Gdy brak session_id → ustaw nowe (UUID) na tamtym slocie i zwróć je.
-    Gdy brak takiego slotu → zwróć None (zajęcia indywidualne).
-    """
-    q = text("""
-      SELECT id, session_id
-      FROM schedule_slots
-      WHERE therapist_id = :tid
-        AND starts_at = :s
-        AND ends_at   = :e
-      LIMIT 1
-    """)
-    row = conn.execute(q, {"tid": therapist_id, "s": starts_at, "e": ends_at}).mappings().first()
-    if not row:
-        return None
-    if row["session_id"] is None:
-        new_sid = str(uuid.uuid4())
-        conn.execute(
-            text("UPDATE schedule_slots SET session_id = :sid WHERE id = :id"),
-            {"sid": new_sid, "id": row["id"]}
-        )
-        return new_sid
-    return row["session_id"]'''
 
 # BACKEND (Flask)
 @app.patch("/api/slots/<int:sid>")
@@ -2534,25 +2709,51 @@ def update_slot(sid):
         return jsonify({"ok": True, "id": row["id"]}), 200
 
 
-# === SLOT STATUS ===
-@app.patch("/api/slots/<int:sid>/status")
-def update_slot_status(sid):
-    data = request.get_json(silent=True) or {}
-    new_status = (data.get("status") or "").strip().lower()
-    if new_status not in ("planned", "done", "cancelled"):
-        return jsonify({"error": "Invalid status"}), 400
+@app.route('/api/slots/<int:slot_id>/status', methods=['PATCH'])
+def update_slot_status(slot_id):
+    """Aktualizuje status pojedynczego slotu"""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Brak danych JSON"}), 400
 
-    sql = """
-    UPDATE schedule_slots
-    SET status = :st
-    WHERE id = :sid
-    RETURNING id, status;
-    """
-    with engine.begin() as conn:
-        row = conn.execute(text(sql), {"st": new_status, "sid": sid}).mappings().first()
-        if not row:
-            return jsonify({"error": "Slot not found"}), 404
-        return jsonify({"id": row["id"], "status": row["status"]}), 200
+    new_status = data.get('status')
+    if not new_status:
+        return jsonify({"error": "Brak parametru 'status'"}), 400
+
+    # Walidacja statusu
+    valid_statuses = ['planned', 'confirmed', 'done', 'cancelled']
+    if new_status not in valid_statuses:
+        return jsonify({"error": f"Nieprawidłowy status. Dozwolone: {', '.join(valid_statuses)}"}), 400
+
+    try:
+        with engine.begin() as conn:
+            # Sprawdź czy slot istnieje
+            slot_exists = conn.execute(
+                text("SELECT id FROM schedule_slots WHERE id = :id"),
+                {"id": slot_id}
+            ).scalar()
+
+            if not slot_exists:
+                return jsonify({"error": "Slot nie znaleziony"}), 404
+
+            # Aktualizuj status
+            conn.execute(
+                text("UPDATE schedule_slots SET status = :status WHERE id = :id"),
+                {"status": new_status, "id": slot_id}
+            )
+
+            return jsonify({
+                "status": "ok",
+                "slot_id": slot_id,
+                "new_status": new_status,
+                "message": "Status zaktualizowany"
+            })
+
+    except Exception as e:
+        print(f"BŁĄD w update_slot_status: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Wewnętrzny błąd serwera: {str(e)}"}), 500
 
 #zmiana widkou kart grup
 @app.get("/api/tus/groups-summary")
@@ -2665,56 +2866,102 @@ def get_group_topic_history(group_id: int):
 
 @app.get("/api/clients/<int:client_id>/history")
 def get_client_history(client_id: int):
-    with SessionLocal() as session:
-        # 1. Spotkania indywidualne (ze schedule_slots)
-        individual_sessions = session.execute(
-            select(
-                ScheduleSlot.starts_at,
-                ScheduleSlot.status,
-                Therapist.full_name.label("therapist_name")
-            )
-            .join(Therapist, Therapist.id == ScheduleSlot.therapist_id)
-            .where(
-                ScheduleSlot.client_id == client_id,
-                ScheduleSlot.kind == 'therapy',
-                ScheduleSlot.session_id.is_(None)  # Kluczowe: tylko sesje bez session_id są indywidualne
-            )
-        ).all()
+    try:
+        with engine.begin() as conn:
+            # 1. Spotkania indywidualne
+            individual_sql = text('''
+                SELECT 
+                    ss.id as slot_id,
+                    ss.starts_at,
+                    ss.ends_at,
+                    ss.status,
+                    th.full_name as therapist_name,
+                    eg.label as topic,
+                    ss.place_to as place,
+                    EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes
+                FROM schedule_slots ss
+                LEFT JOIN therapists th ON th.id = ss.therapist_id
+                LEFT JOIN event_groups eg ON eg.id = ss.group_id
+                WHERE ss.client_id = :cid
+                    AND ss.kind = 'therapy'
+                ORDER BY ss.starts_at DESC
+            ''')
 
-        # 2. Spotkania grupowe TUS
-        tus_sessions = session.execute(
-            select(
-                TUSSession.session_date,
-                TUSSession.session_time,
-                TUSTopic.title.label("topic_title"),
-                TUSGroup.name.label("group_name")
-            )
-            .join(TUSGroup, TUSGroup.id == TUSSession.group_id)
-            .join(TUSGroupMember, TUSGroupMember.group_id == TUSGroup.id)
-            .join(TUSTopic, TUSTopic.id == TUSSession.topic_id, isouter=True)
-            .where(TUSGroupMember.client_id == client_id)
-        ).all()
+            individual_rows = conn.execute(individual_sql, {"cid": client_id}).mappings().all()
 
-        # 3. Formatowanie danych
-        history = {
-            "individual": [
-                {
-                    "date": s.starts_at.isoformat(),
-                    "status": s.status,
-                    "therapist": s.therapist_name
-                } for s in individual_sessions
-            ],
-            "tus_group": [
-                {
-                    "date": s.session_date.isoformat(),
-                    "time": s.session_time.strftime('%H:%M') if s.session_time else None,
-                    "topic": s.topic_title or "Brak tematu",
-                    "group": s.group_name
-                } for s in tus_sessions
-            ]
-        }
+            # 2. ZMIENIONE: Pobierz NAJNOWSZĄ notatkę dla każdej daty
+            notes_sql = text('''
+                SELECT DISTINCT ON (DATE(created_at))
+                    id,
+                    content,
+                    created_at,
+                    category
+                FROM client_notes
+                WHERE client_id = :cid
+                    AND category = 'session'
+                ORDER BY DATE(created_at) DESC, created_at DESC
+            ''')
 
-        return jsonify(history)
+            notes_rows = conn.execute(notes_sql, {"cid": client_id}).mappings().all()
+
+            # Mapuj notatki po dacie wraz z ID
+            notes_map = {}
+            note_ids_map = {}
+            for note in notes_rows:
+                note_date = note['created_at'].date()
+                notes_map[note_date] = note['content']
+                note_ids_map[note_date] = note['id']
+                print(f"  → Mapuję notatkę ID {note['id']} dla daty {note_date}")
+
+            # 3. Spotkania TUS
+            tus_sql = text('''
+                SELECT 
+                    ts.session_date,
+                    ts.session_time,
+                    tt.title as topic_title,
+                    tg.name as group_name
+                FROM tus_sessions ts
+                JOIN tus_groups tg ON tg.id = ts.group_id
+                JOIN tus_group_members tgm ON tgm.group_id = tg.id
+                LEFT JOIN tus_topics tt ON tt.id = ts.topic_id
+                WHERE tgm.client_id = :cid
+                ORDER BY ts.session_date DESC
+            ''')
+
+            tus_rows = conn.execute(tus_sql, {"cid": client_id}).mappings().all()
+
+            # 4. Formatowanie z dopasowaniem notatek
+            history = {
+                "individual": [
+                    {
+                        "date": row['starts_at'].isoformat() if row['starts_at'] else None,
+                        "status": row['status'] or "unknown",
+                        "therapist": row['therapist_name'] or "Nieznany",
+                        "topic": row['topic'] or "Bez tematu",
+                        "notes": notes_map.get(row['starts_at'].date(), "") if row['starts_at'] else "",
+                        "note_id": note_ids_map.get(row['starts_at'].date()) if row['starts_at'] else None,
+                        "place": row['place'] or "",
+                        "duration": int(row['duration_minutes']) if row['duration_minutes'] else 60,
+                    } for row in individual_rows
+                ],
+                "tus_group": [
+                    {
+                        "date": row['session_date'].isoformat() if row['session_date'] else None,
+                        "time": row['session_time'].strftime('%H:%M') if row['session_time'] else None,
+                        "topic": row['topic_title'] or "Brak tematu",
+                        "group": row['group_name'] or "Nieznana grupa"
+                    } for row in tus_rows
+                ]
+            }
+
+            print(f"✅ Zwracam: {len(history['individual'])} indywidualnych, {len(history['tus_group'])} TUS")
+            return jsonify(history), 200
+
+    except Exception as e:
+        print(f"❌ BŁĄD w get_client_history: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 @app.get("/api/tus/schedule")
@@ -2912,6 +3159,32 @@ def create_group_with_slots():
     gid = uuid.uuid4()
     status = data.get("status", "planned")
 
+    # === POPRAWIONY BLOK DIAGNOSTYCZNY ===
+    print("\n" + "=" * 80)
+    print("🔥 TWORZENIE NOWEGO PAKIETU")
+    print("=" * 80)
+    print(f"Group ID: {gid}")
+    print(f"Client ID: {data.get('client_id')}")
+    print(f"Status: {status}")
+
+    if data.get('pickup'):  # POPRAWKA: Sprawdź czy istnieje
+        print(f"\nPICKUP:")
+        print(f"  Od: {data['pickup'].get('from')}")
+        print(f"  Do: {data['pickup'].get('to')}")
+    else:
+        print(f"\nPICKUP: BRAK")
+
+    if data.get('dropoff'):  # POPRAWKA: Sprawdź czy istnieje
+        print(f"\nDROPOFF:")
+        print(f"  Od: {data['dropoff'].get('from')}")
+        print(f"  Do: {data['dropoff'].get('to')}")
+    else:
+        print(f"\nDROPOFF: BRAK")
+
+    print(f"\nKlucz Google Maps: {'✓ USTAWIONY' if GOOGLE_MAPS_API_KEY else '✗ BRAK'}")
+    print("=" * 80)
+    # === KONIEC BLOKU DIAGNOSTYCZNEGO ===
+
     try:
         with engine.begin() as conn:
             # 1) Utwórz nadrzędny pakiet w event_groups
@@ -2924,77 +3197,120 @@ def create_group_with_slots():
                 "label": data.get("label")
             })
 
-            # 2) Utwórz slot terapii i pobierz jego ID
+            # 2) Utwórz slot terapii
             t = data["therapy"]
             ts = datetime.fromisoformat(t["starts_at"]).replace(tzinfo=TZ)
             te = datetime.fromisoformat(t["ends_at"]).replace(tzinfo=TZ)
             session_id = ensure_shared_session_id_for_therapist(conn, int(t["therapist_id"]), ts, te)
 
             therapy_slot_id = conn.execute(text("""
-                  INSERT INTO schedule_slots (
-                    group_id, client_id, therapist_id, kind, 
-                    starts_at, ends_at, place_to, status, session_id
-                  ) VALUES (
-                    :group_id, :client_id, :therapist_id, 'therapy', 
-                    :starts_at, :ends_at, :place, :status, :session_id
-                  ) RETURNING id
+                    INSERT INTO schedule_slots (
+                        group_id, client_id, therapist_id, kind, 
+                        starts_at, ends_at, place_to, status, session_id
+                    ) VALUES (
+                        :group_id, :client_id, :therapist_id, 'therapy', 
+                        :starts_at, :ends_at, :place, :status, :session_id
+                    ) RETURNING id
                 """), {
-                "group_id": str(gid), "client_id": data["client_id"], "therapist_id": t["therapist_id"],
-                "starts_at": ts, "ends_at": te, "place": t.get("place"),
-                "status": status, "session_id": session_id
+                "group_id": str(gid),
+                "client_id": data["client_id"],
+                "therapist_id": t["therapist_id"],
+                "starts_at": ts,
+                "ends_at": te,
+                "place": t.get("place"),
+                "status": status,
+                "session_id": session_id
             }).scalar_one()
 
-            # --- POCZĄTEK POPRAWKI ---
-            # 3) Automatycznie utwórz wpis o obecności dla tego slotu terapii
+            # 3) Utwórz wpis o obecności
             if therapy_slot_id:
                 conn.execute(text("""
                         INSERT INTO individual_session_attendance (slot_id, status)
                         VALUES (:slot_id, 'obecny')
                     """), {"slot_id": therapy_slot_id})
 
-            # --- KONIEC POPRAWKI ---
-
-            # Funkcja pomocnicza do tworzenia slotów dowozu/odwozu
+            # POPRAWIONA FUNKCJA insert_run
             def insert_run(run_data, kind):
-                if not run_data: return
+                if not run_data:
+                    print(f"⚠️  Brak danych dla {kind}")
+                    return
+
+                print(f"\n--- Przetwarzam {kind.upper()} ---")
+                print(f"Driver ID: {run_data.get('driver_id')}")
+                print(f"Od: {run_data.get('from')}")
+                print(f"Do: {run_data.get('to')}")
+
                 s = datetime.fromisoformat(run_data["starts_at"]).replace(tzinfo=TZ)
                 e = datetime.fromisoformat(run_data["ends_at"]).replace(tzinfo=TZ)
                 run_id = ensure_shared_run_id_for_driver(conn, int(run_data["driver_id"]), s, e)
-                conn.execute(text("""
+
+                # KLUCZOWA CZĘŚĆ - OBLICZ DYSTANS
+                place_from = run_data.get("from")
+                place_to = run_data.get("to")
+
+                print(f"🔍 Obliczam dystans: '{place_from}' -> '{place_to}'")
+                print(f"🔑 Klucz API: {GOOGLE_MAPS_API_KEY[:20]}..." if GOOGLE_MAPS_API_KEY else "❌ BRAK KLUCZA")
+
+                if place_from and place_to:
+                    distance = get_route_distance(place_from, place_to)
+                    print(f"{'✓' if distance else '✗'} Dystans: {distance} km")
+                else:
+                    distance = None
+                    print(f"⚠️  Brak adresów - pomijam obliczanie dystansu")
+
+                # ZAPISZ DO BAZY
+                print(f"💾 Zapisuję slot z distance_km = {distance}")
+
+                result = conn.execute(text("""
                         INSERT INTO schedule_slots (
                             group_id, client_id, driver_id, vehicle_id, kind, 
-                            starts_at, ends_at, place_from, place_to, status, run_id
+                            starts_at, ends_at, place_from, place_to, status, run_id,
+                            distance_km
                         ) VALUES (
                             :group_id, :client_id, :driver_id, :vehicle_id, :kind, 
-                            :starts_at, :ends_at, :from, :to, :status, :run_id
+                            :starts_at, :ends_at, :from, :to, :status, :run_id,
+                            :distance
                         )
+                        RETURNING id
                     """), {
-                    "group_id": str(gid), "client_id": data["client_id"], "driver_id": run_data["driver_id"],
-                    "vehicle_id": run_data.get("vehicle_id"), "kind": kind, "starts_at": s, "ends_at": e,
-                    "from": run_data.get("from"), "to": run_data.get("to"), "status": status, "run_id": run_id
+                    "group_id": str(gid),
+                    "client_id": data["client_id"],
+                    "driver_id": run_data["driver_id"],
+                    "vehicle_id": run_data.get("vehicle_id"),
+                    "kind": kind,
+                    "starts_at": s,
+                    "ends_at": e,
+                    "from": place_from,
+                    "to": place_to,
+                    "status": status,
+                    "run_id": run_id,
+                    "distance": distance
                 })
+
+                new_id = result.scalar_one()
+                print(f"✓ Slot {kind} utworzony (ID: {new_id}, dystans: {distance} km)")
 
             # 4) Utwórz sloty dowozu i odwozu
             insert_run(data.get("pickup"), "pickup")
             insert_run(data.get("dropoff"), "dropoff")
 
-        return jsonify({"group_id": str(gid), "ok": True}), 201
+            print(f"\n✅ PAKIET UTWORZONY: {gid}")
+            print("=" * 80 + "\n")
+
+            return jsonify({"group_id": str(gid), "ok": True}), 201
 
     except IntegrityError as e:
-        pgcode = getattr(e.orig, "pgcode", None)
-        if pgcode == errorcodes.FOREIGN_KEY_VIOLATION:
-            return jsonify({"error": "Naruszenie klucza obcego (sprawdź ID).", "details": str(e.orig)}), 400
-        return jsonify({"error": "Błąd bazy danych", "details": str(e.orig)}), 400
-
-    except IntegrityError as e:
-        # 23503: FOREIGN_KEY_VIOLATION (np. nieistniejący client_id/therapist_id/driver_id)
+        print(f"\n❌ BŁĄD INTEGRALNOŚCI: {e}")
         if getattr(e.orig, "pgcode", None) == errorcodes.FOREIGN_KEY_VIOLATION:
-            return jsonify({"error": "Naruszenie klucza obcego (sprawdź ID klienta/terapeuty/kierowcy/pojazdu).",
-                            "details": str(e.orig)}), 400
-        # 23P01: EXCLUSION_VIOLATION (gdyby jednak overlapy bez session_id/run_id)
+            return jsonify({"error": "Naruszenie klucza obcego."}), 400
         if getattr(e.orig, "pgcode", None) == errorcodes.EXCLUSION_VIOLATION:
-            return jsonify({"error": "Konflikt czasowy (zasób zajęty)."}), 409
-        return jsonify({"error": "Błąd bazy danych", "details": str(e.orig)}), 400
+            return jsonify({"error": "Konflikt czasowy."}), 409
+        return jsonify({"error": "Błąd bazy danych"}), 400
+    except Exception as e:
+        print(f"\n❌ BŁĄD KRYTYCZNY: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 # NOWY ENDPOINT W odnowa.py
@@ -4200,6 +4516,108 @@ def upload_client_photo():
     photo_url = f"/uploads/clients/{filename}"
     return jsonify({'photo_url': photo_url}), 200
 
+
+def init_foundation_table():
+    """Inicjalizacja tabeli foundation w PostgreSQL"""
+    with engine.begin() as conn:
+        conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS foundation (
+                id SERIAL PRIMARY KEY,
+                name TEXT,
+                krs TEXT UNIQUE,
+                nip TEXT,
+                regon TEXT,
+                city TEXT,
+                voivodeship TEXT,
+                street TEXT,
+                building_number TEXT,
+                postal_code TEXT,
+                email TEXT,
+                phone TEXT,
+                board_members TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        '''))
+
+        conn.execute(text('''
+            CREATE INDEX IF NOT EXISTS idx_foundation_krs 
+            ON foundation(krs)
+        '''))
+
+    print("✓ Tabela foundation zainicjalizowana")
+
+
+def init_projects_table():
+    """Inicjalizacja tabeli projects w PostgreSQL (jeśli nie istnieje)"""
+    with engine.begin() as conn:
+        conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS projects (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                start_date DATE,
+                end_date DATE,
+                status VARCHAR(50) DEFAULT 'planowany',
+                budget FLOAT,
+                coordinator VARCHAR(255),
+                partners TEXT,
+                beneficiaries_count INTEGER,
+                photo_url TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        '''))
+
+        conn.execute(text('''
+            CREATE INDEX IF NOT EXISTS idx_projects_status 
+            ON projects(status)
+        '''))
+
+        conn.execute(text('''
+            CREATE INDEX IF NOT EXISTS idx_projects_dates 
+            ON projects(start_date, end_date)
+        '''))
+
+    print("✓ Tabela projects zainicjalizowana")
+
+
+def init_all_tables():
+    """Inicjalizacja wszystkich tabel aplikacji"""
+    print("\n" + "=" * 60)
+    print("INICJALIZACJA TABEL BAZY DANYCH")
+    print("=" * 60)
+
+    try:
+        # Sprawdź połączenie z bazą
+        with engine.begin() as conn:
+            result = conn.execute(text("SELECT version()"))
+            version = result.scalar()
+            print(f"✓ Połączono z PostgreSQL")
+            print(f"  {version[:60]}...")
+
+        # Inicjalizuj wszystkie tabele
+        init_documents_table()  # Dokumenty klientów
+        init_foundation_table()  # Dane fundacji
+        init_projects_table()  # Projekty
+        init_client_notes_table()
+
+        print("=" * 60)
+        print("✓ WSZYSTKIE TABELE GOTOWE")
+        print("=" * 60 + "\n")
+
+        return True
+
+    except Exception as e:
+        print("\n" + "=" * 60)
+        print("✗ BŁĄD INICJALIZACJI")
+        print("=" * 60)
+        print(f"Błąd: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        print("=" * 60 + "\n")
+        return False
+
 def init_documents_table():
     """Inicjalizacja tabeli dokumentów w PostgreSQL"""
     with engine.begin() as conn:
@@ -4218,6 +4636,7 @@ def init_documents_table():
                 FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
             )
         '''))
+
 
         conn.execute(text('''
             CREATE INDEX IF NOT EXISTS idx_client_documents_client_id 
@@ -4648,6 +5067,1661 @@ def get_projects_report():
             },
             "projects": [dict(p) for p in projects]
         })
+
+
+def fetch_krs_data(krs_number):
+    """
+    Pobieranie danych z KRS przez API
+    Używa publicznego API MS (api.stat.gov.pl) lub rejestr.io
+    """
+    try:
+        # Próba 1: API MS (Ministerstwo Sprawiedliwości)
+        # Uwaga: To jest przykładowy endpoint - w praktyce trzeba użyć prawdziwego API
+        url = f"https://api-krs.ms.gov.pl/api/krs/OdpisAktualny/{krs_number}"
+
+        headers = {
+            'Accept': 'application/json'
+        }
+
+        response = requests.get(url, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            return parse_krs_response(data)
+
+        # Próba 2: Alternatywne API (rejestr.io)
+        url_alt = f"https://rejestr.io/api/v1/krs/{krs_number}"
+        response_alt = requests.get(url_alt, timeout=10)
+
+        if response_alt.status_code == 200:
+            data_alt = response_alt.json()
+            return parse_rejestr_io_response(data_alt)
+
+        return None
+
+    except Exception as e:
+        print(f"Błąd pobierania danych KRS: {e}")
+        return None
+
+
+def parse_krs_response(data):
+    """Parsowanie odpowiedzi z oficjalnego API MS"""
+    try:
+        foundation_data = {
+            'name': data.get('odpis', {}).get('dane', {}).get('dzial1', {}).get('danePodmiotu', {}).get('nazwa', ''),
+            'krs': data.get('odpis', {}).get('naglowekA', {}).get('numerKRS', ''),
+            'nip': data.get('odpis', {}).get('dane', {}).get('dzial1', {}).get('danePodmiotu', {}).get('identyfikatory',
+                                                                                                       {}).get('nip',
+                                                                                                               ''),
+            'regon': data.get('odpis', {}).get('dane', {}).get('dzial1', {}).get('danePodmiotu', {}).get(
+                'identyfikatory', {}).get('regon', ''),
+        }
+
+        # Adres siedziby
+        adres = data.get('odpis', {}).get('dane', {}).get('dzial1', {}).get('siedzibaIAdres', {}).get('adres', {})
+        foundation_data['city'] = adres.get('miejscowosc', '')
+        foundation_data['voivodeship'] = adres.get('wojewodztwo', '')
+        foundation_data['street'] = adres.get('ulica', '')
+        foundation_data['building_number'] = adres.get('nrDomu', '')
+        foundation_data['postal_code'] = adres.get('kodPocztowy', '')
+
+        # Zarząd
+        board_members = []
+        zarzad = data.get('odpis', {}).get('dane', {}).get('dzial2', {}).get('reprezentacja', {}).get('czlonkowie', [])
+        for member in zarzad:
+            name = member.get('imieNazwisko', '')
+            function = member.get('funkcja', '')
+            if name:
+                board_members.append(f"{name} - {function}")
+        foundation_data['board_members'] = '\n'.join(board_members)
+
+        return foundation_data
+
+    except Exception as e:
+        print(f"Błąd parsowania danych KRS: {e}")
+        return None
+
+
+def parse_rejestr_io_response(data):
+    """Parsowanie odpowiedzi z alternatywnego API rejestr.io"""
+    try:
+        foundation_data = {
+            'name': data.get('nazwa', ''),
+            'krs': data.get('krs', ''),
+            'nip': data.get('nip', ''),
+            'regon': data.get('regon', ''),
+            'city': data.get('adres', {}).get('miejscowosc', ''),
+            'voivodeship': data.get('adres', {}).get('wojewodztwo', ''),
+            'street': data.get('adres', {}).get('ulica', ''),
+            'building_number': data.get('adres', {}).get('nr_domu', ''),
+            'postal_code': data.get('adres', {}).get('kod_pocztowy', ''),
+        }
+
+        # Zarząd
+        board_members = []
+        for member in data.get('reprezentacja', []):
+            name = member.get('imie_nazwisko', '')
+            function = member.get('funkcja', '')
+            if name:
+                board_members.append(f"{name} - {function}")
+        foundation_data['board_members'] = '\n'.join(board_members)
+
+        return foundation_data
+
+    except Exception as e:
+        print(f"Błąd parsowania danych z rejestr.io: {e}")
+        return None
+
+
+@app.route('/api/foundation/fetch-krs', methods=['POST'])
+def fetch_and_save_krs():
+    """Endpoint do pobierania danych z KRS i zapisywania w bazie"""
+    try:
+        data = request.get_json()
+        krs_number = data.get('krs', '').strip()
+
+        if not krs_number:
+            return jsonify({'error': 'Numer KRS jest wymagany'}), 400
+
+        # Pobierz dane z KRS
+        foundation_data = fetch_krs_data(krs_number)
+
+        if not foundation_data:
+            return jsonify({'error': 'Nie udało się pobrać danych z KRS. Sprawdź numer KRS lub spróbuj później.'}), 404
+
+        # Zapisz w bazie danych - UŻYWAMY engine.begin()
+        with engine.begin() as conn:
+            conn.execute(text('''
+                INSERT INTO foundation 
+                (name, krs, nip, regon, city, voivodeship, street, building_number, 
+                 postal_code, email, phone, board_members, updated_at)
+                VALUES (:name, :krs, :nip, :regon, :city, :voiv, :street, :building, 
+                        :postal, :email, :phone, :board, :updated)
+                ON CONFLICT (krs) 
+                DO UPDATE SET 
+                    name = EXCLUDED.name,
+                    nip = EXCLUDED.nip,
+                    regon = EXCLUDED.regon,
+                    city = EXCLUDED.city,
+                    voivodeship = EXCLUDED.voivodeship,
+                    street = EXCLUDED.street,
+                    building_number = EXCLUDED.building_number,
+                    postal_code = EXCLUDED.postal_code,
+                    board_members = EXCLUDED.board_members,
+                    updated_at = EXCLUDED.updated_at
+            '''), {
+                'name': foundation_data.get('name'),
+                'krs': foundation_data.get('krs'),
+                'nip': foundation_data.get('nip'),
+                'regon': foundation_data.get('regon'),
+                'city': foundation_data.get('city'),
+                'voiv': foundation_data.get('voivodeship'),
+                'street': foundation_data.get('street'),
+                'building': foundation_data.get('building_number'),
+                'postal': foundation_data.get('postal_code'),
+                'email': foundation_data.get('email', ''),
+                'phone': foundation_data.get('phone', ''),
+                'board': foundation_data.get('board_members'),
+                'updated': datetime.now()
+            })
+
+        return jsonify(foundation_data), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Błąd serwera: {str(e)}'}), 500
+
+
+@app.route('/api/foundation', methods=['GET'])
+def get_foundation():
+    """Pobierz dane fundacji z bazy"""
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text('SELECT * FROM foundation ORDER BY updated_at DESC LIMIT 1')
+            )
+            row = result.mappings().first()
+
+        if row:
+            return jsonify(dict(row)), 200
+        else:
+            return jsonify({}), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Błąd serwera: {str(e)}'}), 500
+
+
+@app.route('/api/foundation', methods=['POST'])
+def save_foundation():
+    """Zapisz/aktualizuj dane fundacji"""
+    try:
+        data = request.get_json()
+
+        with engine.begin() as conn:
+            conn.execute(text('''
+                INSERT INTO foundation 
+                (name, krs, nip, regon, city, voivodeship, street, building_number,
+                 postal_code, email, phone, board_members, updated_at)
+                VALUES (:name, :krs, :nip, :regon, :city, :voiv, :street, :building,
+                        :postal, :email, :phone, :board, :updated)
+                ON CONFLICT (krs) 
+                DO UPDATE SET 
+                    name = EXCLUDED.name,
+                    nip = EXCLUDED.nip,
+                    regon = EXCLUDED.regon,
+                    city = EXCLUDED.city,
+                    voivodeship = EXCLUDED.voivodeship,
+                    street = EXCLUDED.street,
+                    building_number = EXCLUDED.building_number,
+                    postal_code = EXCLUDED.postal_code,
+                    email = EXCLUDED.email,
+                    phone = EXCLUDED.phone,
+                    board_members = EXCLUDED.board_members,
+                    updated_at = EXCLUDED.updated_at
+            '''), {
+                'name': data.get('name'),
+                'krs': data.get('krs'),
+                'nip': data.get('nip'),
+                'regon': data.get('regon'),
+                'city': data.get('city'),
+                'voiv': data.get('voivodeship'),
+                'street': data.get('street'),
+                'building': data.get('building_number'),
+                'postal': data.get('postal_code'),
+                'email': data.get('email'),
+                'phone': data.get('phone'),
+                'board': data.get('board_members'),
+                'updated': datetime.now()
+            })
+
+        return jsonify({'message': 'Dane fundacji zapisane pomyślnie'}), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Błąd serwera: {str(e)}'}), 500
+
+
+@app.route('/api/debug/schedule_structure', methods=['GET'])
+def check_schedule_structure():
+    """Sprawdź strukturę schedule_slots - z konwersją typów PG"""
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host='localhost',
+            database='suo',  # ZMIEŃ
+            user='postgres',  # ZMIEŃ
+            password='EDUQ'  # ZMIEŃ
+        )
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Pobierz kolumny
+        cur.execute("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'schedule_slots'
+            ORDER BY ordinal_position
+        """)
+        columns = [dict(c) for c in cur.fetchall()]
+
+        # Pobierz przykładowe dane BEZ kolumn typu range
+        cur.execute("""
+            SELECT 
+                id, client_id, kind, therapist_id, driver_id, 
+                vehicle_id, 
+                starts_at::text as starts_at,  -- konwersja na text
+                ends_at::text as ends_at,      -- konwersja na text
+                place_from, place_to, status,
+                CASE WHEN group_id IS NOT NULL THEN group_id ELSE NULL END as group_id
+            FROM schedule_slots 
+            ORDER BY id DESC
+            LIMIT 5
+        """)
+        samples = [dict(s) for s in cur.fetchall()]
+
+        return jsonify({
+            "status": "ok",
+            "columns": columns,
+            "sample_data": samples
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 200
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route('/api/schedule/check-conflicts', methods=['POST'])
+def check_schedule_conflicts():
+    """Sprawdza kolizje dla edytowanego pakietu"""
+    data = request.get_json()
+
+    group_id = data.get('group_id')  # UUID pakietu (jeśli edycja)
+    client_id = data.get('client_id')
+    therapy = data.get('therapy')
+    pickup = data.get('pickup')
+    dropoff = data.get('dropoff')
+
+    conn = None
+    cur = None
+    conflicts = {
+        "therapy": [],
+        "pickup": [],
+        "dropoff": [],
+        "client": [],
+        "total": 0
+    }
+
+    try:
+        conn = psycopg2.connect(
+            host='localhost',
+            port='5432',
+            database='suo',  # ZMIEŃ
+            user='postgres',  # ZMIEŃ
+            password='EDUQ'  # ZMIEŃ
+        )
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # SPRAWDŹ KOLIZJE TERAPEUTY
+        if therapy:
+            therapist_id = therapy.get('therapist_id')
+            starts_at = therapy.get('starts_at')
+            ends_at = therapy.get('ends_at')
+
+            cur.execute("""
+                SELECT 
+                    ss.id,
+                    ss.group_id::text,
+                    c.full_name as client_name,
+                    ss.starts_at,
+                    ss.ends_at,
+                    'Terapeuta już zajęty' as reason
+                FROM schedule_slots ss
+                JOIN clients c ON ss.client_id = c.id
+                WHERE ss.therapist_id = %s
+                AND ss.status NOT IN ('cancelled')
+                AND (
+                    (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
+                )
+                AND (
+                    %s IS NULL OR ss.group_id::text != %s
+                )
+                ORDER BY ss.starts_at
+            """, (therapist_id, starts_at, ends_at, group_id, group_id))
+
+            therapy_conflicts = cur.fetchall()
+            conflicts["therapy"] = [dict(row) for row in therapy_conflicts]
+
+        # SPRAWDŹ KOLIZJE KIEROWCY (PICKUP)
+        if pickup:
+            driver_id = pickup.get('driver_id')
+            starts_at = pickup.get('starts_at')
+            ends_at = pickup.get('ends_at')
+
+            if driver_id:
+                cur.execute("""
+                    SELECT 
+                        ss.id,
+                        ss.group_id::text,
+                        c.full_name as client_name,
+                        ss.starts_at,
+                        ss.ends_at,
+                        ss.kind,
+                        'Kierowca już zajęty' as reason
+                    FROM schedule_slots ss
+                    JOIN clients c ON ss.client_id = c.id
+                    WHERE ss.driver_id = %s
+                    AND ss.kind IN ('pickup', 'dropoff')
+                    AND ss.status NOT IN ('cancelled')
+                    AND (
+                        (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
+                    )
+                    AND (
+                        %s IS NULL OR ss.group_id::text != %s
+                    )
+                    ORDER BY ss.starts_at
+                """, (driver_id, starts_at, ends_at, group_id, group_id))
+
+                pickup_conflicts = cur.fetchall()
+                conflicts["pickup"] = [dict(row) for row in pickup_conflicts]
+
+        # SPRAWDŹ KOLIZJE KIEROWCY (DROPOFF)
+        if dropoff:
+            driver_id = dropoff.get('driver_id')
+            starts_at = dropoff.get('starts_at')
+            ends_at = dropoff.get('ends_at')
+
+            if driver_id:
+                cur.execute("""
+                    SELECT 
+                        ss.id,
+                        ss.group_id::text,
+                        c.full_name as client_name,
+                        ss.starts_at,
+                        ss.ends_at,
+                        ss.kind,
+                        'Kierowca już zajęty' as reason
+                    FROM schedule_slots ss
+                    JOIN clients c ON ss.client_id = c.id
+                    WHERE ss.driver_id = %s
+                    AND ss.kind IN ('pickup', 'dropoff')
+                    AND ss.status NOT IN ('cancelled')
+                    AND (
+                        (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
+                    )
+                    AND (
+                        %s IS NULL OR ss.group_id::text != %s
+                    )
+                    ORDER BY ss.starts_at
+                """, (driver_id, starts_at, ends_at, group_id, group_id))
+
+                dropoff_conflicts = cur.fetchall()
+                conflicts["dropoff"] = [dict(row) for row in dropoff_conflicts]
+
+        # SPRAWDŹ KOLIZJE KLIENTA (czy klient nie ma już czegoś w tym czasie)
+        if client_id and therapy:
+            starts_at = therapy.get('starts_at')
+            ends_at = therapy.get('ends_at')
+
+            cur.execute("""
+                SELECT 
+                    ss.id,
+                    ss.group_id::text,
+                    ss.kind,
+                    ss.starts_at,
+                    ss.ends_at,
+                    t.full_name as therapist_name,
+                    'Klient ma już inne zajęcia' as reason
+                FROM schedule_slots ss
+                LEFT JOIN therapists t ON ss.therapist_id = t.id
+                WHERE ss.client_id = %s
+                AND ss.status NOT IN ('cancelled')
+                AND (
+                    (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
+                )
+                AND (
+                    %s IS NULL OR ss.group_id::text != %s
+                )
+                ORDER BY ss.starts_at
+            """, (client_id, starts_at, ends_at, group_id, group_id))
+
+            client_conflicts = cur.fetchall()
+            conflicts["client"] = [dict(row) for row in client_conflicts]
+
+        # POLICZ WSZYSTKIE KONFLIKTY
+        conflicts["total"] = (
+                len(conflicts["therapy"]) +
+                len(conflicts["pickup"]) +
+                len(conflicts["dropoff"]) +
+                len(conflicts["client"])
+        )
+
+        return jsonify(conflicts)
+
+    except Exception as e:
+        print(f"BŁĄD w check_schedule_conflicts: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+# Endpoint do aktualizacji wizyty
+@app.route('/api/schedule/<int:slot_id>', methods=['PATCH', 'PUT'])
+def update_schedule(slot_id):
+    """Aktualizuj wizytę w grafiku"""
+    data = request.get_json()
+
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host='localhost',
+            port='5432',
+            database='suo',
+            user='postgres',
+            password='EDUQ'
+        )
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Sprawdź czy slot istnieje
+        cur.execute("SELECT id FROM schedule_slots WHERE id = %s", (slot_id,))
+        if not cur.fetchone():
+            return jsonify({'error': 'Wizyta nie znaleziona'}), 404
+
+        # Przygotuj UPDATE query
+        update_fields = []
+        params = []
+
+        # Przygotuj UPDATE query
+        update_fields = []
+        params = []
+
+        if 'client_id' in data:
+            update_fields.append("client_id = %s")
+            params.append(data['client_id'])
+
+        if 'starts_at' in data:
+            update_fields.append("starts_at = %s")
+            params.append(data['starts_at'])
+
+        if 'ends_at' in data:
+            update_fields.append("ends_at = %s")
+            params.append(data['ends_at'])
+
+        if 'place_to' in data:
+            update_fields.append("place_to = %s")
+            params.append(data['place_to'])
+
+        if 'status' in data:
+            update_fields.append("status = %s")
+            params.append(data['status'])
+
+        if not update_fields:
+            return jsonify({'error': 'Brak danych do aktualizacji'}), 400
+
+            # Wykonaj UPDATE
+        params.append(slot_id)
+        query = f"UPDATE schedule_slots SET {', '.join(update_fields)} WHERE id = %s"
+
+        print(f"Executing UPDATE: {query}")
+        print(f"Params: {params}")
+
+        cur.execute(query, params)
+        conn.commit()
+
+        return jsonify({
+                'success': True,
+                'message': 'Wizyta zaktualizowana',
+                'slot_id': slot_id
+            }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"BŁĄD w update_schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route('/api/schedule/<int:slot_id>', methods=['DELETE'])
+def delete_schedule(slot_id):
+    """Usuń wizytę z grafiku"""
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host='localhost',
+            port='5432',
+            database='suo',
+            user='postgres',
+            password='EDUQ'
+        )
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Sprawdź czy slot istnieje
+        cur.execute("SELECT id FROM schedule_slots WHERE id = %s", (slot_id,))
+        if not cur.fetchone():
+            return jsonify({'error': 'Wizyta nie znaleziona'}), 404
+
+        # Usuń slot
+        cur.execute("DELETE FROM schedule_slots WHERE id = %s", (slot_id,))
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Wizyta usunięta',
+            'slot_id': slot_id
+        }), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"BŁĄD w delete_schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route('/api/schedule', methods=['POST'])
+def create_schedule():
+    """Utwórz nową wizytę w grafiku"""
+    data = request.get_json()
+
+    print("=== CREATE SCHEDULE ===")
+    print("Otrzymane dane:", data)
+
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host='localhost',
+            port='5432',
+            database='suo',
+            user='postgres',
+            password='EDUQ'
+        )
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Walidacja wymaganych pól
+        required_fields = ['therapist_id', 'client_id', 'starts_at', 'ends_at']
+        for field in required_fields:
+            if field not in data:
+                print(f"❌ Brak pola: {field}")
+                return jsonify({'error': f'Brak wymaganego pola: {field}'}), 400
+            if data[field] is None:
+                print(f"❌ Pole {field} jest None")
+                return jsonify({'error': f'Pole {field} nie może być puste'}), 400
+
+        # Wygeneruj UUID dla group_id
+        import uuid
+        group_id = str(uuid.uuid4())
+
+        # Przygotuj dane
+        therapist_id = int(data['therapist_id'])
+        client_id = int(data['client_id'])
+        starts_at = data['starts_at']
+        ends_at = data['ends_at']
+        place_to = data.get('place_to')
+        kind = data.get('kind', 'therapy')
+        status = data.get('status', 'planned')
+
+        print(f"therapist_id: {therapist_id}")
+        print(f"client_id: {client_id}")
+        print(f"group_id: {group_id}")
+
+        # KROK 1: Najpierw utwórz event_group
+        cur.execute("""
+            INSERT INTO event_groups (id, client_id, created_at)
+            VALUES (%s::uuid, %s, NOW())
+        """, (group_id, client_id))
+
+        print(f"✅ Created event_group with id: {group_id}")
+
+        # KROK 2: Teraz utwórz schedule_slot
+        cur.execute("""
+            INSERT INTO schedule_slots 
+            (group_id, therapist_id, client_id, starts_at, ends_at, place_to, kind, status)
+            VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, group_id::text
+        """, (group_id, therapist_id, client_id, starts_at, ends_at, place_to, kind, status))
+
+        result = cur.fetchone()
+        conn.commit()
+
+        print(f"✅ Created schedule_slot with id: {result['id']}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Wizyta została utworzona',
+            'slot_id': result['id'],
+            'group_id': result['group_id']
+        }), 201
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"❌ BŁĄD w create_schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.route('/api/drivers/<int:driver_id>/schedule', methods=['GET'])
+def get_driver_schedule(driver_id):
+    """Harmonogram tras kierowcy na dany dzień - WERSJA Z GPS"""
+    date = request.args.get('date')
+
+    conn = None
+    cur = None
+    try:
+        conn = psycopg2.connect(
+            host='localhost', port='5432', database='suo',
+            user='postgres', password='EDUQ'
+        )
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # KWERENDA Z GPS I DISTANCE
+        cur.execute("""
+            SELECT 
+                ss.id as slot_id,
+                ss.group_id::text as group_id,
+                ss.driver_id,
+                ss.client_id,
+                c.full_name as client_name,
+                ss.starts_at,
+                ss.ends_at,
+                ss.kind,
+                ss.status,
+                ss.place_from,
+                ss.place_to,
+                ss.distance_km,  -- ✅ JUŻ JEST!
+                ss.vehicle_id
+            FROM schedule_slots ss
+            LEFT JOIN clients c ON ss.client_id = c.id
+            WHERE ss.driver_id = %s
+            AND ss.kind IN ('pickup', 'dropoff')
+            AND DATE(ss.starts_at) = %s
+            ORDER BY ss.starts_at
+        """, (driver_id, date))
+
+        routes = [dict(row) for row in cur.fetchall()]
+
+        # Konwertuj Decimal na float dla JSON
+        for route in routes:
+            if route.get('distance_km'):
+                route['distance_km'] = float(route['distance_km'])
+
+        return jsonify(routes)
+
+    except Exception as e:
+        print(f"Błąd w get_driver_schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.route('/api/test-driver-gps/<int:driver_id>')
+def test_driver_gps(driver_id):
+    """TEST - Sprawdź czy GPS działa"""
+    date = request.args.get('date', '2025-10-10')
+
+    conn = psycopg2.connect(
+        host='localhost', port='5432', database='suo',
+        user='postgres', password='EDUQ'
+    )
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    # Najprostsza możliwa kwerenda
+    cur.execute("""
+        SELECT 
+            id, place_from, place_to,
+            from_latitude, from_longitude,
+            to_latitude, to_longitude,
+            distance_km
+        FROM schedule_slots
+        WHERE driver_id = %s
+        AND DATE(starts_at) = %s
+        LIMIT 1
+    """, (driver_id, date))
+
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    return jsonify(dict(result) if result else {"error": "Brak danych"})
+
+
+# OPCJONALNIE: Endpoint do przeliczania dystansu dla istniejących tras
+@app.post("/api/schedule/recalculate-distances")
+def recalculate_all_distances():
+    """Przelicza dystansy dla wszystkich tras bez distance_km"""
+    try:
+        with engine.begin() as conn:
+            # Znajdź wszystkie sloty bez dystansu
+            rows = conn.execute(text("""
+                SELECT id, place_from, place_to
+                FROM schedule_slots
+                WHERE kind IN ('pickup', 'dropoff')
+                AND (distance_km IS NULL OR distance_km = 0)
+                AND place_from IS NOT NULL 
+                AND place_to IS NOT NULL
+            """)).mappings().all()
+
+            updated = 0
+            for row in rows:
+                distance = get_route_distance(row['place_from'], row['place_to'])
+                if distance:
+                    conn.execute(text("""
+                        UPDATE schedule_slots 
+                        SET distance_km = :dist 
+                        WHERE id = :id
+                    """), {"dist": distance, "id": row['id']})
+                    updated += 1
+
+            return jsonify({
+                "message": f"Zaktualizowano {updated} tras",
+                "total_checked": len(rows)
+            }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ENDPOINT 1: Sprawdź czy API Google Maps działa
+@app.get("/api/debug/test-google-maps")
+def test_google_maps_api():
+    """Testuje połączenie z Google Maps API"""
+    try:
+        print("\n=== TEST GOOGLE MAPS API ===")
+        print(f"Klucz API: {GOOGLE_MAPS_API_KEY[:10]}..." if GOOGLE_MAPS_API_KEY else "BRAK KLUCZA!")
+
+        # Test prosty
+        origin = "Warszawa, Polska"
+        destination = "Kraków, Polska"
+
+        result = get_route_distance(origin, destination)
+
+        return jsonify({
+            "api_key_configured": bool(GOOGLE_MAPS_API_KEY),
+            "api_key_preview": GOOGLE_MAPS_API_KEY[:10] + "..." if GOOGLE_MAPS_API_KEY else None,
+            "test_route": f"{origin} -> {destination}",
+            "calculated_distance_km": result,
+            "status": "OK" if result else "FAILED"
+        })
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+# ENDPOINT 2: Sprawdź co jest zapisane w bazie
+@app.get("/api/debug/check-distances")
+def check_existing_distances():
+    """Sprawdź jakie dystanse są w bazie"""
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                SELECT 
+                    id,
+                    kind,
+                    place_from,
+                    place_to,
+                    distance_km,
+                    starts_at::date as date
+                FROM schedule_slots
+                WHERE kind IN ('pickup', 'dropoff')
+                ORDER BY starts_at DESC
+                LIMIT 20
+            """))
+
+            rows = [dict(row) for row in result.mappings().all()]
+
+            stats = conn.execute(text("""
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(distance_km) as with_distance,
+                    COUNT(*) - COUNT(distance_km) as without_distance,
+                    AVG(distance_km) as avg_distance
+                FROM schedule_slots
+                WHERE kind IN ('pickup', 'dropoff')
+            """)).mappings().first()
+
+            return jsonify({
+                "statistics": dict(stats),
+                "recent_routes": rows
+            })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ENDPOINT 3: Test z logowaniem
+@app.post("/api/debug/test-distance-calculation")
+def test_distance_with_logging():
+    """Test z pełnym logowaniem"""
+    data = request.get_json()
+    place_from = data.get('from')
+    place_to = data.get('to')
+
+    print("\n" + "=" * 60)
+    print("TEST OBLICZANIA DYSTANSU")
+    print("=" * 60)
+    print(f"Od: {place_from}")
+    print(f"Do: {place_to}")
+    print(f"Klucz API ustawiony: {bool(GOOGLE_MAPS_API_KEY)}")
+
+    if not GOOGLE_MAPS_API_KEY:
+        print("BŁĄD: Brak klucza API!")
+        return jsonify({"error": "Brak klucza GOOGLE_MAPS_API_KEY"}), 400
+
+    try:
+        # Wywołaj funkcję z logowaniem
+        import requests
+
+        origin_safe = requests.utils.quote(place_from)
+        destination_safe = requests.utils.quote(place_to)
+        url = f"https://maps.googleapis.com/maps/api/directions/json?origin={origin_safe}&destination={destination_safe}&key={GOOGLE_MAPS_API_KEY}"
+
+        print(f"\nWysyłam zapytanie do Google Maps...")
+        print(f"URL (bez klucza): {url.replace(GOOGLE_MAPS_API_KEY, 'HIDDEN')}")
+
+        response = requests.get(url, timeout=10)
+        print(f"Status code: {response.status_code}")
+
+        data = response.json()
+        print(f"Status odpowiedzi: {data.get('status')}")
+
+        if data.get('status') == 'OK':
+            distance_meters = data['routes'][0]['legs'][0]['distance']['value']
+            distance_km = round(distance_meters / 1000, 2)
+            print(f"✓ SUKCES! Dystans: {distance_km} km")
+
+            return jsonify({
+                "success": True,
+                "distance_km": distance_km,
+                "from": place_from,
+                "to": place_to,
+                "raw_response": data
+            })
+        else:
+            print(f"✗ BŁĄD: {data.get('status')}")
+            print(f"Szczegóły: {data.get('error_message', 'Brak')}")
+
+            return jsonify({
+                "success": False,
+                "error": data.get('status'),
+                "error_message": data.get('error_message'),
+                "raw_response": data
+            }), 400
+
+    except Exception as e:
+        print(f"✗ WYJĄTEK: {str(e)}")
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+    finally:
+        print("=" * 60 + "\n")
+
+
+# ENDPOINT 4: Przelicz konkretną trasę ręcznie
+@app.post("/api/debug/force-calculate-distance/<int:slot_id>")
+def force_calculate_distance(slot_id):
+    """Wymusza przeliczenie dystansu dla konkretnego slotu"""
+    try:
+        with engine.begin() as conn:
+            # Pobierz slot
+            result = conn.execute(text("""
+                SELECT id, place_from, place_to, distance_km
+                FROM schedule_slots
+                WHERE id = :sid
+            """), {"sid": slot_id})
+
+            slot = result.mappings().first()
+            if not slot:
+                return jsonify({"error": "Slot nie istnieje"}), 404
+
+            print(f"\n=== WYMUSZAM PRZELICZENIE DLA SLOTU {slot_id} ===")
+            print(f"Od: {slot['place_from']}")
+            print(f"Do: {slot['place_to']}")
+            print(f"Stary dystans: {slot['distance_km']}")
+
+            # Oblicz nowy dystans
+            new_distance = get_route_distance(slot['place_from'], slot['place_to'])
+            print(f"Nowy dystans: {new_distance}")
+
+            if new_distance:
+                # Zapisz w bazie
+                conn.execute(text("""
+                    UPDATE schedule_slots
+                    SET distance_km = :dist
+                    WHERE id = :sid
+                """), {"dist": new_distance, "sid": slot_id})
+
+                return jsonify({
+                    "success": True,
+                    "slot_id": slot_id,
+                    "old_distance": slot['distance_km'],
+                    "new_distance": new_distance,
+                    "from": slot['place_from'],
+                    "to": slot['place_to']
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "Nie udało się obliczyć dystansu",
+                    "slot_id": slot_id
+                }), 400
+
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
+@app.get("/api/clients/<int:client_id>/notes")
+def get_client_notes(client_id):
+    """Pobiera notatki dla danego klienta z opcjonalnym filtrem kategorii"""
+    category = request.args.get('category')
+
+    try:
+        with engine.begin() as conn:
+            # Sprawdź czy klient istnieje
+            exists = conn.execute(
+                text('SELECT 1 FROM clients WHERE id = :cid'),
+                {"cid": client_id}
+            ).scalar()
+
+            if not exists:
+                return jsonify({'error': 'Klient nie istnieje'}), 404
+
+            # Pobierz notatki z filtrem lub bez
+            if category and category != 'all':
+                sql = text('''
+                    SELECT id, client_id, content, category, 
+                           created_by_name, created_at, updated_at
+                    FROM client_notes
+                    WHERE client_id = :cid AND category = :cat
+                    ORDER BY created_at DESC
+                ''')
+                result = conn.execute(sql, {"cid": client_id, "cat": category})
+            else:
+                sql = text('''
+                    SELECT id, client_id, content, category, 
+                           created_by_name, created_at, updated_at
+                    FROM client_notes
+                    WHERE client_id = :cid
+                    ORDER BY created_at DESC
+                ''')
+                result = conn.execute(sql, {"cid": client_id})
+
+            notes = []
+            for row in result.mappings().all():
+                note = dict(row)
+                # Konwertuj daty na ISO format
+                if note['created_at']:
+                    note['created_at'] = note['created_at'].isoformat()
+                if note['updated_at']:
+                    note['updated_at'] = note['updated_at'].isoformat()
+                notes.append(note)
+
+            return jsonify(notes), 200
+
+    except Exception as e:
+        print(f"Błąd w get_client_notes: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.post("/api/clients/<int:client_id>/notes")
+def add_client_note(client_id):
+    """Dodaje nową notatkę dla klienta"""
+    data = request.get_json(silent=True) or {}
+
+    content = (data.get('content') or '').strip()
+    category = data.get('category', 'general')
+    created_by_name = data.get('created_by_name', 'System')  # Możesz pobrać z sesji użytkownika
+
+    if not content:
+        return jsonify({'error': 'Treść notatki jest wymagana'}), 400
+
+    try:
+        with engine.begin() as conn:
+            # Sprawdź czy klient istnieje
+            exists = conn.execute(
+                text('SELECT 1 FROM clients WHERE id = :cid'),
+                {"cid": client_id}
+            ).scalar()
+
+            if not exists:
+                return jsonify({'error': 'Klient nie istnieje'}), 404
+
+            # Dodaj notatkę
+            result = conn.execute(text('''
+                INSERT INTO client_notes (client_id, content, category, created_by_name)
+                VALUES (:cid, :content, :category, :created_by)
+                RETURNING id, client_id, content, category, created_by_name, 
+                          created_at, updated_at
+            '''), {
+                "cid": client_id,
+                "content": content,
+                "category": category,
+                "created_by": created_by_name
+            })
+
+            note = dict(result.mappings().first())
+            note['created_at'] = note['created_at'].isoformat()
+            note['updated_at'] = note['updated_at'].isoformat()
+
+            return jsonify(note), 201
+
+    except Exception as e:
+        print(f"Błąd w add_client_note: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.put("/api/clients/<int:client_id>/notes/<int:note_id>")
+def update_client_note(client_id, note_id):
+    """Aktualizuje istniejącą notatkę"""
+    data = request.get_json(silent=True) or {}
+
+    content = (data.get('content') or '').strip()
+    category = data.get('category')
+
+    if not content:
+        return jsonify({'error': 'Treść notatki jest wymagana'}), 400
+
+    try:
+        with engine.begin() as conn:
+            # Sprawdź czy notatka należy do tego klienta
+            exists = conn.execute(text('''
+                SELECT 1 FROM client_notes 
+                WHERE id = :nid AND client_id = :cid
+            '''), {"nid": note_id, "cid": client_id}).scalar()
+
+            if not exists:
+                return jsonify({'error': 'Notatka nie istnieje lub nie należy do tego klienta'}), 404
+
+            # Aktualizuj notatkę
+            result = conn.execute(text('''
+                UPDATE client_notes
+                SET content = :content,
+                    category = :category,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = :nid AND client_id = :cid
+                RETURNING id, client_id, content, category, created_by_name,
+                          created_at, updated_at
+            '''), {
+                "nid": note_id,
+                "cid": client_id,
+                "content": content,
+                "category": category
+            })
+
+            note = dict(result.mappings().first())
+            note['created_at'] = note['created_at'].isoformat()
+            note['updated_at'] = note['updated_at'].isoformat()
+
+            return jsonify(note), 200
+
+    except Exception as e:
+        print(f"Błąd w update_client_note: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.delete("/api/clients/<int:client_id>/notes/<int:note_id>")
+def delete_client_note(client_id, note_id):
+    """Usuwa notatkę"""
+    try:
+        with engine.begin() as conn:
+            # Sprawdź czy notatka należy do tego klienta
+            exists = conn.execute(text('''
+                SELECT 1 FROM client_notes 
+                WHERE id = :nid AND client_id = :cid
+            '''), {"nid": note_id, "cid": client_id}).scalar()
+
+            if not exists:
+                return jsonify({'error': 'Notatka nie istnieje lub nie należy do tego klienta'}), 404
+
+            # Usuń notatkę
+            conn.execute(text('''
+                DELETE FROM client_notes
+                WHERE id = :nid AND client_id = :cid
+            '''), {"nid": note_id, "cid": client_id})
+
+            return jsonify({'message': 'Notatka usunięta pomyślnie'}), 200
+
+    except Exception as e:
+        print(f"Błąd w delete_client_note: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.get("/api/clients/<int:client_id>/sessions")
+def get_client_sessions(client_id):
+    """Pobiera sesje terapii dla danego klienta"""
+    month = request.args.get('month')
+
+    try:
+        with engine.begin() as conn:
+            exists = conn.execute(
+                text('SELECT 1 FROM clients WHERE id = :cid'),
+                {"cid": client_id}
+            ).scalar()
+
+            if not exists:
+                return jsonify({'error': 'Klient nie istnieje'}), 404
+
+            if month:
+                sql = text('''
+                    SELECT 
+                        ss.id,
+                        eg.label,
+                        ss.starts_at,
+                        ss.ends_at,
+                        ss.place_to,
+                        EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes,
+                        th.full_name as therapist_name,
+                        cn.content as notes,
+                        cn.id as note_id
+                    FROM schedule_slots ss
+                    LEFT JOIN event_groups eg ON eg.id = ss.group_id::uuid
+                    LEFT JOIN therapists th ON th.id = ss.therapist_id
+                    LEFT JOIN client_notes cn ON cn.client_id = ss.client_id
+                        AND cn.category = 'session'
+                        AND DATE(cn.created_at) = DATE(ss.starts_at)
+                    WHERE ss.client_id = :cid
+                        AND ss.kind = 'therapy'
+                        AND ss.starts_at IS NOT NULL
+                        AND DATE_TRUNC('month', ss.starts_at) = DATE_TRUNC('month', TO_DATE(:month, 'YYYY-MM'))
+                    ORDER BY ss.starts_at DESC
+                ''')
+                result = conn.execute(sql, {"cid": client_id, "month": month + "-01"})
+            else:
+                sql = text('''
+                    SELECT 
+                        ss.id,
+                        eg.label,
+                        ss.starts_at,
+                        ss.ends_at,
+                        ss.place_to,
+                        EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes,
+                        th.full_name as therapist_name,
+                        cn.content as notes,
+                        cn.id as note_id
+                    FROM schedule_slots ss
+                    LEFT JOIN event_groups eg ON eg.id = ss.group_id::uuid
+                    LEFT JOIN therapists th ON th.id = ss.therapist_id
+                    LEFT JOIN client_notes cn ON cn.client_id = ss.client_id
+                        AND cn.category = 'session'
+                    WHERE ss.client_id = :cid
+                        AND ss.kind = 'therapy'
+                        AND ss.starts_at IS NOT NULL
+                    ORDER BY ss.starts_at DESC
+                    LIMIT 100
+                ''')
+                result = conn.execute(sql, {"cid": client_id})
+
+            sessions = []
+            for row in result.mappings().all():
+                session = dict(row)
+                if session['starts_at']:
+                    session['starts_at'] = session['starts_at'].isoformat()
+                if session['ends_at']:
+                    session['ends_at'] = session['ends_at'].isoformat()
+                if session['duration_minutes']:
+                    session['duration_minutes'] = int(session['duration_minutes'])
+                sessions.append(session)
+
+            return jsonify(sessions), 200
+
+    except Exception as e:
+        print(f"Błąd: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.get("/api/waiting-clients")
+def get_waiting_clients():
+    """Pobiera listę klientów oczekujących z paginacją"""
+    status = request.args.get('status', 'oczekujący')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+
+    # Walidacja paginacji
+    if page < 1:
+        page = 1
+    if per_page < 1 or per_page > 100:
+        per_page = 50
+
+    try:
+        with engine.begin() as conn:
+            # Zapytanie z paginacją
+            sql = text('''
+                SELECT 
+                    id,
+                    first_name,
+                    last_name,
+                    birth_date,
+                    diagnosis,
+                    registration_date,
+                    notes,
+                    status,
+                    CURRENT_DATE - registration_date as waiting_days,
+                    created_at,
+                    updated_at
+                FROM waiting_clients
+                WHERE (:status = 'all' OR status = :status)
+                ORDER BY registration_date ASC
+                LIMIT :limit OFFSET :offset
+            ''')
+
+            result = conn.execute(sql, {
+                "status": status,
+                "limit": per_page,
+                "offset": (page - 1) * per_page
+            })
+
+            clients = []
+            for row in result.mappings().all():
+                client = dict(row)
+                # Konwertuj daty na ISO format
+                for date_field in ['birth_date', 'registration_date', 'created_at', 'updated_at']:
+                    if client.get(date_field):
+                        client[date_field] = client[date_field].isoformat()
+                clients.append(client)
+
+            # Pobierz całkowitą liczbę rekordów
+            count_sql = text('''
+                SELECT COUNT(*) FROM waiting_clients
+                WHERE (:status = 'all' OR status = :status)
+            ''')
+            total = conn.execute(count_sql, {"status": status}).scalar()
+
+            return jsonify({
+                'clients': clients,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': total,
+                    'pages': (total + per_page - 1) // per_page
+                }
+            }), 200
+
+    except Exception as e:
+        print(f"Błąd w get_waiting_clients: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Błąd pobierania danych'}), 500
+
+
+@app.post("/api/waiting-clients")
+def add_waiting_client():
+    """Dodaje nowego klienta do listy oczekujących"""
+    data = request.get_json(silent=True) or {}
+
+    # Walidacja wymaganych pól
+    required = ['first_name', 'last_name', 'birth_date']
+    for field in required:
+        if not data.get(field):
+            return jsonify({'error': f'Pole {field} jest wymagane'}), 400
+
+    # Walidacja długości
+    validations = [
+        validate_length(data.get('first_name'), 'Imię', 100),
+        validate_length(data.get('last_name'), 'Nazwisko', 100),
+        validate_length(data.get('diagnosis'), 'Diagnoza', 1000),
+        validate_length(data.get('notes'), 'Notatki', 2000),
+    ]
+
+    for error in validations:
+        if error:
+            return jsonify({'error': error}), 400
+
+    # Walidacja formatu dat
+    date_error = validate_date(data.get('birth_date'), 'birth_date')
+    if date_error:
+        return jsonify({'error': date_error}), 400
+
+    if data.get('registration_date'):
+        date_error = validate_date(data.get('registration_date'), 'registration_date')
+        if date_error:
+            return jsonify({'error': date_error}), 400
+
+    # Bezpieczne strip
+    first_name = data.get('first_name', '').strip()
+    last_name = data.get('last_name', '').strip()
+
+    if not first_name or not last_name:
+        return jsonify({'error': 'Imię i nazwisko nie mogą być puste'}), 400
+
+    try:
+        with engine.begin() as conn:
+            # Sprawdź duplikaty
+            exists = conn.execute(text('''
+                SELECT 1 FROM waiting_clients 
+                WHERE first_name = :fname 
+                AND last_name = :lname 
+                AND birth_date = :bdate
+                AND status = 'oczekujący'
+            '''), {
+                "fname": first_name,
+                "lname": last_name,
+                "bdate": data['birth_date']
+            }).scalar()
+
+            if exists:
+                return jsonify({'error': 'Klient już istnieje na liście oczekujących'}), 409
+
+            # Dodaj nowego klienta
+            sql = text('''
+                INSERT INTO waiting_clients 
+                (first_name, last_name, birth_date, diagnosis, registration_date, notes, status)
+                VALUES (:fname, :lname, :bdate, :diag, :regdate, :notes, :status)
+                RETURNING id, first_name, last_name, registration_date, status
+            ''')
+
+            result = conn.execute(sql, {
+                "fname": first_name,
+                "lname": last_name,
+                "bdate": data['birth_date'],
+                "diag": data.get('diagnosis', '').strip(),
+                "regdate": data.get('registration_date', date.today().isoformat()),
+                "notes": data.get('notes', '').strip(),
+                "status": data.get('status', 'oczekujący')
+            })
+
+            new_client = dict(result.mappings().first())
+            new_client['registration_date'] = new_client['registration_date'].isoformat()
+
+            return jsonify({
+                'success': True,
+                'client': new_client,
+                'message': 'Klient dodany pomyślnie'
+            }), 201
+
+    except Exception as e:
+        print(f"Błąd w add_waiting_client: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Błąd podczas dodawania klienta'}), 500
+
+
+@app.put("/api/waiting-clients/<int:client_id>")
+def update_waiting_client(client_id):
+    """Aktualizuje dane klienta oczekującego - tylko przekazane pola"""
+    data = request.get_json(silent=True) or {}
+
+    if not data:
+        return jsonify({'error': 'Brak danych do aktualizacji'}), 400
+
+    try:
+        with engine.begin() as conn:
+            # Sprawdź czy istnieje
+            exists = conn.execute(
+                text('SELECT 1 FROM waiting_clients WHERE id = :id'),
+                {"id": client_id}
+            ).scalar()
+
+            if not exists:
+                return jsonify({'error': 'Klient nie znaleziony'}), 404
+
+            # Buduj dynamiczne UPDATE tylko dla przekazanych pól
+            update_fields = []
+            params = {"id": client_id}
+
+            if 'first_name' in data:
+                if not data['first_name'].strip():
+                    return jsonify({'error': 'Imię nie może być puste'}), 400
+                update_fields.append("first_name = :fname")
+                params["fname"] = data['first_name'].strip()
+
+            if 'last_name' in data:
+                if not data['last_name'].strip():
+                    return jsonify({'error': 'Nazwisko nie może być puste'}), 400
+                update_fields.append("last_name = :lname")
+                params["lname"] = data['last_name'].strip()
+
+            if 'birth_date' in data:
+                error = validate_date(data['birth_date'], 'birth_date')
+                if error:
+                    return jsonify({'error': error}), 400
+                update_fields.append("birth_date = :bdate")
+                params["bdate"] = data['birth_date']
+
+            if 'diagnosis' in data:
+                update_fields.append("diagnosis = :diag")
+                params["diag"] = data['diagnosis'].strip()
+
+            if 'registration_date' in data:
+                error = validate_date(data['registration_date'], 'registration_date')
+                if error:
+                    return jsonify({'error': error}), 400
+                update_fields.append("registration_date = :regdate")
+                params["regdate"] = data['registration_date']
+
+            if 'notes' in data:
+                update_fields.append("notes = :notes")
+                params["notes"] = data['notes'].strip()
+
+            if 'status' in data:
+                allowed_statuses = ['oczekujący', 'przyjęty', 'anulowany']
+                if data['status'] not in allowed_statuses:
+                    return jsonify({'error': f'Nieprawidłowy status. Dozwolone: {allowed_statuses}'}), 400
+                update_fields.append("status = :status")
+                params["status"] = data['status']
+
+            if not update_fields:
+                return jsonify({'error': 'Brak pól do aktualizacji'}), 400
+
+            # Zawsze aktualizuj updated_at
+            update_fields.append("updated_at = CURRENT_TIMESTAMP")
+
+            sql = text(f'''
+                UPDATE waiting_clients
+                SET {', '.join(update_fields)}
+                WHERE id = :id
+                RETURNING id, first_name, last_name, status, updated_at
+            ''')
+
+            result = conn.execute(sql, params)
+            updated = dict(result.mappings().first())
+
+            if updated.get('updated_at'):
+                updated['updated_at'] = updated['updated_at'].isoformat()
+
+            return jsonify({
+                'success': True,
+                'client': updated,
+                'message': 'Klient zaktualizowany'
+            }), 200
+
+    except Exception as e:
+        print(f"Błąd w update_waiting_client: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Błąd podczas aktualizacji'}), 500
+
+
+@app.delete("/api/waiting-clients/<int:client_id>")
+def delete_waiting_client(client_id):
+    """Soft delete - zmienia status na 'anulowany' zamiast usuwać"""
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text('''
+                    UPDATE waiting_clients 
+                    SET status = 'anulowany', updated_at = CURRENT_TIMESTAMP
+                    WHERE id = :id AND status != 'anulowany'
+                    RETURNING id
+                '''),
+                {"id": client_id}
+            )
+
+            if not result.scalar():
+                return jsonify({'error': 'Klient nie znaleziony lub już anulowany'}), 404
+
+            return jsonify({
+                'success': True,
+                'message': 'Klient oznaczony jako anulowany'
+            }), 200
+
+    except Exception as e:
+        print(f"Błąd w delete_waiting_client: {str(e)}")
+        return jsonify({'error': 'Błąd podczas usuwania'}), 500
+
+
+@app.post("/api/waiting-clients/<int:client_id>/accept")
+def accept_waiting_client(client_id):
+    """Przenosi klienta z listy oczekujących do aktywnych klientów"""
+    try:
+        with engine.begin() as conn:
+            # Pobierz dane z waiting_clients
+            waiting = conn.execute(
+                text('SELECT * FROM waiting_clients WHERE id = :id AND status = :status'),
+                {"id": client_id, "status": "oczekujący"}
+            ).mappings().first()
+
+            if not waiting:
+                return jsonify({'error': 'Klient nie znaleziony lub już przyjęty'}), 404
+
+            # Dodaj do clients z pełnymi danymi
+            new_client = conn.execute(text('''
+                INSERT INTO clients (
+                    full_name, 
+                    phone, 
+                    address, 
+                    active,
+                    birth_date,
+                    diagnosis,
+                    notes,
+                    waiting_client_id
+                )
+                VALUES (:name, :phone, :address, true, :bdate, :diag, :notes, :wid)
+                RETURNING id, full_name
+            '''), {
+                "name": f"{waiting['first_name']} {waiting['last_name']}",
+                "phone": '',
+                "address": '',
+                "bdate": waiting.get('birth_date'),
+                "diag": waiting.get('diagnosis'),
+                "notes": waiting.get('notes'),
+                "wid": client_id
+            }).mappings().first()
+
+            # Zmień status w waiting_clients
+            conn.execute(
+                text('''
+                    UPDATE waiting_clients 
+                    SET status = :status, updated_at = CURRENT_TIMESTAMP 
+                    WHERE id = :id
+                '''),
+                {"status": 'przyjęty', "id": client_id}
+            )
+
+            return jsonify({
+                'success': True,
+                'message': 'Klient przyjęty',
+                'client_id': new_client['id'],
+                'full_name': new_client['full_name']
+            }), 200
+
+    except Exception as e:
+        print(f"Błąd w accept_waiting_client: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Błąd podczas przyjmowania klienta'}), 500
+
+
+@app.get("/api/waiting-clients/stats")
+def get_waiting_stats():
+    """Pobiera statystyki listy oczekujących"""
+    try:
+        with engine.begin() as conn:
+            stats = conn.execute(text('''
+                SELECT 
+                    COUNT(*) FILTER (WHERE status = 'oczekujący') as oczekujacy,
+                    COUNT(*) FILTER (WHERE status = 'przyjęty') as przyjeci,
+                    COUNT(*) FILTER (WHERE status = 'anulowany') as anulowani,
+                    ROUND(AVG(CURRENT_DATE - registration_date) FILTER (WHERE status = 'oczekujący')) as sredni_czas_dni,
+                    MAX(CURRENT_DATE - registration_date) FILTER (WHERE status = 'oczekujący') as max_czas_dni
+                FROM waiting_clients
+            ''')).mappings().first()
+
+            return jsonify(dict(stats)), 200
+
+    except Exception as e:
+        print(f"Błąd w get_waiting_stats: {str(e)}")
+        return jsonify({'error': 'Błąd pobierania statystyk'}), 500
+
 
 
 
