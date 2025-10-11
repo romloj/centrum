@@ -33,4 +33,6 @@ xgboost==3.0.4
 requests
 geopy
 python-dotenv==1.0.0
+psutil
+
 
