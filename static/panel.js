@@ -1,6 +1,6 @@
 function formatMinutesAsHours(mins) {
   if (mins === null || typeof mins === 'undefined' || isNaN(mins)) {
-    return "—"; // Zwraca myślnik dla braku danych
+    return "—";
   }
   const hours = Math.floor(mins / 60);
   const remainingMinutes = mins % 60;
@@ -13,156 +13,131 @@ function formatMinutesAsHours(mins) {
   }
   return `${remainingMinutes} m`;
 }
-    const API = ""; // ten sam origin: http://127.0.0.1:5000
 
-    let _clientEditId = null;
-    let lastClients = [];
+const API = "";
 
-    const packageTypeModalEl = document.getElementById('packageTypeModal');
-    const packageTypeModal = new bootstrap.Modal(packageTypeModalEl);
-    let _clientIdForNewPackage = null; // Zmienna do przechowywania ID klienta
+let _clientEditId = null;
+let lastClients = [];
 
+const packageTypeModalEl = document.getElementById('packageTypeModal');
+const packageTypeModal = new bootstrap.Modal(packageTypeModalEl);
+let _clientIdForNewPackage = null;
 
+let currentlyDisplayedClientIds = [];
 
-    // NOWY KOD DO WKLEJENIA
-    let currentlyDisplayedClientIds = [];
+function filterTherapistsTable(selectedTherapistId) {
+  const therapistsTbody = document.getElementById("therapistsTbody");
+  const therapistRows = therapistsTbody.querySelectorAll("tr");
 
-    // Funkcja do filtrowania tabeli terapeutów
-    function filterTherapistsTable(selectedTherapistId) {
-        const therapistsTbody = document.getElementById("therapistsTbody");
-        const therapistRows = therapistsTbody.querySelectorAll("tr");
+  if (selectedTherapistId === "all" || !selectedTherapistId) {
+    therapistRows.forEach(row => row.style.display = "");
+    return;
+  }
 
-        // Jeśli wybrano "wszyscy", pokaż wszystkie wiersze
-        if (selectedTherapistId === "all" || !selectedTherapistId) {
-            therapistRows.forEach(row => row.style.display = "");
-            return;
-        }
+  therapistRows.forEach(row => {
+    const rowId = row.querySelector("td")?.textContent;
+    row.style.display = (rowId === selectedTherapistId) ? "" : "none";
+  });
+}
 
-        // W przeciwnym razie, pokaż tylko wybrany wiersz
-        therapistRows.forEach(row => {
-            const rowId = row.querySelector("td")?.textContent;
-            row.style.display = (rowId === selectedTherapistId) ? "" : "none";
-        });
-    }
+async function filterDriversTable(clientIds) {
+  const driversTbody = document.getElementById("driversTbody");
+  const driverRows = driversTbody.querySelectorAll("tr");
+  const selectedTherapistId = document.getElementById("therapistFilter").value;
 
-    // Funkcja do filtrowania tabeli kierowców
-    async function filterDriversTable(clientIds) {
-        const driversTbody = document.getElementById("driversTbody");
-        const driverRows = driversTbody.querySelectorAll("tr");
-        const selectedTherapistId = document.getElementById("therapistFilter").value;
+  if (selectedTherapistId === "all") {
+    driverRows.forEach(row => row.style.display = "");
+    return;
+  }
 
-        // Jeśli wybrano "wszyscy terapeuci", pokaż wszystkich kierowców
-        if (selectedTherapistId === "all") {
-            driverRows.forEach(row => row.style.display = "");
-            return;
-        }
+  if (!clientIds || clientIds.length === 0) {
+    driverRows.forEach(row => row.style.display = "none");
+    return;
+  }
 
-        // Jeśli dla danego terapeuty nie ma klientów, ukryj wszystkich kierowców
-        if (!clientIds || clientIds.length === 0) {
-            driverRows.forEach(row => row.style.display = "none");
-            return;
-        }
+  try {
+    const fetchPromises = clientIds.map(cid =>
+      fetch(`${API}/api/client/${cid}/packages`).then(res => res.ok ? res.json() : [])
+    );
 
-        try {
-            // Pobierz pakiety dla wszystkich widocznych klientów, aby znaleźć powiązanych kierowców
-            const fetchPromises = clientIds.map(cid =>
-                fetch(`${API}/api/client/${cid}/packages`).then(res => res.ok ? res.json() : [])
-            );
+    const packagesPerClient = await Promise.all(fetchPromises);
+    const allPackages = packagesPerClient.flat();
 
-            const packagesPerClient = await Promise.all(fetchPromises);
-            const allPackages = packagesPerClient.flat();
+    const relevantDriverIds = new Set(
+      allPackages.filter(pkg => pkg.driver_id).map(pkg => String(pkg.driver_id))
+    );
 
-            const relevantDriverIds = new Set(
-                allPackages.filter(pkg => pkg.driver_id).map(pkg => String(pkg.driver_id))
-            );
+    driverRows.forEach(row => {
+      const rowId = row.querySelector("td")?.textContent;
+      row.style.display = (rowId && relevantDriverIds.has(rowId)) ? "" : "none";
+    });
+  } catch (err) {
+    console.error("Błąd podczas filtrowania kierowców:", err);
+    driverRows.forEach(row => row.style.display = "");
+  }
+}
 
-            // Pokaż tylko tych kierowców, których ID znaleziono w pakietach
-            driverRows.forEach(row => {
-                const rowId = row.querySelector("td")?.textContent;
-                row.style.display = (rowId && relevantDriverIds.has(rowId)) ? "" : "none";
-            });
-        } catch (err) {
-            console.error("Błąd podczas filtrowania kierowców:", err);
-            // W razie błędu, dla bezpieczeństwa pokaż wszystkich kierowców
-            driverRows.forEach(row => row.style.display = "");
-        }
-    }
+const monthInput = document.getElementById("monthInput");
+const reloadBtn = document.getElementById("reloadBtn");
+const reloadSpinner = document.getElementById("reloadSpinner");
+const reloadTxt = document.getElementById("reloadTxt");
+const tbody = document.getElementById("clientsTbody");
+const alertBox = document.getElementById("alertBox");
 
+const thSelect = document.getElementById("thSelect");
+const pkDriverSelect = document.getElementById("pkDriverSelect");
+const dpDriverSelect = document.getElementById("dpDriverSelect");
 
+const packageCanvas = new bootstrap.Offcanvas('#packageCanvas');
+const allocCanvas = new bootstrap.Offcanvas('#allocCanvas');
 
-    // DOM refs
-    const monthInput = document.getElementById("monthInput");
-    const reloadBtn = document.getElementById("reloadBtn");
-    const reloadSpinner = document.getElementById("reloadSpinner");
-    const reloadTxt = document.getElementById("reloadTxt");
-    const tbody = document.getElementById("clientsTbody");
-    const alertBox = document.getElementById("alertBox");
+const pkgClientId = document.getElementById("pkgClientId");
+const pkgLabel = document.getElementById("pkgLabel");
+const thId = document.getElementById("thSelect");
+const thDate = document.getElementById("thDate");
+const thStart = document.getElementById("thStart");
+const thEnd = document.getElementById("thEnd");
+const thPlace = document.getElementById("thPlace");
+const withPickup = document.getElementById("withPickup");
+const withDropoff = document.getElementById("withDropoff");
+const pickupFields = document.getElementById("pickupFields");
+const dropoffFields = document.getElementById("dropoffFields");
+const pkDriverId = document.getElementById("pkDriverSelect");
+const pkVehicleId = document.getElementById("pkVehicleId");
+const pkStart = document.getElementById("pkStart");
+const pkEnd = document.getElementById("pkEnd");
+const pkFrom = document.getElementById("pkFrom");
+const pkTo = document.getElementById("pkTo");
+const dpDriverId = document.getElementById("dpDriverSelect");
+const dpVehicleId = document.getElementById("dpVehicleId");
+const dpStart = document.getElementById("dpStart");
+const dpEnd = document.getElementById("dpEnd");
+const dpFrom = document.getElementById("dpFrom");
+const dpTo = document.getElementById("dpTo");
+const pkgSaveBtn = document.getElementById("pkgSaveBtn");
+const pkgSpinner = document.getElementById("pkgSpinner");
 
+const allocClientId = document.getElementById("allocClientId");
+const allocClientName = document.getElementById("allocClientName");
+const allocMonth = document.getElementById("allocMonth");
+const allocMinutes = document.getElementById("allocMinutes");
+const allocSaveBtn = document.getElementById("allocSaveBtn");
+const allocSpinner = document.getElementById("allocSpinner");
 
+function showAlert(msg, type="success") {
+  alertBox.innerHTML = `
+    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+      ${msg}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>`;
+}
 
-    // nowe referencje do selectów
-    const thSelect = document.getElementById("thSelect");
-    const pkDriverSelect = document.getElementById("pkDriverSelect");
-    const dpDriverSelect = document.getElementById("dpDriverSelect");
-
-    // Offcanvas init
-    const packageCanvas = new bootstrap.Offcanvas('#packageCanvas');
-    const allocCanvas = new bootstrap.Offcanvas('#allocCanvas');
-
-    // Pakiet – refs
-    const pkgClientId = document.getElementById("pkgClientId");
-    const pkgLabel = document.getElementById("pkgLabel");
-    const thId = document.getElementById("thSelect");
-    const thDate = document.getElementById("thDate");
-    const thStart = document.getElementById("thStart");
-    const thEnd = document.getElementById("thEnd");
-    const thPlace = document.getElementById("thPlace");
-    const withPickup = document.getElementById("withPickup");
-    const withDropoff = document.getElementById("withDropoff");
-    const pickupFields = document.getElementById("pickupFields");
-    const dropoffFields = document.getElementById("dropoffFields");
-    const pkDriverId = document.getElementById("pkDriverSelect");
-    const pkVehicleId = document.getElementById("pkVehicleId");
-    const pkStart = document.getElementById("pkStart");
-    const pkEnd = document.getElementById("pkEnd");
-    const pkFrom = document.getElementById("pkFrom");
-    const pkTo = document.getElementById("pkTo");
-    const dpDriverId = document.getElementById("dpDriverSelect");
-    const dpVehicleId = document.getElementById("dpVehicleId");
-    const dpStart = document.getElementById("dpStart");
-    const dpEnd = document.getElementById("dpEnd");
-    const dpFrom = document.getElementById("dpFrom");
-    const dpTo = document.getElementById("dpTo");
-    const pkgSaveBtn = document.getElementById("pkgSaveBtn");
-    const pkgSpinner = document.getElementById("pkgSpinner");
-
-    // Allocation – refs
-    const allocClientId = document.getElementById("allocClientId");
-    const allocClientName = document.getElementById("allocClientName");
-    const allocMonth = document.getElementById("allocMonth");
-    const allocMinutes = document.getElementById("allocMinutes");
-    const allocSaveBtn = document.getElementById("allocSaveBtn");
-    const allocSpinner = document.getElementById("allocSpinner");
-
-    // Helpers
-    function showAlert(msg, type="success") {
-      alertBox.innerHTML = `
-        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-          ${msg}
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>`;
-    }
-
-    // Bezpieczny parser łańcucha "YYYY-MM-DD HH:MM:SS" lub "YYYY-MM-DDTHH:MM:SS" jako CZAS LOKALNY
 function parseLocalTimestamp(str){
   if (!str) return null;
-  // zaakceptuj zarówno " " jak i "T"
   const s = str.trim().replace('T', ' ');
-  // YYYY-MM-DD HH:MM:SS
   const m = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/.exec(s);
   if (!m) return null;
   const [_, Y, M, D, h, mnt, sec] = m;
-  // Konstruktor Date(y, m-1, d, h, m, s) tworzy ZAWSZE lokalny czas (bez przesunięć strefowych)
   return new Date(
     Number(Y),
     Number(M) - 1,
@@ -199,55 +174,49 @@ function dateKeyPLLocal(str){
   return { key, label };
 }
 
-    function pad2(n){ return String(n).padStart(2,'0'); }
-    function isoLocal(dateStr, timeStr){ return `${dateStr}T${timeStr}:00`; }
-    function setBtnBusy(btn, spinnerEl, busy){
-      if(busy){ spinnerEl.classList.remove('d-none'); btn.setAttribute('disabled','disabled'); }
-      else { spinnerEl.classList.add('d-none'); btn.removeAttribute('disabled'); }
-    }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function isoLocal(dateStr, timeStr){ return `${dateStr}T${timeStr}:00`; }
+function setBtnBusy(btn, spinnerEl, busy){
+  if(busy){ spinnerEl.classList.remove('d-none'); btn.setAttribute('disabled','disabled'); }
+  else { spinnerEl.classList.add('d-none'); btn.removeAttribute('disabled'); }
+}
 
-    // Cache nazw klientów
-    let clientsNameCache = new Map();
+let clientsNameCache = new Map();
 
-    const clientFilter = document.getElementById("clientFilter");
+const clientFilter = document.getElementById("clientFilter");
 const therapistFilter = document.getElementById("therapistFilter");
 
-  // załaduj terapeutów do filtra (tylko aktywni, żeby lista była krótsza)
-  async function fillTherapistFilter() {
-    try {
-      const res = await fetch(`${API}/api/therapists`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const active = data.filter(t => t.active !== false);
-      therapistFilter.innerHTML = `<option value="">— wszyscy terapeuci —</option>` +
-        active.map(t => `<option value="${t.id}">${t.full_name}${t.specialization ? " – " + t.specialization : ""}</option>`).join("");
-    } catch (err) {
-      showAlert(`Nie udało się pobrać listy terapeutów do filtra: ${err.message}`, "danger");
-    }
+async function fillTherapistFilter() {
+  try {
+    const res = await fetch(`${API}/api/therapists`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const active = data.filter(t => t.active !== false);
+    therapistFilter.innerHTML = `<option value="">— wszyscy terapeuci —</option>` +
+      active.map(t => `<option value="${t.id}">${t.full_name}${t.specialization ? " – " + t.specialization : ""}</option>`).join("");
+  } catch (err) {
+    showAlert(`Nie udało się pobrać listy terapeutów do filtra: ${err.message}`, "danger");
   }
+}
 
-   // Funkcja, która odświeża wszystkie widoki po zmianie filtra
-  async function refreshAllViews() {
-    await loadClients(); // Najpierw załaduj klientów
+async function refreshAllViews() {
+  await loadClients();
 
-    const selectedTherapistId = therapistFilter.value;
-    filterTherapistsTable(selectedTherapistId);
-    await filterDriversTable(currentlyDisplayedClientIds);
-  }
+  const selectedTherapistId = therapistFilter.value;
+  filterTherapistsTable(selectedTherapistId);
+  await filterDriversTable(currentlyDisplayedClientIds);
+}
 
-  // Zaktualizowane event listenery
-  clientFilter.addEventListener("input", refreshAllViews);
-  therapistFilter.addEventListener("change", refreshAllViews);
-  monthInput.addEventListener("change", () => {
-    refreshAllViews();
-    checkMonthlyGaps();
-  });
+clientFilter.addEventListener("input", refreshAllViews);
+therapistFilter.addEventListener("change", refreshAllViews);
+monthInput.addEventListener("change", () => {
+  refreshAllViews();
+  checkMonthlyGaps();
+});
 
+fillTherapistFilter();
 
-  // inicjalizacja listy terapeutów do filtra
-  fillTherapistFilter();
-
-    async function loadClients() {
+async function loadClients() {
   setBtnBusy(reloadBtn, reloadSpinner, true);
   tbody.innerHTML = `
     <tr><td colspan="9" class="text-center py-4">
@@ -282,37 +251,28 @@ const therapistFilter = document.getElementById("therapistFilter");
       return;
     }
     tbody.innerHTML = data.map(row => {
-
-        // v--- ZMIENIONE LINIE ---v
-        const quota = formatMinutesAsHours(row.minutes_quota);
-        const used  = formatMinutesAsHours(row.minutes_used);
-        const left  = formatMinutesAsHours(row.minutes_left);
-        // ^--- ZMIENIONE LINIE ---^
-        const statusBadge = row.needs_allocation
-          ? `<span class="badge text-bg-warning">Brak przydziału</span>`
-          : `<span class="badge text-bg-success">OK</span>`;
-        return `
-          <tr>
-            <td>${row.full_name}</td>
-            <td class="d-none d-md-table-cell">${row.phone ?? ""}</td>
-            <td class="d-none d-lg-table-cell">${row.address ?? ""}</td>
-            <td><code>${row.month_key}</code></td>
-            <td>${quota}</td>
-            <td>${used}</td>
-            <td>${left}</td>
-            <td>${statusBadge}</td>
-            <td class="text-end">
-               </td>
-
-
+      const quota = formatMinutesAsHours(row.minutes_quota);
+      const used  = formatMinutesAsHours(row.minutes_used);
+      const left  = formatMinutesAsHours(row.minutes_left);
+      const statusBadge = row.needs_allocation
+        ? `<span class="badge text-bg-warning">Brak przydziału</span>`
+        : `<span class="badge text-bg-success">OK</span>`;
+      return `
+        <tr>
+          <td>${row.full_name}</td>
+          <td class="d-none d-md-table-cell">${row.phone ?? ""}</td>
+          <td class="d-none d-lg-table-cell">${row.address ?? ""}</td>
+          <td><code>${row.month_key}</code></td>
+          <td>${quota}</td>
+          <td>${used}</td>
+          <td>${left}</td>
+          <td>${statusBadge}</td>
           <td class="text-end">
             <div class="actions d-grid d-sm-inline-flex gap-1">
-               <button class="btn btn-sm btn-success" onclick="aiSuggestForClient(${row.client_id})">🤖 Zaproponuj</button>
+              <button class="btn btn-sm btn-success" onclick="aiSuggestForClient(${row.client_id})">🤖 Zaproponuj</button>
               <button class="btn btn-sm btn-primary" onclick="choosePackageType(${row.client_id})">Dodaj pakiet</button>
               <button class="btn btn-sm btn-outline-secondary" onclick="openAllocationCanvas(${row.client_id}, '${row.month_key}', ${row.minutes_quota ?? 'null'})">Ustaw przydział</button>
               <button class="btn btn-sm btn-outline-primary" onclick="openClientPackages(${row.client_id}, '${row.full_name.replace(/'/g, "\\'")}')">Pakiety</button>
-              <!--<button class="btn btn-sm btn-outline-primary" onclick="openClientEdit(${row.client_id})">✏️</button>
-              <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteClient(${row.client_id})">🗑</button>-->
             </div>
           </td>
         </tr>`;
@@ -325,17 +285,14 @@ const therapistFilter = document.getElementById("therapistFilter");
   }
 }
 
-    document.getElementById("reloadBtn").addEventListener("click", loadClients);
+document.getElementById("reloadBtn").addEventListener("click", loadClients);
 
-
-
-   async function suggestForClient(clientId, dateStr){
+async function suggestForClient(clientId, dateStr){
   try{
     const res = await fetch(`${API}/api/ai/recommend?client_id=${clientId}&date=${encodeURIComponent(dateStr||"")}`);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const j = await res.json();
 
-    // TERAPEUCI – zaznacz TOP i dopisz ⭐ (nie zmieniaj wartości, tylko label)
     const topT = (j.therapists||[])[0];
     if (topT){
       [...thSelect.options].forEach(o=>{
@@ -344,7 +301,6 @@ const therapistFilter = document.getElementById("therapistFilter");
       thSelect.value = String(topT.therapist_id);
     }
 
-    // KIEROWCY – pickup/dropoff
     const topD = (j.drivers||[])[0];
     if (topD){
       [...pkDriverSelect.options].forEach(o=>{
@@ -357,10 +313,8 @@ const therapistFilter = document.getElementById("therapistFilter");
       dpDriverSelect.value = String(topD.driver_id);
     }
 
-    // preferencje czasu – podpowiedz godzinę
     const tp = (j.time_prefs||[])[0];
     if (tp){
-      // np. ustaw godzinę terapii na preferowaną
       thStart.value = String(tp.hour).padStart(2,"0")+":00";
       const endH = (tp.hour+1);
       thEnd.value   = String(endH).padStart(2,"0")+":00";
@@ -370,74 +324,63 @@ const therapistFilter = document.getElementById("therapistFilter");
   }
 }
 
-    // ==== Pakiet – otwarcie
-// ==== Pakiet – otwarcie (Z ZABEZPIECZENIEM) ====
-    function openPackageCanvas(clientId) {
-      // 1. Znajdź dane klienta w pamięci podręcznej
-      const client = lastClients.find(c => c.client_id === clientId);
+function openPackageCanvas(clientId) {
+  const client = lastClients.find(c => c.client_id === clientId);
 
-      // 2. Sprawdź, czy klient ma zdefiniowany plan lekcji
-      if (client && !client.has_unavailability_plan) {
-        const confirmation = confirm(
-          `Przed dodaniem pakietu, musisz najpierw zdefiniować plan lekcji tego klienta (np. godziny szkolne), aby uniknąć konfliktów.\n\nCzy chcesz teraz przejść do strony zarządzania dostępnością?`
-        );
+  if (client && !client.has_unavailability_plan) {
+    const confirmation = confirm(
+      `Przed dodaniem pakietu, musisz najpierw zdefiniować plan lekcji tego klienta (np. godziny szkolne), aby uniknąć konfliktów.\n\nCzy chcesz teraz przejść do strony zarządzania dostępnością?`
+    );
 
-        if (confirmation) {
-          // Przekieruj na stronę dostępności z ID klienta
-          window.location.href = `dostepnosc.html?client_id=${clientId}`;
-        }
-
-        // Zatrzymaj dalsze wykonywanie funkcji
-        return;
-      }
-
-      // 3. Jeśli wszystko jest w porządku, kontynuuj normalne otwieranie panelu
-      _editingGroupId = null;
-      pkgClientId.value = clientId;
-      pkgLabel.value = "";
-      thPlace.value = "Poradnia";
-
-      const d = new Date();
-      d.setDate(d.getDate() + 1);
-      const dStr = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-      thDate.value = dStr;
-      thStart.value = "09:00";
-      thEnd.value = "10:00";
-
-      loadTherapistsAndDrivers().catch(err => {
-        showAlert(`Nie udało się pobrać listy terapeutów/kierowców: ${err.message}`, "danger");
-      });
-
-      thSelect.value = "";
-      pkDriverSelect.value = "";
-      dpDriverSelect.value = "";
-
-      withPickup.checked = false; pickupFields.classList.add("d-none");
-      pkFrom.value = "Dom"; pkTo.value = "Poradnia";
-      pkStart.value = "08:30"; pkEnd.value = "09:00";
-
-      withDropoff.checked = false; dropoffFields.classList.add("d-none");
-      dpFrom.value = "Poradnia"; dpTo.value = "Dom";
-      dpStart.value = "10:05"; dpEnd.value = "10:35";
-
-      document.getElementById("pkgStatus").value = "planned";
-      packageCanvas.show();
+    if (confirmation) {
+      window.location.href = `dostepnosc.html?client_id=${clientId}`;
     }
 
+    return;
+  }
 
+  _editingGroupId = null;
+  pkgClientId.value = clientId;
+  pkgLabel.value = "";
+  thPlace.value = "Poradnia";
 
-    window.openPackageCanvas = openPackageCanvas;
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const dStr = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  thDate.value = dStr;
+  thStart.value = "09:00";
+  thEnd.value = "10:00";
 
-    // Toggle sekcji
-    document.getElementById("withPickup").addEventListener("change", () => {
-      pickupFields.classList.toggle("d-none", !withPickup.checked);
-    });
-    document.getElementById("withDropoff").addEventListener("change", () => {
-      dropoffFields.classList.toggle("d-none", !withDropoff.checked);
-    });
+  loadTherapistsAndDrivers().catch(err => {
+    showAlert(`Nie udało się pobrać listy terapeutów/kierowców: ${err.message}`, "danger");
+  });
 
-    // Submit pakietu
- document.getElementById("packageForm").addEventListener("submit", async (e) => {
+  thSelect.value = "";
+  pkDriverSelect.value = "";
+  dpDriverSelect.value = "";
+
+  withPickup.checked = false; pickupFields.classList.add("d-none");
+  pkFrom.value = "Dom"; pkTo.value = "Poradnia";
+  pkStart.value = "08:30"; pkEnd.value = "09:00";
+
+  withDropoff.checked = false; dropoffFields.classList.add("d-none");
+  dpFrom.value = "Poradnia"; dpTo.value = "Dom";
+  dpStart.value = "10:05"; dpEnd.value = "10:35";
+
+  document.getElementById("pkgStatus").value = "planned";
+  packageCanvas.show();
+}
+
+window.openPackageCanvas = openPackageCanvas;
+
+document.getElementById("withPickup").addEventListener("change", () => {
+  pickupFields.classList.toggle("d-none", !withPickup.checked);
+});
+document.getElementById("withDropoff").addEventListener("change", () => {
+  dropoffFields.classList.toggle("d-none", !withDropoff.checked);
+});
+
+document.getElementById("packageForm").addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const client_id = Number(pkgClientId.value);
@@ -448,12 +391,13 @@ const therapistFilter = document.getElementById("therapistFilter");
   }
 
   const payload = {
-    client_id, // backend PUT go nie używa do zmiany klienta – tylko informacyjnie
+    group_id: _editingGroupId || null,
+    client_id,
     label: pkgLabel.value || null,
     therapy: {
       therapist_id,
       starts_at: isoLocal(thDate.value, thStart.value),
-      ends_at:   isoLocal(thDate.value, thEnd.value),
+      ends_at: isoLocal(thDate.value, thEnd.value),
       place: thPlace.value || null
     },
     status: document.getElementById("pkgStatus").value
@@ -466,9 +410,9 @@ const therapistFilter = document.getElementById("therapistFilter");
       driver_id: id,
       vehicle_id: pkVehicleId.value ? Number(pkVehicleId.value) : null,
       starts_at: isoLocal(thDate.value, pkStart.value),
-      ends_at:   isoLocal(thDate.value, pkEnd.value),
+      ends_at: isoLocal(thDate.value, pkEnd.value),
       from: pkFrom.value || null,
-      to:   pkTo.value || null
+      to: pkTo.value || null
     };
   } else {
     payload.pickup = null;
@@ -481,48 +425,74 @@ const therapistFilter = document.getElementById("therapistFilter");
       driver_id: id,
       vehicle_id: dpVehicleId.value ? Number(dpVehicleId.value) : null,
       starts_at: isoLocal(thDate.value, dpStart.value),
-      ends_at:   isoLocal(thDate.value, dpEnd.value),
+      ends_at: isoLocal(thDate.value, dpEnd.value),
       from: dpFrom.value || null,
-      to:   dpTo.value || null
+      to: dpTo.value || null
     };
   } else {
     payload.dropoff = null;
   }
 
-  // pre-check kolizji
-  try{
-    const checkRes = await fetch(`${API}/api/schedule/check`, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(payload)
-    });
-    const check = await checkRes.json();
-    if (check.total > 0) {
-      const msg = [
-        check.therapy?.length ? `Terapeuta: ${check.therapy.length}` : null,
-        check.pickup?.length  ? `Pickup: ${check.pickup.length}`     : null,
-        check.dropoff?.length ? `Dropoff: ${check.dropoff.length}`   : null,
-      ].filter(Boolean).join(" • ");
-      if (!confirm(`Wykryto kolizje (${msg}). Kontynuować zapis?`)) return;
-    }
-  } catch {}
+  try {
+    const conflicts = await checkPackageConflicts(payload);
 
-  // zapisz
-  try{
+    if (conflicts.total > 0) {
+      const conflictMessage = formatConflictsMessage(conflicts);
+
+      const confirmDiv = document.createElement('div');
+      confirmDiv.innerHTML = conflictMessage + `
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-danger" id="confirmSaveWithConflicts">Tak, zapisz mimo kolizji</button>
+          <button class="btn btn-secondary" id="cancelSaveConflicts">Anuluj</button>
+        </div>
+      `;
+
+      const oldAlerts = alertBox.querySelectorAll('.alert');
+      oldAlerts.forEach(a => a.remove());
+
+      alertBox.appendChild(confirmDiv);
+      alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      return new Promise((resolve) => {
+        document.getElementById('confirmSaveWithConflicts').onclick = async () => {
+          confirmDiv.remove();
+          await savePackage(payload);
+          resolve();
+        };
+
+        document.getElementById('cancelSaveConflicts').onclick = () => {
+          confirmDiv.remove();
+          resolve();
+        };
+      });
+    } else {
+      await savePackage(payload);
+    }
+
+  } catch (err) {
+    showAlert(`Błąd sprawdzania kolizji: ${err.message}`, "danger");
+  }
+});
+
+async function savePackage(payload) {
+  try {
     setBtnBusy(pkgSaveBtn, pkgSpinner, true);
+
     let url, method;
-    if (_editingGroupId){
+    if (_editingGroupId) {
       url = `${API}/api/groups/${_editingGroupId}`;
       method = "PUT";
     } else {
       url = `${API}/api/schedule/group`;
       method = "POST";
     }
+
     const res = await fetch(url, {
       method,
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify(payload)
     });
+
     await assertOk(res);
     await res.json();
 
@@ -530,99 +500,129 @@ const therapistFilter = document.getElementById("therapistFilter");
     showAlert(_editingGroupId ? "Zaktualizowano pakiet." : "Dodano pakiet.", "success");
     _editingGroupId = null;
 
-    // odśwież: saldo i ewentualnie otwarty modal pakietów
     loadClients();
     refreshClientPackagesModal();
-  }catch(err){
+
+  } catch(err) {
     showAlert(`Błąd zapisu pakietu: ${err.message}`, "danger");
-  }finally{
+  } finally {
     setBtnBusy(pkgSaveBtn, pkgSpinner, false);
   }
-});
-
-function choosePackageType(clientId) {
-  _clientIdForNewPackage = clientId; // Zapisujemy ID klienta
-  packageTypeModal.show(); // Pokazujemy okno wyboru
 }
 
-async function openPackageEdit(groupId){
-  const modalEl = document.getElementById('clientPackagesModal');
-  const modal    = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+function choosePackageType(clientId) {
+  _clientIdForNewPackage = clientId;
+  packageTypeModal.show();
+}
 
-  // 1) Zamknij modal i poczekaj aż faktycznie się schowa (ważne dla focusu)
+async function openPackageEdit(groupId) {
+  console.log('openPackageEdit wywołane z groupId:', groupId);
+
+  const modalEl = document.getElementById('clientPackagesModal');
+  const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+
   const waitHidden = new Promise(resolve => {
-    const onHidden = () => { modalEl.removeEventListener('hidden.bs.modal', onHidden); resolve(); };
+    const onHidden = () => {
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+      resolve();
+    };
     modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
   });
   modal.hide();
   await waitHidden;
 
-  // 2) Załaduj listy i dane pakietu (to co już miałeś)
-  try{
+  try {
     await loadTherapistsAndDrivers();
-    document.getElementById("thDate").addEventListener("change", fetchAISuggestions);
 
     const res = await fetch(`${API}/api/groups/${groupId}`);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    console.log('Status odpowiedzi:', res.status);
+
+    if (!res.ok) {
+      let errorMessage = `HTTP ${res.status}`;
+      try {
+        const errorData = await res.json();
+        console.error('Błąd z serwera:', errorData);
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        const errorText = await res.text();
+        console.error('Tekst błędu:', errorText);
+        errorMessage = errorText || errorMessage;
+      }
+      throw new Error(errorMessage);
+    }
+
     const g = await res.json();
+    console.log('Otrzymane dane pakietu:', g);
 
     _editingGroupId = g.group_id;
 
-    // wypełnianie formularza (jak wcześniej)
     pkgClientId.value = g.client_id;
     pkgLabel.value = g.label || "";
     document.getElementById("pkgStatus").value = g.status || "planned";
 
-    thSelect.value = g.therapy?.therapist_id || "";
-    const [dStr, sStr, eStr] = (()=>{
-      const d = (g.therapy?.starts_at || "").split("T")[0];
-      const s = (g.therapy?.starts_at || "").split("T")[1]?.slice(0,5);
-      const e = (g.therapy?.ends_at   || "").split("T")[1]?.slice(0,5);
-      return [d, s, e];
-    })();
-    thDate.value = dStr || "";
-    thStart.value = sStr || "";
-    thEnd.value   = eStr || "";
-    thPlace.value = g.therapy?.place || "Poradnia";
+    if (g.therapy) {
+      thSelect.value = g.therapy.therapist_id || "";
+      thPlace.value = g.therapy.place || "Poradnia";
 
-    // pickup
-    if (g.pickup){
-      withPickup.checked = true; pickupFields.classList.remove("d-none");
+      if (g.therapy.starts_at) {
+        const [tDate, tTime] = g.therapy.starts_at.split('T');
+        thDate.value = tDate || "";
+        thStart.value = tTime ? tTime.slice(0, 5) : "";
+      }
+      if (g.therapy.ends_at) {
+        const [, eTime] = g.therapy.ends_at.split('T');
+        thEnd.value = eTime ? eTime.slice(0, 5) : "";
+      }
+    }
+
+    if (g.pickup) {
+      withPickup.checked = true;
+      pickupFields.classList.remove("d-none");
       pkDriverSelect.value = g.pickup.driver_id || "";
       pkVehicleId.value = g.pickup.vehicle_id ?? "";
-      pkFrom.value = g.pickup.from || "";
-      pkTo.value = g.pickup.to || "";
-      pkStart.value = (g.pickup.starts_at||"").split("T")[1]?.slice(0,5) || "";
-      pkEnd.value   = (g.pickup.ends_at  ||"").split("T")[1]?.slice(0,5) || "";
+      pkFrom.value = g.pickup.from || "Dom";
+      pkTo.value = g.pickup.to || "Poradnia";
+
+      if (g.pickup.starts_at) {
+        pkStart.value = g.pickup.starts_at.split('T')[1]?.slice(0, 5) || "";
+      }
+      if (g.pickup.ends_at) {
+        pkEnd.value = g.pickup.ends_at.split('T')[1]?.slice(0, 5) || "";
+      }
     } else {
-      withPickup.checked = false; pickupFields.classList.add("d-none");
-      pkDriverSelect.value = ""; pkVehicleId.value = "";
-      pkFrom.value = "Dom"; pkTo.value = "Poradnia"; pkStart.value = ""; pkEnd.value = "";
+      withPickup.checked = false;
+      pickupFields.classList.add("d-none");
     }
 
-    // dropoff
-    if (g.dropoff){
-      withDropoff.checked = true; dropoffFields.classList.remove("d-none");
+    if (g.dropoff) {
+      withDropoff.checked = true;
+      dropoffFields.classList.remove("d-none");
       dpDriverSelect.value = g.dropoff.driver_id || "";
       dpVehicleId.value = g.dropoff.vehicle_id ?? "";
-      dpFrom.value = g.dropoff.from || "";
-      dpTo.value = g.dropoff.to || "";
-      dpStart.value = (g.dropoff.starts_at||"").split("T")[1]?.slice(0,5) || "";
-      dpEnd.value   = (g.dropoff.ends_at  ||"").split("T")[1]?.slice(0,5) || "";
+      dpFrom.value = g.dropoff.from || "Poradnia";
+      dpTo.value = g.dropoff.to || "Dom";
+
+      if (g.dropoff.starts_at) {
+        dpStart.value = g.dropoff.starts_at.split('T')[1]?.slice(0, 5) || "";
+      }
+      if (g.dropoff.ends_at) {
+        dpEnd.value = g.dropoff.ends_at.split('T')[1]?.slice(0, 5) || "";
+      }
     } else {
-      withDropoff.checked = false; dropoffFields.classList.add("d-none");
-      dpDriverSelect.value = ""; dpVehicleId.value = "";
-      dpFrom.value = "Poradnia"; dpTo.value = "Dom"; dpStart.value = ""; dpEnd.value = "";
+      withDropoff.checked = false;
+      dropoffFields.classList.add("d-none");
     }
 
-    // 3) Pokaż offcanvas i USTAW FOCUS (np. na wybór terapeuty)
     packageCanvas.show();
-    setTimeout(() => { try { thSelect.focus(); } catch(_){} }, 150);
+    setTimeout(() => { try { thSelect.focus(); } catch(e) {} }, 200);
 
-  }catch(err){
+  } catch (err) {
+    console.error('Pełny błąd w openPackageEdit:', err);
     showAlert(`Nie udało się otworzyć edycji pakietu: ${err.message}`, "danger");
   }
 }
+
 window.openPackageEdit = openPackageEdit;
 
 async function confirmDeletePackage(groupId) {
@@ -635,11 +635,10 @@ async function confirmDeletePackage(groupId) {
       method: "DELETE"
     });
 
-    await assertOk(res); // Używamy istniejącej funkcji do sprawdzenia odpowiedzi
+    await assertOk(res);
 
     showAlert("Pakiet został pomyślnie usunięty.", "success");
 
-    // Po usunięciu odśwież widok pakietów w modalu oraz główną listę klientów (aby zaktualizować saldo)
     refreshClientPackagesModal();
     loadClients();
 
@@ -649,65 +648,56 @@ async function confirmDeletePackage(groupId) {
 }
 window.confirmDeletePackage = confirmDeletePackage;
 
-    // ==== Allocation – otwarcie
-    function openAllocationCanvas(clientId, monthKey, currentQuota) {
-      allocClientId.value = clientId;
-      allocClientName.value = clientsNameCache.get(clientId) || `ID ${clientId}`;
-      allocMonth.value = monthKey || monthInput.value;
-      allocMinutes.value = (currentQuota ?? 1200) / 60;
-      allocCanvas.show();
-    }
-    window.openAllocationCanvas = openAllocationCanvas;
+function openAllocationCanvas(clientId, monthKey, currentQuota) {
+  allocClientId.value = clientId;
+  allocClientName.value = clientsNameCache.get(clientId) || `ID ${clientId}`;
+  allocMonth.value = monthKey || monthInput.value;
+  allocMinutes.value = (currentQuota ?? 1200) / 60;
+  allocCanvas.show();
+}
+window.openAllocationCanvas = openAllocationCanvas;
 
-    // Submit allocation
-    document.getElementById("allocForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const cid = Number(allocClientId.value);
-      const mk = allocMonth.value;
-      const q = Number(allocMinutes.value) * 60;
+document.getElementById("allocForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const cid = Number(allocClientId.value);
+  const mk = allocMonth.value;
+  const q = Number(allocMinutes.value) * 60;
 
-      if (!cid || !mk || isNaN(q) || q < 0) {
-        showAlert("Uzupełnij poprawnie pola przydziału.", "warning");
-        return;
-      }
+  if (!cid || !mk || isNaN(q) || q < 0) {
+    showAlert("Uzupełnij poprawnie pola przydziału.", "warning");
+    return;
+  }
 
-      try {
-        setBtnBusy(allocSaveBtn, allocSpinner, true);
-        const res = await fetch(`${API}/api/suo/allocation`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ client_id: cid, month_key: mk, minutes_quota: q })
-        });
-        if (!res.ok) {
-          const t = await res.text();
-          throw new Error(`HTTP ${res.status}: ${t}`);
-        }
-        await res.json();
-        allocCanvas.hide();
-        showAlert(`Ustawiono przydział ${q} min dla klienta #${cid} w ${mk}.`);
-        loadClients();
-      } catch (err) {
-        showAlert(`Błąd zapisu przydziału: ${err.message}`, "danger");
-      } finally {
-        setBtnBusy(allocSaveBtn, allocSpinner, false);
-      }
+  try {
+    setBtnBusy(allocSaveBtn, allocSpinner, true);
+    const res = await fetch(`${API}/api/suo/allocation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: cid, month_key: mk, minutes_quota: q })
     });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`HTTP ${res.status}: ${t}`);
+    }
+    await res.json();
+    allocCanvas.hide();
+    showAlert(`Ustawiono przydział ${q} min dla klienta #${cid} w ${mk}.`);
+    loadClients();
+  } catch (err) {
+    showAlert(`Błąd zapisu przydziału: ${err.message}`, "danger");
+  } finally {
+    setBtnBusy(allocSaveBtn, allocSpinner, false);
+  }
+});
 
-    // Ustaw domyślny miesiąc i start
-    (function initMonth(){
-      const today = new Date();
-      const y = today.getFullYear();
-      const m = String(today.getMonth()+1).padStart(2,'0');
-      monthInput.value = `${y}-${m}`;
-    })();
-     refreshAllViews();
+(function initMonth(){
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth()+1).padStart(2,'0');
+  monthInput.value = `${y}-${m}`;
+})();
+refreshAllViews();
 
-    // Offcanvasy „Dodaj …”
-//const clientCanvas = new bootstrap.Offcanvas('#clientCanvas');
-//const therapistCanvas = new bootstrap.Offcanvas('#therapistCanvas');
-//const driverCanvas = new bootstrap.Offcanvas('#driverCanvas');
-
-// INIT – zrób to raz, na górze skryptu (obok innych initów)
 const clientCanvasEl     = document.getElementById('clientCanvas');
 const therapistCanvasEl  = document.getElementById('therapistCanvas');
 const driverCanvasEl     = document.getElementById('driverCanvas');
@@ -716,9 +706,6 @@ const clientOC    = bootstrap.Offcanvas.getOrCreateInstance(clientCanvasEl);
 const therapistOC = bootstrap.Offcanvas.getOrCreateInstance(therapistCanvasEl);
 const driverOC    = bootstrap.Offcanvas.getOrCreateInstance(driverCanvasEl);
 
-
-// Przyciski w menu
-//document.getElementById("addClientBtn").addEventListener("click", (e)=>{ e.preventDefault(); resetClientForm(); clientCanvas.show(); });
 document.getElementById("addClientBtn").addEventListener("click", (e)=>{
   e.preventDefault();
   resetClientForm();
@@ -732,17 +719,14 @@ document.getElementById("addTherapistBtn").addEventListener("click", (e)=>{
   resetTherapistForm();
   _therapistEditId = null;
   therapistOC.show();
-
 });
-
 
 document.getElementById("addDriverBtn").addEventListener("click", (e)=>{
   e.preventDefault();
   resetDriverForm();
-  driverOC.show();               // <-- zamiast driverCanvas.show()
+  driverOC.show();
 });
 
-// ====== Klient
 const clName = document.getElementById("clName");
 const clPhone = document.getElementById("clPhone");
 const clAddress = document.getElementById("clAddress");
@@ -752,14 +736,9 @@ const clSpinner = document.getElementById("clSpinner");
 
 function resetClientForm(){ clName.value=""; clPhone.value=""; clAddress.value=""; clActive.checked=true; }
 
-//usunąłem 20.08.2025
-
-
-// ====== Terapeuta
 const thName = document.getElementById("thName");
 const thSpec = document.getElementById("thSpec");
-const thPhone2 = document.getElementById("thPhone"); // ID już istnieje w formularzu pakietu, ale tu używamy osobnego thPhone2? -> uniknij konfliktu
-// Uwaga: Mamy już element o id="thPhone" w formularzu terapeuty – w pakiecie używamy thId, więc konfliktu nie ma.
+const thPhone2 = document.getElementById("thPhone");
 const thActiveChk = document.getElementById("thActive");
 const thSaveBtn2 = document.getElementById("thSaveBtn");
 const thSpinner2 = document.getElementById("thSpinner");
@@ -786,7 +765,6 @@ document.getElementById("therapistForm").addEventListener("submit", async (e)=>{
     await assertOk(res);
     await res.json();
 
-    // Bezpośrednie odwołanie się do instancji Bootstrap i jej schowanie:
     bootstrap.Offcanvas.getInstance(therapistCanvasEl).hide();
 
     showAlert(_therapistEditId ? "Zaktualizowano terapeutę." : "Dodano terapeutę.", "success");
@@ -794,14 +772,11 @@ document.getElementById("therapistForm").addEventListener("submit", async (e)=>{
     loadTherapists();
     checkDailyGaps();
   } catch(err) {
-    // Zamknij panel również po błędzie
     bootstrap.Offcanvas.getInstance(therapistCanvasEl).hide();
     showAlert(`Błąd zapisu terapeuty: ${err.message}`, "danger");
   }
 });
 
-
-// ====== Kierowca
 const drName = document.getElementById("drName");
 const drPhone = document.getElementById("drPhone");
 const drActiveChk = document.getElementById("drActive");
@@ -834,7 +809,6 @@ document.getElementById("driverForm").addEventListener("submit", async (e)=>{
     await assertOk(res);
     await res.json();
 
-    // Bezpośrednie odwołanie się do instancji Bootstrap i jej schowanie:
     bootstrap.Offcanvas.getInstance(driverCanvasEl).hide();
 
     showAlert(_driverEditId ? "Zaktualizowano kierowcę." : "Dodano kierowcę.", "success");
@@ -842,7 +816,6 @@ document.getElementById("driverForm").addEventListener("submit", async (e)=>{
     loadDrivers();
     checkDailyGaps();
   } catch (err) {
-    // Zamknij panel również po błędzie
     bootstrap.Offcanvas.getInstance(driverCanvasEl).hide();
     showAlert(`Błąd zapisu kierowcy: ${err.message}`, "danger");
   } finally {
@@ -850,14 +823,14 @@ document.getElementById("driverForm").addEventListener("submit", async (e)=>{
   }
 });
 
-    function showError(msg) {
+function showError(msg) {
   const box = document.getElementById("errorBox");
   box.textContent = msg;
   box.classList.remove("d-none");
-  setTimeout(() => box.classList.add("d-none"), 5000); // znika po 5s
+  setTimeout(() => box.classList.add("d-none"), 5000);
 }
 
-    async function submitForm(url, payload) {
+async function submitForm(url, payload) {
   try {
     const res = await fetch(`${API}${url}`, {
       method: "POST",
@@ -874,16 +847,16 @@ document.getElementById("driverForm").addEventListener("submit", async (e)=>{
     throw err;
   }
 }
-    // ===== Przyciski otwierające offcanvasy dodawania
+
 document.getElementById("btnOpenTherapistAdd").addEventListener("click", (e)=>{
   e.preventDefault();
-  // czyść formularz
   document.getElementById("thName").value = "";
   document.getElementById("thSpec").value = "";
   document.getElementById("thPhone").value = "";
   document.getElementById("thActive").checked = true;
   (new bootstrap.Offcanvas('#therapistCanvas')).show();
 });
+
 document.getElementById("btnOpenDriverAdd").addEventListener("click", (e)=>{
   e.preventDefault();
   document.getElementById("drName").value = "";
@@ -892,7 +865,6 @@ document.getElementById("btnOpenDriverAdd").addEventListener("click", (e)=>{
   (new bootstrap.Offcanvas('#driverCanvas')).show();
 });
 
-// ===== Ładowanie i render listy terapeutów
 async function loadTherapists(){
   const tbody = document.getElementById("therapistsTbody");
   tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Ładowanie…</td></tr>`;
@@ -931,7 +903,6 @@ async function loadTherapists(){
 }
 window.loadTherapists = loadTherapists;
 
-// ===== Ładowanie i render listy kierowców
 async function loadDrivers(){
   const tbody = document.getElementById("driversTbody");
   tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">Ładowanie…</td></tr>`;
@@ -968,7 +939,6 @@ async function loadDrivers(){
 }
 window.loadDrivers = loadDrivers;
 
-// ===== Usuwanie (miękkie: active=false). Dla twardego: dodaj ?hard=1
 async function confirmDeleteTherapist(id){
   if(!confirm("Usunąć terapeutę? (domyślnie: oznacz jako nieaktywny)")) return;
   try{
@@ -995,9 +965,6 @@ async function confirmDeleteDriver(id){
 }
 window.confirmDeleteDriver = confirmDeleteDriver;
 
-// ===== Po sukcesie dodawania – odśwież listy
-
-
 async function assertOk(res) {
   if (res.ok) return;
   let msg = `HTTP ${res.status}`;
@@ -1015,16 +982,15 @@ async function assertOk(res) {
   throw err;
 }
 
-// ===== Start: załaduj od razu obie listy (oprócz salda klientów, które już ładujesz)
 loadTherapists();
 loadDrivers();
 
-    function existsClientByName(name){
+function existsClientByName(name){
   const needle = (name || "").trim().toLowerCase();
   if (!needle) return false;
   const rows = document.querySelectorAll("#clientsTbody tr");
   for (const tr of rows) {
-    const td = tr.querySelector("td"); // 1. kolumna = Klient
+    const td = tr.querySelector("td");
     if (!td) continue;
     const val = td.textContent.trim().toLowerCase();
     if (val === needle) return true;
@@ -1037,7 +1003,7 @@ function existsTherapistByName(name){
   if (!needle) return false;
   const rows = document.querySelectorAll("#therapistsTbody tr");
   for (const tr of rows) {
-    const td = tr.children[1]; // 2. kolumna = Nazwa
+    const td = tr.children[1];
     if (!td) continue;
     const val = td.textContent.trim().toLowerCase();
     if (val === needle) return true;
@@ -1050,7 +1016,7 @@ function existsDriverByName(name){
   if (!needle) return false;
   const rows = document.querySelectorAll("#driversTbody tr");
   for (const tr of rows) {
-    const td = tr.children[1]; // 2. kolumna = Nazwa
+    const td = tr.children[1];
     if (!td) continue;
     const val = td.textContent.trim().toLowerCase();
     if (val === needle) return true;
@@ -1058,24 +1024,19 @@ function existsDriverByName(name){
   return false;
 }
 
-
-// cache list
 let _editingGroupId = null;
 let therapistsList = [];
 let driversList = [];
 
-// helper do wypełniania selecta
 function fillSelect(selectEl, items, valueKey, labelFn) {
   const current = selectEl.value;
   selectEl.innerHTML = `<option value="">— wybierz —</option>` +
     items.map(it => `<option value="${it[valueKey]}">${labelFn(it)}</option>`).join("");
-  // spróbuj przywrócić, jeśli istnieje
   if (current && [...selectEl.options].some(o => o.value === current)) {
     selectEl.value = current;
   }
 }
 
-// wczytaj listy (z prostym cache, odświeżane na każde otwarcie panelu)
 async function loadTherapistsAndDrivers() {
   const [tRes, dRes] = await Promise.all([
     fetch(`${API}/api/therapists`),
@@ -1086,7 +1047,6 @@ async function loadTherapistsAndDrivers() {
   therapistsList = await tRes.json();
   driversList = await dRes.json();
 
-  // tylko aktywni na listach wyboru (żeby nie wybierać nieaktywnych)
   const therapistsActive = therapistsList.filter(t => t.active !== false);
   const driversActive = driversList.filter(d => d.active !== false);
 
@@ -1095,7 +1055,6 @@ async function loadTherapistsAndDrivers() {
   fillSelect(dpDriverSelect, driversActive, "id", d => d.full_name + (d.phone ? ` – ${d.phone}` : ""));
 }
 
-    // Format czasu krótko
 function fmt(dtStr){
   if(!dtStr) return "—";
   const d = new Date(dtStr);
@@ -1107,130 +1066,23 @@ function fmt(dtStr){
   return `${y}-${m}-${day} ${hh}:${mm}`;
 }
 
-// === Klient → Pakiety
 const clientPackagesCanvas = new bootstrap.Offcanvas('#clientPackagesCanvas');
 
 function groupByDate(items) {
   const groups = {};
   items.forEach(p => {
-    const date = new Date(p.starts_at).toLocaleDateString("pl-PL"); // np. 19.08.2025
+    const date = new Date(p.starts_at).toLocaleDateString("pl-PL");
     if (!groups[date]) groups[date] = [];
     groups[date].push(p);
   });
   return groups;
 }
 
-
-
-async function openClientPackages(clientId, fullName) {
-  try {
-    // opcjonalnie filtr po miesiącu z nagłówka
-    const mk = monthInput.value;
-    const url = new URL(`${API}/api/client/${clientId}/packages`, location.origin);
-    if (mk) url.searchParams.set("month", mk);
-
-    const res = await fetch(url.toString().replace(location.origin, "")); // ten sam origin
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    // grupowanie po dacie starts_at
-    const groups = new Map(); // key -> { label, items: [], sumTherapy, sumAll }
-    for (const row of data) {
-      const iso = row.starts_at || row.ends_at; // na wszelki wypadek
-      if (!iso) continue;
-      const { key, label } = dateKeyPLLocal(iso);
-      if (!groups.has(key)) groups.set(key, { label, items: [], sumTherapy: 0, sumAll: 0 });
-      const g = groups.get(key);
-
-      const mins = minutesBetweenLocal(row.starts_at, row.ends_at);
-      g.sumAll += mins;
-      if (row.kind === "therapy") g.sumTherapy += mins;
-
-      g.items.push(row);
-    }
-
-    // posortuj dni rosnąco
-    const ordered = [...groups.entries()].sort(([a],[b]) => a.localeCompare(b));
-
-    // render
-    let html = `<div class="mb-2"><strong>Klient:</strong> ${fullName}</div>`;
-    if (!ordered.length) {
-      html += `<div class="text-muted">Brak pakietów w wybranym zakresie.</div>`;
-    } else {
-      for (const [, group] of ordered) {
-        const dayHeader = `
-          <div class="d-flex flex-wrap align-items-center justify-content-between mt-3 mb-2">
-            <h6 class="m-0">${group.label}</h6>
-            <div class="d-flex gap-2">
-              <span class="badge text-bg-primary">Razem (terapia): ${group.sumTherapy} min</span>
-              <span class="badge text-bg-secondary">Razem (wszystkie): ${group.sumAll} min</span>
-            </div>
-          </div>
-        `;
-
-        const rowsHtml = group.items
-          .sort((a,b) => (a.starts_at || "").localeCompare(b.starts_at || "")) // w obrębie dnia po czasie
-          .map(p => {
-            const who =
-              p.kind === "therapy" ? (p.therapist_name || `terapeuta #${p.therapist_id || ""}`) :
-              (p.driver_name || `kierowca #${p.driver_id || ""}`);
-            const route =
-              p.kind === "therapy" ? (p.place_to || "") :
-              [p.place_from, p.place_to].filter(Boolean).join(" → ");
-            const mins = minutesBetweenLocal(p.starts_at, p.ends_at);
-            return `
-              <tr>
-                <td><span class="badge ${p.kind==='therapy'?'text-bg-success':'text-bg-info'}">${p.kind}</span></td>
-                <td>${fmtLocalTime(p.starts_at)}–${fmtLocalTime(p.ends_at)}</td>
-                <td>${mins || ""}</td>
-                <td>${who}</td>
-                <td>${route}</td>
-                <td><code>${p.status || ""}</code></td>
-              </tr>
-            `;
-          }).join("");
-
-        html += `
-          ${dayHeader}
-          <div class="table-responsive">
-            <table class="table table-sm align-middle">
-              <thead class="table-light">
-                <tr>
-                  <th>Typ</th>
-                  <th>Godzina</th>
-                  <th>Min</th>
-                  <th>Osoba</th>
-                  <th>Trasa / Miejsce</th>
-                  <th>Dystans</th>
-                  <th>Status</th>
-                  <th>Akcje</th>
-                </tr>
-              </thead>
-              <tbody>${rowsHtml}</tbody>
-            </table>
-          </div>
-        `;
-      }
-    }
-
-    document.getElementById("clientPackagesTitle").textContent = `Pakiety: ${fullName}`;
-    document.getElementById("clientPackagesBody").innerHTML = html;
-    new bootstrap.Modal(document.getElementById("clientPackagesModal")).show();
-
-  } catch (err) {
-    showAlert(`Błąd pobierania pakietów: ${err.message}`, "danger");
-  }
-}
-
-
-
-
-// === Terapeuta → Grafik
-const therapistScheduleCanvas = new bootstrap.Offcanvas('#therapistScheduleCanvas');
 async function openTherapistSchedule(tid, name){
   document.getElementById("tsTherapistName").textContent = name || `ID ${tid}`;
   const tbody = document.getElementById("therapistScheduleTbody");
   tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">Ładowanie…</td></tr>`;
+  const therapistScheduleCanvas = new bootstrap.Offcanvas('#therapistScheduleCanvas');
   therapistScheduleCanvas.show();
   const mk = monthInput.value || "";
   try{
@@ -1257,13 +1109,10 @@ async function openTherapistSchedule(tid, name){
 }
 window.openTherapistSchedule = openTherapistSchedule;
 
-
 let _lastDriverSchedule = { driverId: null, fullName: "", rows: [] };
 
 async function openDriverSchedule(did, fullName){
-
   console.log("openDriverSchedule called with:", did, fullName);
-  // sprawdź, czy modal istnieje
   const modalEl = document.getElementById("driverScheduleModal");
   const titleEl = document.getElementById("driverScheduleTitle");
   const bodyEl  = document.getElementById("driverScheduleBody");
@@ -1299,8 +1148,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-
-// ładny format minut -> "X h Y min"
 function minutesToHM(mins) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -1308,13 +1155,12 @@ function minutesToHM(mins) {
   if (h) return `${h} h`;
   return `${m} min`;
 }
-// Render HTML kursów kierowcy z grupowaniem po dacie + sumami
-function renderDriverScheduleHTML(fullName, data) {
 
+function renderDriverScheduleHTML(fullName, data) {
   const groups = new Map();
   let sumMonth = 0;
 
-  for (const row of data) { // TU JEST 'row'
+  for (const row of data) {
     const iso = row.starts_at || row.ends_at;
     if (!iso) continue;
     const { key, label } = dateKeyPLLocal(iso);
@@ -1323,7 +1169,7 @@ function renderDriverScheduleHTML(fullName, data) {
     if (!groups.has(key)) groups.set(key, { label, items: [], sumDay: 0 });
 
     const g = groups.get(key);
-    const mins = minutesBetweenLocal(row.starts_at, row.ends_at); // TU TEŻ 'row'
+    const mins = minutesBetweenLocal(row.starts_at, row.ends_at);
 
     g.sumDay += mins;
     sumMonth += mins;
@@ -1364,11 +1210,8 @@ function renderDriverScheduleHTML(fullName, data) {
             <td>${row.client_name || `klient #${row.client_id ?? ""}`}</td>
             <td>${route || "—"}</td>
             <td>${row.vehicle_id ?? "—"}</td>
-
-            //<td>${route}</td>
             <td>${row.distance_km ? `${row.distance_km} km` : '—'}</td>
             <td><code>${row.status || ""}</code></td>
-    <td>
           </tr>`;
       }).join("");
 
@@ -1378,7 +1221,7 @@ function renderDriverScheduleHTML(fullName, data) {
         <table class="table table-sm align-middle">
           <thead class="table-light">
             <tr>
-              <th>Rodzaj</th><th>Godzina</th><th>Czas</th><th>Klient</th><th>Trasa</th><th>Pojazd</th><th>Status</th>
+              <th>Rodzaj</th><th>Godzina</th><th>Czas</th><th>Klient</th><th>Trasa</th><th>Pojazd</th><th>Dystans</th><th>Status</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -1389,7 +1232,6 @@ function renderDriverScheduleHTML(fullName, data) {
   return html;
 }
 
-// Druk przez ukryty iframe (jak u klienta)
 function printDriverSchedule() {
   const { fullName, rows } = _lastDriverSchedule || {};
   if (!rows || !rows.length) {
@@ -1455,29 +1297,43 @@ function printDriverSchedule() {
     try { ifrw.focus(); setTimeout(() => { try { ifrw.print(); } catch(e){} }, 0); } catch(e){}
   };
   if (ifrw) ifrw.onafterprint = cleanup;
-  setTimeout(cleanup, 5000); // fallback
-};
+  setTimeout(cleanup, 5000);
+}
 
-// ===== Render HTML (używany w modalu i w wydruku)
-function renderClientPackagesHTML(fullName, data) {
+window.renderClientPackagesHTML = function(fullName, data) {
   const groups = new Map();
+  let sumMonth = 0;
+
   for (const row of data) {
     const iso = row.starts_at || row.ends_at;
     if (!iso) continue;
     const { key, label } = dateKeyPLLocal(iso);
     if (!key) continue;
-    if (!groups.has(key)) groups.set(key, { label, items: [], sumTherapy: 0, sumAll: 0 });
+
+    if (!groups.has(key)) {
+      groups.set(key, { label, items: [], sumTherapy: 0, sumAll: 0 });
+    }
+
     const g = groups.get(key);
     const mins = minutesBetweenLocal(row.starts_at, row.ends_at);
+
     g.sumAll += mins;
+    sumMonth += mins;
     if (row.kind === "therapy") g.sumTherapy += mins;
     g.items.push(row);
   }
+
   const ordered = [...groups.entries()].sort(([a],[b]) => a.localeCompare(b));
+
+  const monthInfo = (monthInput && monthInput.value)
+    ? `<div class="mb-3"><strong>Miesiąc:</strong> ${monthInput.value}</div>` : "";
 
   let html = `
     <div class="mb-2"><strong>Klient:</strong> ${fullName}</div>
-    ${monthInput && monthInput.value ? `<div class="mb-3"><strong>Miesiąc:</strong> ${monthInput.value}</div>` : ""}`;
+    ${monthInfo}
+    <div class="mb-3">
+      <span class="badge text-bg-dark">Razem w miesiącu: ${minutesToHM(sumMonth)}</span>
+    </div>`;
 
   if (!ordered.length) {
     html += `<div class="text-muted">Brak pakietów w wybranym zakresie.</div>`;
@@ -1489,50 +1345,91 @@ function renderClientPackagesHTML(fullName, data) {
       <div class="d-flex flex-wrap align-items-center justify-content-between mt-3 mb-2">
         <h6 class="m-0">${group.label}</h6>
         <div class="d-flex gap-2">
-          <span class="badge text-bg-primary">Razem (terapia): ${group.sumTherapy} min</span>
-          <span class="badge text-bg-secondary">Razem (wszystkie): ${group.sumAll} min</span>
+          <span class="badge text-bg-primary">Razem (terapia): ${minutesToHM(group.sumTherapy)}</span>
+          <span class="badge text-bg-secondary">Razem (wszystkie): ${minutesToHM(group.sumAll)}</span>
         </div>
       </div>`;
 
     const rows = group.items
-    .sort((a,b) => (a.starts_at||"").localeCompare(b.starts_at||""))
-    .map(row => {
+      .sort((a,b) => (a.starts_at||"").localeCompare(b.starts_at||""))
+      .map(row => {
         const mins = minutesBetweenLocal(row.starts_at, row.ends_at);
-        const route = [row.place_from, row.place_to].filter(Boolean).join(" → ");
+
+        const who = row.kind === "therapy"
+          ? (row.therapist_name || `terapeuta #${row.therapist_id || "?"}`)
+          : (row.driver_name || `kierowca #${row.driver_id || "?"}`);
+
+        const route = row.kind === "therapy"
+          ? (row.place_to || "—")
+          : [row.place_from, row.place_to].filter(Boolean).join(" → ") || "—";
+
+        const slotId = row.slot_id || row.id;
+        const currentStatus = row.status || 'planned';
+        const statusHTML = slotId ? `
+          <select class="form-select form-select-sm quick-status-select"
+                  data-slot-id="${slotId}"
+                  data-original-value="${currentStatus}"
+                  style="min-width:130px;">
+            <option value="planned" ${currentStatus === 'planned' ? 'selected' : ''}>Zaplanowany</option>
+            <option value="confirmed" ${currentStatus === 'confirmed' ? 'selected' : ''}>Potwierdzony</option>
+            <option value="done" ${currentStatus === 'done' ? 'selected' : ''}>Wykonany</option>
+            <option value="cancelled" ${currentStatus === 'cancelled' ? 'selected' : ''}>Anulowany</option>
+          </select>
+        ` : `<code>${currentStatus}</code>`;
+
+        const groupId = row.group_id;
+        const actionsHTML = groupId ? `
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-warning btn-sm pkg-edit-btn"
+                    data-group-id="${groupId}"
+                    title="Edytuj pakiet">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm pkg-delete-btn"
+                    data-group-id="${groupId}"
+                    title="Usuń pakiet">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        ` : `<span class="text-muted">—</span>`;
+
         return `
           <tr>
-            <td><span class="badge text-bg-${row.kind === 'pickup' ? 'info' : 'secondary'}">${row.kind}</span></td>
+            <td><span class="badge text-bg-${row.kind === 'therapy' ? 'success' : 'info'}">${row.kind}</span></td>
             <td>${fmtLocalTime(row.starts_at)}–${fmtLocalTime(row.ends_at)}</td>
             <td>${minutesToHM(mins)}</td>
-            <td>${row.client_name || `klient #${row.client_id ?? ""}`}</td>
-            <td>${route || "—"}</td>
-            <td>${row.vehicle_id ?? "—"}</td>
-            <td>${row.distance_km ? `${row.distance_km} km` : '—'}</td>
-            <td><code>${row.status || ""}</code></td>
+            <td>${who}</td>
+            <td>${route}</td>
+            <td>${statusHTML}</td>
+            <td>${actionsHTML}</td>
           </tr>`;
       }).join("");
 
     html += `
       ${header}
       <div class="table-responsive">
-        <table class="table table-sm align-middle">
+        <table class="table table-sm table-hover align-middle">
           <thead class="table-light">
-              <tr>
-                <th>Typ</th><th>Godzina</th><th>Min</th><th>Osoba</th><th>Trasa / Miejsce</th><th>Dystans</th><th>Status</th><th>Akcje</th>
-              </tr>
-           </thead>
+            <tr>
+              <th>Typ</th>
+              <th>Godzina</th>
+              <th>Czas</th>
+              <th>Osoba</th>
+              <th>Trasa</th>
+              <th>Status</th>
+              <th>Akcje</th>
+            </tr>
+          </thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
   }
 
   return html;
-}
+};
 
-// ===== zapamiętywanie
 let _lastClientPackages = { clientId: null, fullName: "", rows: [] };
 
-// ===== Otwieranie modala (PROSTSZY fetch)
 async function openClientPackages(clientId, fullName) {
   try {
     const mk = monthInput.value;
@@ -1546,7 +1443,6 @@ async function openClientPackages(clientId, fullName) {
     document.getElementById("clientPackagesTitle").textContent = `Pakiety: ${fullName}`;
     document.getElementById("clientPackagesBody").innerHTML = renderClientPackagesHTML(fullName, data);
 
-    // podłącz drukowanie TYLKO jeśli przycisk jest w DOM
     const btn = document.getElementById("printPackagesBtn");
     if (btn) btn.onclick = () => printClientPackages();
 
@@ -1557,8 +1453,6 @@ async function openClientPackages(clientId, fullName) {
 }
 window.openClientPackages = openClientPackages;
 
-
-// ===== Druk pakietów przez iframe (bez blokady pop-up i bez duplikacji)
 function printClientPackages() {
   const { fullName, rows } = _lastClientPackages || {};
   if (!rows || !rows.length) {
@@ -1566,7 +1460,6 @@ function printClientPackages() {
     return;
   }
 
-  // Zbuduj treść do druku (bez auto-print w środku!)
   const content = renderClientPackagesHTML(fullName, rows);
   const monthInfo = (monthInput && monthInput.value)
     ? `<div><strong>Miesiąc:</strong> ${monthInput.value}</div>`
@@ -1604,7 +1497,6 @@ function printClientPackages() {
   </body>
   </html>`;
 
-  // Stwórz ukryty iframe (jednorazowy)
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.right = "0";
@@ -1615,73 +1507,43 @@ function printClientPackages() {
   iframe.setAttribute("aria-hidden", "true");
   document.body.appendChild(iframe);
 
-  // Wpisz dokument do iframe
   const ifrw = iframe.contentWindow;
   const ifrd = iframe.contentDocument || ifrw.document;
   ifrd.open();
   ifrd.write(html);
   ifrd.close();
 
-  // Flaga, by mieć pewność, że druk wywołamy tylko RAZ
   let printed = false;
 
-  // Sprzątanie po wydruku
   const cleanup = () => {
     if (iframe.parentNode) {
-      // małe opóźnienie, bo niektóre przeglądarki kończą "onafterprint" asynchronicznie
       setTimeout(() => iframe.remove(), 100);
     }
   };
 
-  // Próba wydruku, gdy iframe się załaduje
   iframe.onload = () => {
-    // Jeżeli już drukowaliśmy – wyjdź
     if (printed) return;
     printed = true;
 
-    // Skup okno iframe i drukuj
     try {
       ifrw.focus();
-      // Czasem trzeba dać 1 tick, aby style się zbudowały
       setTimeout(() => {
         try { ifrw.print(); } catch (e) {}
       }, 0);
     } catch (e) {
-      // Awaryjnie pokaż info, jeśli coś pójdzie nie tak
       console.error("Print iframe error:", e);
     }
   };
 
-  // Posprzątaj po zakończeniu drukowania (wspierane w większości przeglądarek)
   if (ifrw) {
     ifrw.onafterprint = cleanup;
   }
-  // Fallback – gdyby onafterprint nie zadziałał
   setTimeout(cleanup, 5000);
 }
 
-async function changeSlotStatus(slotId, newStatus) {
-
-  const res = await fetch(`${API}/api/slots/${slotId}`, {
-    method: "PATCH",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ status: newStatus })
-  });
-  await assertOk(res);
-  showAlert("Zmieniono status slotu.");
-
-  // odśwież widok klienta po zmianie statusu
-    if (_lastClientId) {
-      loadClientPackages(_lastClientId);
-    }
-  // odśwież aktualny widok (np. ponownie openDriverSchedule)
-}
-
-
-/** Odświeża dane w oknie „Pakiety klienta” i przerysowuje zawartość. */
 async function refreshClientPackagesModal() {
   const { clientId, fullName } = _lastClientPackages || {};
-  if (!clientId) return; // nic nie rób, jeśli nie mamy kontekstu
+  if (!clientId) return;
 
   const mk = monthInput.value;
   const qs = mk ? `?month=${encodeURIComponent(mk)}` : "";
@@ -1690,38 +1552,14 @@ async function refreshClientPackagesModal() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    _lastClientPackages.rows = data; // podmień cache
+    _lastClientPackages.rows = data;
     document.getElementById("clientPackagesBody").innerHTML =
       renderClientPackagesHTML(fullName, data);
-    // po przerysowaniu – znowu podłącz przyciski statusów (są inline), nic więcej nie trzeba
   } catch (err) {
     showAlert(`Błąd odświeżania pakietów: ${err.message}`, "danger");
   }
 }
 
-/** Zmienia status slotu, a po sukcesie odświeża widok pakietów. */
-async function changeSlotStatus(slotId, status) {
-  try {
-    const res = await fetch(`${API}/api/slots/${slotId}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status })
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(`HTTP ${res.status}: ${t}`);
-    }
-    await res.json();
-    // po zmianie – odśwież modal
-    await refreshClientPackagesModal();
-    showAlert("Status zaktualizowany.", "success");
-  } catch (err) {
-    showAlert(`Nie udało się zmienić statusu: ${err.message}`, "danger");
-  }
-}
-
-    // --- Edycja klienta ---
-// Otwórz formularz w trybie edycji
 function openClientEdit(cid){
   const cl = lastClients.find(c => c.client_id === cid);
   if (!cl) { showAlert("Nie znaleziono klienta w bieżącej liście.", "warning"); return; }
@@ -1731,22 +1569,19 @@ function openClientEdit(cid){
   document.getElementById("clName").value = cl.full_name || "";
   document.getElementById("clPhone").value = cl.phone || "";
   document.getElementById("clAddress").value = cl.address || "";
-  // jeśli masz w listingu 'active' – przypisz; jeśli nie, domyśl na true
   document.getElementById("clActive").checked = !(cl.active === false);
 
   (new bootstrap.Offcanvas('#clientCanvas')).show();
 }
 
-// Zmodyfikuj submit formularza klienta:
-// Jeden JEDYNY handler dla formularza klienta
 let _clientSubmitting = false;
 
 document.getElementById("clientForm").addEventListener("submit", async (e)=>{
   e.preventDefault();
-  if (_clientSubmitting) return;          // anty-dubel
+  if (_clientSubmitting) return;
   _clientSubmitting = true;
 
-  const cid    = _clientEditId;           // null => dodawanie, liczba => edycja
+  const cid    = _clientEditId;
   const name   = document.getElementById("clName").value.trim();
   const phone  = document.getElementById("clPhone").value.trim();
   const address= document.getElementById("clAddress").value.trim();
@@ -1757,7 +1592,6 @@ document.getElementById("clientForm").addEventListener("submit", async (e)=>{
     _clientSubmitting = false; return;
   }
 
-  // pre-check tylko przy dodawaniu
   if (cid == null && existsClientByName(name)){
     showAlert("Taki klient już widnieje na liście (imię i nazwisko).", "warning");
     _clientSubmitting = false; return;
@@ -1780,7 +1614,6 @@ document.getElementById("clientForm").addEventListener("submit", async (e)=>{
     await assertOk(res);
     await res.json();
 
-    // zamknij JEDYNĄ instancją
     clientOC.hide();
 
     showAlert(cid == null ? "Dodano klienta." : "Zmieniono dane klienta.", "success");
@@ -1794,20 +1627,15 @@ document.getElementById("clientForm").addEventListener("submit", async (e)=>{
   }
 });
 
-
-// Usuwanie klienta
 async function confirmDeleteClient(cid){
-  // Zmieniony, bardziej dosadny komunikat potwierdzający
   const confirmationText = "Czy na pewno chcesz TRWALE usunąć tego klienta? Spowoduje to kaskadowe usunięcie wszystkich jego pakietów, wizyt u terapeutów i kursów z kierowcami. Tej operacji NIE MOŻNA cofnąć.";
 
   if(!confirm(confirmationText)) return;
 
   try{
-    // Ta część jest już poprawna - wywołuje endpoint, który wykonuje twarde usuwanie
     const res = await fetch(`${API}/api/clients/${cid}`, { method: "DELETE" });
     await assertOk(res);
 
-    // Zmieniony komunikat o sukcesie
     showAlert("Klient i wszystkie jego powiązania zostały trwale usunięte.", "success");
     loadClients();
   }catch(err){
@@ -1816,15 +1644,13 @@ async function confirmDeleteClient(cid){
 }
 window.confirmDeleteClient = confirmDeleteClient;
 
-    let _therapistEditId = null;
+let _therapistEditId = null;
 async function openTherapistEdit(id){
   _therapistEditId = id;
-  // pobierz dane
   const res = await fetch(`${API}/api/therapists?include_inactive=1`);
   const list = await res.json();
   const t = list.find(x => x.id === id);
   if(!t){ showAlert("Nie znaleziono terapeuty.", "danger"); return; }
-  // wypełnij formularz
   document.getElementById("thName").value = t.full_name || "";
   document.getElementById("thSpec").value = t.specialization || "";
   document.getElementById("thPhone").value = t.phone || "";
@@ -1847,19 +1673,18 @@ async function openDriverEdit(id){
 }
 window.openDriverEdit = openDriverEdit;
 
-    const dayInput = document.getElementById("dayInput");
+const dayInput = document.getElementById("dayInput");
 const gapsBox  = document.getElementById("gapsBox");
 
-// init: dziś (lokalnie)
 (function initDay(){
   const t = new Date();
   const ds = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
   dayInput.value = ds;
 })();
-dayInput.addEventListener("change", () => checkDailyGaps()); // auto-odśwież
+dayInput.addEventListener("change", () => checkDailyGaps());
 
 async function checkDailyGaps(){
-  const d = dayInput.value; // YYYY-MM-DD
+  const d = dayInput.value;
   if (!d) return;
 
   gapsBox.innerHTML = `
@@ -1875,36 +1700,34 @@ async function checkDailyGaps(){
 
     const c = data.counts || {clients:0,therapists:0,drivers:0};
     const list = (arr, kind) => {
-  if (!arr || !arr.length) return `<div class="text-muted">Brak</div>`;
+      if (!arr || !arr.length) return `<div class="text-muted">Brak</div>`;
 
-  return `
-    <details class="mt-2">
-      <summary class="cursor-pointer">Pokaż listę (${arr.length})</summary>
-      <ul class="mb-0 mt-2">
-        ${arr.map(x => {
-          // Defensywne pobranie ID - szuka pod różnymi możliwymi nazwami
-          const personId = x.id || x.client_id || x.therapist_id || x.driver_id;
-          const fullName = x.full_name || 'Brak nazwy';
+      return `
+        <details class="mt-2">
+          <summary class="cursor-pointer">Pokaż listę (${arr.length})</summary>
+          <ul class="mb-0 mt-2">
+            ${arr.map(x => {
+              const personId = x.id || x.client_id || x.therapist_id || x.driver_id;
+              const fullName = x.full_name || 'Brak nazwy';
 
-          let buttons = '';
-          // Generuj przyciski tylko, jeśli znaleziono jakiekolwiek ID
-          if (personId) {
-              if (kind === 'clients') {
-                  buttons = `<button class="btn btn-sm btn-outline-primary ms-2" onclick="openPackageCanvas(${personId})">Dodaj pakiet</button>`;
-              } else if (kind === 'therapists') {
-                  buttons = `<button class="btn btn-sm btn-outline-primary ms-2" onclick="openTherapistSchedule(${personId}, '${fullName.replace(/'/g, "\\'")}')">Grafik</button>`;
-              } else if (kind === 'drivers') {
-                  buttons = `<button class="btn btn-sm btn-outline-primary ms-2" onclick="openDriverSchedule(${personId}, '${fullName.replace(/'/g, "\\'")}')">Kursy</button>`;
+              let buttons = '';
+              if (personId) {
+                  if (kind === 'clients') {
+                      buttons = `<button class="btn btn-sm btn-outline-primary ms-2" onclick="openPackageCanvas(${personId})">Dodaj pakiet</button>`;
+                  } else if (kind === 'therapists') {
+                      buttons = `<button class="btn btn-sm btn-outline-primary ms-2" onclick="openTherapistSchedule(${personId}, '${fullName.replace(/'/g, "\\'")}')">Grafik</button>`;
+                  } else if (kind === 'drivers') {
+                      buttons = `<button class="btn btn-sm btn-outline-primary ms-2" onclick="openDriverSchedule(${personId}, '${fullName.replace(/'/g, "\\'")}')">Kursy</button>`;
+                  }
+              } else {
+                  buttons = `<span class="text-danger small ms-2">(Brak ID)</span>`;
               }
-          } else {
-              buttons = `<span class="text-danger small ms-2">(Brak ID)</span>`;
-          }
 
-          return `<li>${fullName} ${buttons}</li>`;
-        }).join("")}
-      </ul>
-    </details>`;
-};
+              return `<li>${fullName} ${buttons}</li>`;
+            }).join("")}
+          </ul>
+        </details>`;
+    };
 
     gapsBox.innerHTML = `
       <div class="card shadow-sm">
@@ -1940,19 +1763,13 @@ async function checkDailyGaps(){
   }
 }
 
-// odpal na starcie strony
 checkDailyGaps();
 
-// (opcjonalnie) po zapisie pakietu – odśwież „braki”
-const _origPkgSubmit = document.getElementById("packageForm").onsubmit;
 document.getElementById("packageForm").addEventListener("submit", async (e)=>{
-  // Twój istniejący handler robi fetch i loadClients();
-  // Nic nie zmieniamy w jego środku – po sukcesie tylko dołóż:
-  // (jeśli masz wiele handlerów, wstaw to po sukcesie zapisu)
   setTimeout(checkDailyGaps, 300);
 });
 
-    document.getElementById("gapsMonthBtn").addEventListener("click", checkMonthlyGaps);
+document.getElementById("gapsMonthBtn").addEventListener("click", checkMonthlyGaps);
 
 async function checkMonthlyGaps(){
   const mk = monthInput.value;
@@ -1971,38 +1788,37 @@ async function checkMonthlyGaps(){
 
     const c = data.counts || {clients:0,therapists:0,drivers:0};
     const list = (arr, kind) => {
-  if (!arr.length) return `<div class="text-muted">Brak</div>`;
+      if (!arr.length) return `<div class="text-muted">Brak</div>`;
 
-  return `
-    <details class="mt-2">
-      <summary>Lista (${arr.length})</summary>
-      <ul class="mb-0 mt-2">
-        ${arr.map(x => {
-            // Nowa logika wyświetlania statusu nieobecności
-            let absenceBadge = '';
-            if (x.absence_status) {
-                const statusLabel = x.absence_status === 'L4' ? 'L4' : 'U';
-                absenceBadge = `<span class="badge text-bg-danger ms-2" title="${x.absence_status}">${statusLabel}</span>`;
-            }
-
-            const personId = x.id; // Zakładamy, że API zwraca teraz zawsze 'id'
-            const fullName = x.full_name || 'Brak nazwy';
-
-            let buttons = '';
-            if (personId) {
-                if (kind === 'clients') {
-                    buttons = `<button class="btn btn-sm btn-outline-primary ms-2" onclick="openPackageCanvas(${personId})">Dodaj pakiet</button>`;
-                } else { // Dla terapeutów i kierowców
-                    const scheduleFn = kind === 'therapists' ? 'openTherapistSchedule' : 'openDriverSchedule';
-                    const scheduleLabel = kind === 'therapists' ? 'Grafik' : 'Kursy';
-                    buttons = `<button class="btn btn-sm btn-outline-primary ms-2" onclick="${scheduleFn}(${personId}, '${fullName.replace(/'/g, "\\'")}')">${scheduleLabel}</button>`;
+      return `
+        <details class="mt-2">
+          <summary>Lista (${arr.length})</summary>
+          <ul class="mb-0 mt-2">
+            ${arr.map(x => {
+                let absenceBadge = '';
+                if (x.absence_status) {
+                    const statusLabel = x.absence_status === 'L4' ? 'L4' : 'U';
+                    absenceBadge = `<span class="badge text-bg-danger ms-2" title="${x.absence_status}">${statusLabel}</span>`;
                 }
-            }
-            return `<li>${fullName} ${absenceBadge} ${buttons}</li>`;
-        }).join("")}
-      </ul>
-    </details>`;
-};
+
+                const personId = x.id;
+                const fullName = x.full_name || 'Brak nazwy';
+
+                let buttons = '';
+                if (personId) {
+                    if (kind === 'clients') {
+                        buttons = `<button class="btn btn-sm btn-outline-primary ms-2" onclick="openPackageCanvas(${personId})">Dodaj pakiet</button>`;
+                    } else {
+                        const scheduleFn = kind === 'therapists' ? 'openTherapistSchedule' : 'openDriverSchedule';
+                        const scheduleLabel = kind === 'therapists' ? 'Grafik' : 'Kursy';
+                        buttons = `<button class="btn btn-sm btn-outline-primary ms-2" onclick="${scheduleFn}(${personId}, '${fullName.replace(/'/g, "\\'")}')">${scheduleLabel}</button>`;
+                    }
+                }
+                return `<li>${fullName} ${absenceBadge} ${buttons}</li>`;
+            }).join("")}
+          </ul>
+        </details>`;
+    };
 
     gapsBox.innerHTML = `
       <div class="card shadow-sm">
@@ -2038,9 +1854,7 @@ async function checkMonthlyGaps(){
   }
 }
 
-
 async function ensureOptionsLoaded(retries=40, delay=50){
-  // czeka aż selecty będą miały opcje
   while (retries-- > 0){
     const thOk = thSelect && thSelect.options && thSelect.options.length > 1;
     const pkOk = pkDriverSelect && pkDriverSelect.options && pkDriverSelect.options.length > 1;
@@ -2058,7 +1872,6 @@ async function fetchAISuggestions(){
     return;
   }
 
-  // UPEWNIJ SIĘ, że selecty są już załadowane
   await ensureOptionsLoaded();
 
   const res = await fetch(`${API}/api/ai/suggest`, {
@@ -2079,7 +1892,6 @@ async function fetchAISuggestions(){
   }
   const ai = await res.json();
 
-  // --- TERAPIA: bierzemy TOP1 z tablicy
   const t0 = (ai.therapy || [])[0];
   if (t0){
     thSelect.value = String(t0.therapist_id || "");
@@ -2090,7 +1902,6 @@ async function fetchAISuggestions(){
     if (!thPlace.value) thPlace.value = "Poradnia";
   }
 
-  // --- PICKUP: TOP1
   const p0 = (ai.drivers_pickup || [])[0];
   if (p0){
     withPickup.checked = true;
@@ -2107,7 +1918,6 @@ async function fetchAISuggestions(){
     pickupFields.classList.add("d-none");
   }
 
-  // --- DROPOFF: TOP1
   const d0 = (ai.drivers_dropoff || [])[0];
   if (d0){
     withDropoff.checked = true;
@@ -2127,22 +1937,16 @@ async function fetchAISuggestions(){
   showAlert("Wstawiono propozycję pakietu (AI).", "success");
 }
 
-    window.aiSuggestForClient = async function(clientId){
-    // otwórz panel z domyślną datą i załaduj listy
-    openPackageCanvas(clientId);
-    // poczekaj aż selecty będą miały opcje
-    await ensureOptionsLoaded();
-    // pobierz i wstaw propozycję (terapeuta/godziny/kierowcy)
-    await fetchAISuggestions();
-  };
+window.aiSuggestForClient = async function(clientId){
+  openPackageCanvas(clientId);
+  await ensureOptionsLoaded();
+  await fetchAISuggestions();
+};
 
-    // ====== Raport terapeuty – cache ostatnio otwartego
 let _lastTherapistReport = { therapistId: null, fullName: "", rows: [] };
 
-// Ustaw, czy bierzemy tylko TERAPIE o statusie "done"
 const REPORT_DONE_ONLY = true;
 
-// Otwórz modal i pobierz zdarzenia terapeuty w miesiącu
 async function openTherapistReport(tid, fullName){
   const modalEl = document.getElementById("therapistReportModal");
   const titleEl = document.getElementById("therapistReportTitle");
@@ -2155,7 +1959,6 @@ async function openTherapistReport(tid, fullName){
   titleEl.textContent = `Zestawienie: ${fullName || `ID ${tid}`}`;
   bodyEl.innerHTML = `<div class="text-muted py-3">Ładowanie…</div>`;
 
-  // filtr po miesiącu z nagłówka
   const mk = monthInput.value || "";
   try{
     const url = `${API}/api/therapists/${tid}/schedule?month=${encodeURIComponent(mk)}`;
@@ -2163,13 +1966,11 @@ async function openTherapistReport(tid, fullName){
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    // Zostaw tylko TERAPIE; opcjonalnie tylko "done"
     const filtered = data.filter(r => r.kind === "therapy" && (!REPORT_DONE_ONLY || r.status === "done"));
 
     _lastTherapistReport = { therapistId: tid, fullName: fullName || `ID ${tid}`, rows: filtered };
 
     bodyEl.innerHTML = renderTherapistReportHTML(_lastTherapistReport.fullName, filtered);
-    // podłącz druk
     const btn = document.getElementById("printTherapistReportBtn");
     if (btn) btn.onclick = () => printTherapistReport();
 
@@ -2180,10 +1981,8 @@ async function openTherapistReport(tid, fullName){
 }
 window.openTherapistReport = openTherapistReport;
 
-// Render HTML dziennego zestawienia + sumy miesięczne
 function renderTherapistReportHTML(fullName, rows){
-  // Grupuj po dniu
-  const groups = new Map(); // key -> { label, items: [], sumDay: 0 }
+  const groups = new Map();
   let sumMonth = 0;
 
   for (const r of rows){
@@ -2261,7 +2060,6 @@ function renderTherapistReportHTML(fullName, rows){
   return html;
 }
 
-// Druk przez ukryty iframe (jak u kierowcy/klienta)
 function printTherapistReport(){
   const { fullName, rows } = _lastTherapistReport || {};
   if (!rows || !rows.length){
@@ -2326,29 +2124,21 @@ function printTherapistReport(){
   setTimeout(cleanup, 5000);
 }
 
-    // === LOGIKA DLA NOWEGO PRZYCISKU "DODAJ PAKIET" ===
-
-// 1. Pobierz referencje do nowych elementów
 const clientSelectModalEl = document.getElementById('clientSelectModal');
 const clientSelectModal = new bootstrap.Modal(clientSelectModalEl);
 const modalClientSelect = document.getElementById('modalClientSelect');
 
-// 2. Logika przycisku "Dodaj Pakiet"
 document.getElementById('openClientSelectModalBtn').addEventListener('click', async () => {
-  // Wypełnij listę klientów
   modalClientSelect.innerHTML = '<option value="">Ładowanie...</option>';
   modalClientSelect.disabled = true;
 
   try {
-    // Używamy istniejącej zmiennej `lastClients`, aby nie odpytywać API ponownie
-    // lub odpytujemy API, jeśli lista jest pusta
     let clientsToDisplay = lastClients;
     if (!clientsToDisplay || clientsToDisplay.length === 0) {
         const res = await fetch(`${API}/api/clients`);
         clientsToDisplay = await res.json();
     }
 
-    // Bierzemy tylko aktywnych klientów
     const activeClients = clientsToDisplay.filter(c => c.active !== false);
 
     if (activeClients.length > 0) {
@@ -2363,51 +2153,37 @@ document.getElementById('openClientSelectModalBtn').addEventListener('click', as
     modalClientSelect.disabled = false;
   }
 
-  // Pokaż okno
   clientSelectModal.show();
 });
 
-// 3. Logika przycisku "Dalej" w oknie wyboru klienta
 document.getElementById('continueWithClientBtn').addEventListener('click', () => {
   const selectedClientId = modalClientSelect.value;
 
   if (selectedClientId) {
-    // Schowaj okno wyboru
     clientSelectModal.hide();
-
-    // Otwórz panel dodawania pakietu dla wybranego klienta
-    // Używamy tutaj istniejącej funkcji openPackageCanvas!
     choosePackageType(Number(selectedClientId));
   } else {
     alert("Proszę wybrać klienta z listy.");
   }
 });
 
-// === LOGIKA DO AUTOMATYCZNEGO OTWIERANIA PANELU PAKIETU ===
 document.addEventListener('DOMContentLoaded', () => {
-
     const checkUrlForPackageOpen = () => {
         const urlParams = new URLSearchParams(window.location.search);
         const clientIdToOpen = urlParams.get('openPackageFor');
 
         if (clientIdToOpen) {
-            // Poczekaj chwilę (pół sekundy), aby dać stronie czas na załadowanie wszystkiego
             setTimeout(() => {
-                // Użyj istniejącej funkcji, aby otworzyć panel dla przekazanego ID klienta
                 openPackageCanvas(Number(clientIdToOpen));
 
-                // Opcjonalnie: Usuń parametr z adresu URL, aby panel nie otwierał się ponownie przy każdym odświeżeniu strony
                 const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
                 window.history.pushState({path: newUrl}, '', newUrl);
             }, 500);
         }
     };
 
-    // Uruchom sprawdzanie po załadowaniu strony
     checkUrlForPackageOpen();
 });
-
-// === LOGIKA DLA NIEOBECNOŚCI ===
 
 const absenceModalEl = document.getElementById('absenceModal');
 const absenceModal = new bootstrap.Modal(absenceModalEl);
@@ -2441,17 +2217,14 @@ absenceForm.addEventListener('submit', async (e) => {
 
         showAlert('Nieobecność została pomyślnie dodana.', 'success');
         absenceModal.hide();
-        // Odśwież widok braków, aby pokazać nową ikonkę
         checkMonthlyGaps();
     } catch (err) {
         showAlert(err.message, 'danger');
     }
 });
 
-      // Logika dla przycisków w oknie wyboru typu pakietu
 document.getElementById('btnGoToIndividualPackage').addEventListener('click', () => {
     packageTypeModal.hide();
-    // Wywołaj istniejącą funkcję do tworzenia pakietu indywidualnego
     openPackageCanvas(_clientIdForNewPackage);
 });
 
@@ -2465,17 +2238,183 @@ document.getElementById('btnGoToTus').addEventListener('click', async () => {
         const clientGroups = await response.json();
 
         if (clientGroups.length > 0) {
-            // PRZYPADEK 1: Klient jest już w jednej grupie -> przejdź od razu do jej szczegółów
             const groupId = clientGroups[0].id;
             window.location.href = `tus.html?openGroup=${groupId}`;
         } else {
-            // PRZYPADEK 2: Klient nie należy do żadnej grupy -> przejdź do strony ogólnej TUS
             alert("Ten klient nie jest jeszcze przypisany do żadnej grupy TUS. Zostaniesz przekierowany na główną stronę modułu, aby go dodać do istniejącej grupy lub stworzyć nową.");
             window.location.href = 'tus.html';
         }
     } catch (err) {
         alert(err.message);
     }
-
 });
+
+document.addEventListener('click', function(e) {
+  if (e.target.closest('.pkg-edit-btn')) {
+    const btn = e.target.closest('.pkg-edit-btn');
+    const groupId = btn.getAttribute('data-group-id');
+    if (groupId) {
+      openPackageEdit(groupId);
+    }
+  }
+
+  if (e.target.closest('.pkg-delete-btn')) {
+    const btn = e.target.closest('.pkg-delete-btn');
+    const groupId = btn.getAttribute('data-group-id');
+    if (groupId) {
+      confirmDeletePackage(groupId);
+    }
+  }
+});
+
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('quick-status-select')) {
+    const slotId = parseInt(e.target.getAttribute('data-slot-id'));
+    const newStatus = e.target.value;
+
+    if (slotId && newStatus) {
+      quickChangeStatus(slotId, newStatus);
+    }
+  }
+});
+
+window.quickChangeStatus = async function(slotId, newStatus) {
+  console.log('quickChangeStatus wywołane:', { slotId, newStatus });
+
+  if (!slotId || !newStatus) {
+    console.error('Brak slotId lub newStatus');
+    return;
+  }
+
+  const selectElement = document.querySelector(`select[data-slot-id="${slotId}"]`);
+  const originalValue = selectElement ? selectElement.dataset.originalValue : newStatus;
+
+  try {
+    const res = await fetch(`${API}/api/slots/${slotId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    console.log('Status zaktualizowany:', data);
+
+    if (selectElement) {
+      selectElement.dataset.originalValue = newStatus;
+    }
+
+    showAlert(`Status zmieniony na: ${newStatus}`, 'success');
+
+    await refreshClientPackagesModal();
+    await loadClients();
+
+  } catch (err) {
+    console.error('Błąd zmiany statusu:', err);
+    showAlert(`Nie udało się zmienić statusu: ${err.message}`, 'danger');
+
+    if (selectElement && originalValue) {
+      selectElement.value = originalValue;
+    }
+  }
+};
+
+async function checkPackageConflicts(payload) {
+  try {
+    const res = await fetch(`${API}/api/schedule/check-conflicts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+
+  } catch (err) {
+    console.error('Błąd sprawdzania kolizji:', err);
+    return { total: 0 };
+  }
+}
+
+function formatConflictsMessage(conflicts) {
+  if (!conflicts.total) return null;
+
+  let message = `<div class="alert alert-warning">
+    <h6 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Wykryto ${conflicts.total} kolizj${conflicts.total === 1 ? 'ę' : 'e/i'} w grafiku:</h6>
+    <hr>`;
+
+  if (conflicts.therapy && conflicts.therapy.length > 0) {
+    message += `<div class="mb-3">
+      <strong>Terapeuta zajęty (${conflicts.therapy.length}):</strong>
+      <ul class="mb-0 mt-1">`;
+    conflicts.therapy.forEach(c => {
+      const start = new Date(c.starts_at).toLocaleString('pl-PL', {
+        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+      });
+      const end = new Date(c.ends_at).toLocaleTimeString('pl-PL', {
+        hour: '2-digit', minute: '2-digit'
+      });
+      message += `<li><strong>${c.client_name}</strong> - ${start} do ${end}</li>`;
+    });
+    message += `</ul></div>`;
+  }
+
+  if (conflicts.pickup && conflicts.pickup.length > 0) {
+    message += `<div class="mb-3">
+      <strong>Kierowca zajęty - dowóz (${conflicts.pickup.length}):</strong>
+      <ul class="mb-0 mt-1">`;
+    conflicts.pickup.forEach(c => {
+      const start = new Date(c.starts_at).toLocaleString('pl-PL', {
+        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+      });
+      const end = new Date(c.ends_at).toLocaleTimeString('pl-PL', {
+        hour: '2-digit', minute: '2-digit'
+      });
+      message += `<li><strong>${c.client_name}</strong> (${c.kind}) - ${start} do ${end}</li>`;
+    });
+    message += `</ul></div>`;
+  }
+
+  if (conflicts.dropoff && conflicts.dropoff.length > 0) {
+    message += `<div class="mb-3">
+      <strong>Kierowca zajęty - odwóz (${conflicts.dropoff.length}):</strong>
+      <ul class="mb-0 mt-1">`;
+    conflicts.dropoff.forEach(c => {
+      const start = new Date(c.starts_at).toLocaleString('pl-PL', {
+        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+      });
+      const end = new Date(c.ends_at).toLocaleTimeString('pl-PL', {
+        hour: '2-digit', minute: '2-digit'
+      });
+      message += `<li><strong>${c.client_name}</strong> (${c.kind}) - ${start} do ${end}</li>`;
+    });
+    message += `</ul></div>`;
+  }
+
+  if (conflicts.client && conflicts.client.length > 0) {
+    message += `<div class="mb-3">
+      <strong>Klient ma już inne zajęcia (${conflicts.client.length}):</strong>
+      <ul class="mb-0 mt-1">`;
+    conflicts.client.forEach(c => {
+      const start = new Date(c.starts_at).toLocaleString('pl-PL', {
+        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+      });
+      const end = new Date(c.ends_at).toLocaleTimeString('pl-PL', {
+        hour: '2-digit', minute: '2-digit'
+      });
+      const person = c.therapist_name ? `z ${c.therapist_name}` : c.kind;
+      message += `<li>${person} - ${start} do ${end}</li>`;
+    });
+    message += `</ul></div>`;
+  }
+
+  message += `<div class="mt-2"><strong>Czy mimo to chcesz zapisać zmiany?</strong></div></div>`;
+
+  return message;
+}
+
 window.openAbsenceModal = openAbsenceModal;

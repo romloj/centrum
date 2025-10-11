@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Zarządzania Fundacją</title>
+    <link rel="stylesheet" href="menu_fab.css">
     <style>
         * {
             margin: 0;
@@ -228,15 +229,15 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏛️ System Zarządzania Fundacją</h1>
+            <h1>🏛️ System Zarządzania Fundacją (Moduł Klienta)</h1>
             <p class="subtitle">Kompleksowe narzędzie do zarządzania projektami i beneficjentami</p>
         </div>
 
         <div class="modules-grid">
             <!-- Projekty -->
-            <div class="module-card" onclick="location.href='projects.html'">
+            <div class="module-card" onclick="location.href='dostepnosc.html'">
                 <span class="module-icon">🎯</span>
-                <h2 class="module-title">Projekty</h2>
+                <h2 class="module-title">Dostępność Klienta</h2>
                 <p class="module-description">
                     Zarządzaj projektami fundacji, monitoruj postępy, budżet i beneficjentów
                 </p>
@@ -244,32 +245,10 @@
             </div>
 
             <!-- Sprawozdania - NOWY KAFELEK -->
-            <div class="module-card" onclick="location.href='project_raports.html'">
-                <span class="new-badge">NOWE</span>
+            <div class="module-card" onclick="location.href='lista.html'">
+                <span class="new-badge">Lista obecności</span>
                 <span class="module-icon">📊</span>
-                <h2 class="module-title">Sprawozdania</h2>
-                <p class="module-description">
-                    Generuj roczne sprawozdania merytoryczne z realizowanych projektów i działań
-                </p>
-                <span class="module-badge">Raporty i analizy</span>
-            </div>
-
-            <!-- Sprawozdania - NOWY KAFELEK -->
-            <div class="module-card" onclick="location.href='raport.html'">
-                <span class="new-badge">NOWE</span>
-                <span class="module-icon">📊</span>
-                <h2 class="module-title">Raport</h2>
-                <p class="module-description">
-                    Generuj roczne sprawozdania merytoryczne z realizowanych projektów i działań
-                </p>
-                <span class="module-badge">Raporty i analizy</span>
-            </div>
-
-            <!-- ipet -->
-            <div class="module-card" onclick="location.href='ipet.html'">
-                <span class="new-badge">NOWE</span>
-                <span class="module-icon">📊</span>
-                <h2 class="module-title">IPET</h2>
+                <h2 class="module-title">Lista obecności</h2>
                 <p class="module-description">
                     Generuj roczne sprawozdania merytoryczne z realizowanych projektów i działań
                 </p>
@@ -297,9 +276,9 @@
             </div>
 
             <!-- Terapeuci -->
-            <div class="module-card" onclick="location.href='therapist.html'">
+            <div class="module-card" onclick="location.href='notes.html'">
                 <span class="module-icon">👨‍⚕️</span>
-                <h2 class="module-title">Terapeuci</h2>
+                <h2 class="module-title">Notatki</h2>
                 <p class="module-description">
                     Zarządzaj zespołem terapeutów, harmonogramami i statystykami pracy
                 </p>
@@ -307,7 +286,7 @@
             </div>
 
             <!-- Harmonogram -->
-            <div class="module-card" onclick="location.href='panel.html'">
+            <div class="module-card" onclick="location.href='client-panel.html'">
                 <span class="module-icon">📅</span>
                 <h2 class="module-title">Harmonogram</h2>
                 <p class="module-description">
@@ -315,20 +294,19 @@
                 </p>
                 <span class="module-badge">Planowanie</span>
             </div>
-        </div>
 
-        <!-- Harmonogram -->
-            <div class="module-card" onclick="location.href='import_image.html'">
-                <span class="module-icon">📅</span>
-                <h2 class="module-title">Import planu</h2>
+            <!--Historia klienta-->
+            <div class="module-card" onclick="location.href='client_history.html'">
+                <span class="module-icon">🎓</span>
+                <h2 class="module-title">Historia klienta</h2>
                 <p class="module-description">
-                    Zeskanuj swój plan, wszystkie wpisy będą w bazie
+                    Zarządzaj grupami TUS, sesjami, punktacją i nagrodami dla uczestników
                 </p>
-                <span class="module-badge">Planowanie</span>
+                <span class="module-badge">System punktowy</span>
             </div>
         </div>
 
-        <!-- Szybkie statystyki -->
+        <!-- Szybkie statystyki
         <div class="quick-stats" id="quickStats">
             <div class="stat-card">
                 <span class="stat-value" id="totalProjects">-</span>
@@ -346,12 +324,64 @@
                 <span class="stat-value" id="totalSessions">-</span>
                 <span class="stat-label">Sesji w tym miesiącu</span>
             </div>
-        </div>
+        </div>-->
+
+        <!-- Floating Action Menu - TYLKO RAZ, na końcu body -->
+    <div class="fab-container" id="fabContainer">
+    <ul class="fab-menu">
+        <li class="fab-item">
+            <span class="fab-label">Plan terapeuty</span>
+            <a href="therapist.html" class="fab-button" title="Plan terapeuty">
+                <i class="bi bi-heart-pulse"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Moduł TUS</span>
+            <a href="tus.html" class="fab-button" title="Moduł TUS">
+                <i class="bi bi-star-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Lista klientów</span>
+            <a href="klienci.html" class="fab-button" title="Lista klientów">
+                <i class="bi bi-people-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Historia klientów</span>
+            <a href="client_history.html" class="fab-button" title="Historia klientów">
+                <i class="bi bi-clock-history"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Moduł Kierowcy</span>
+            <a href="drivers.html" class="fab-button" title="Plan terapeuty">
+                <i class="bi bi-car-front-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Strona główna</span>
+            <a href="index.html" class="fab-button" title="Strona główna">
+                <i class="bi bi-house-fill"></i>
+            </a>
+        </li>
+    </ul>
+    <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg"></i>
+    </button>
+</div>
+    <div class="fab-backdrop" id="fabBackdrop"></div>
 
         <div class="footer">
             <p>&copy; 2025 Fundacja Odnowa. Wszystkie prawa zastrzeżone.</p>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+     <script src="fab-menu.js"></script>
+    <script src="panel.js"></script>
 
     <script>
         // Załaduj szybkie statystyki
@@ -403,4 +433,6 @@
         }
     </script>
 </body>
+
 </html>
+

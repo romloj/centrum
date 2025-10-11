@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Zarządzania Sesjami Terapeutycznymi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 968px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+
+        .card h2 {
+            color: #667eea;
+            font-size: 24px;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+
+        .session-item {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            background: #f9f9f9;
+            position: relative;
+        }
+
+        .session-item:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateX(5px);
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .session-title {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 18px;
+        }
+
+        .session-date {
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .session-info {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        .session-info strong {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .session-notes {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px dashed #e0e0e0;
+        }
+
+        .session-notes strong {
+            color: #667eea;
+            font-size: 15px;
+        }
+
+        .notes-preview {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            margin-top: 8px;
+        }
+
+        .expand-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background 0.2s;
+        }
+
+        .expand-btn:hover {
+            background: #5568d3;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 60px 20px;
+            font-size: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 18px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .sessions-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .sessions-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sessions-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .sessions-list::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            animation: fadeIn 0.3s;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .modal-header h3 {
+            color: #667eea;
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .close-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            background: #d32f2f;
+            transform: rotate(90deg);
+        }
+
+        .modal-body {
+            margin-bottom: 25px;
+        }
+
+        .note-detail {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .note-detail strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .note-content {
+            color: #555;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            font-size: 15px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-print {
+            flex: 1;
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-print:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-secondary {
+            flex: 1;
+            background: #9e9e9e;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #757575;
+        }
+
+        /* Style dla checkboxów i przycisku usuwania */
+        .session-checkbox {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .session-item.selected {
+            background: #f0f4ff;
+            border-color: #667eea;
+        }
+
+        .delete-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+
+        .delete-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .delete-btn:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+        }
+
+        .delete-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .delete-info {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        /* Ulepszone style dla wydruku */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .modal, .modal * {
+                visibility: visible;
+            }
+            .modal {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background: white;
+                z-index: 9999;
+                margin: 0;
+                padding: 0;
+                display: block !important;
+                overflow: visible;
+            }
+            .modal-content {
+                position: relative;
+                width: 100%;
+                max-width: 100%;
+                height: auto;
+                min-height: 100vh;
+                padding: 20px;
+                margin: 0;
+                box-shadow: none;
+                border: none;
+                border-radius: 0;
+                overflow: visible;
+            }
+            .modal-header {
+                border-bottom: 2px solid #000;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+            }
+            .modal-header h3 {
+                color: #000;
+                font-size: 22px;
+                margin: 0;
+            }
+            .modal-actions, .close-btn, #viewModeActions, #editModeActions,
+            .no-print, .print-header, .print-footer {
+                display: none !important;
+            }
+            #editMode {
+                display: none !important;
+            }
+            #viewMode {
+                display: block !important;
+            }
+            .note-detail {
+                border-left: 3px solid #000;
+                page-break-inside: avoid;
+                margin-bottom: 15px;
+                background: #f9f9f9;
+                break-inside: avoid-page;
+            }
+            .note-detail strong {
+                color: #000;
+                font-weight: 700;
+                font-size: 14px;
+            }
+            .note-detail div {
+                color: #000;
+                font-size: 13px;
+                line-height: 1.4;
+            }
+            .note-content {
+                font-size: 13px;
+                line-height: 1.5;
+                white-space: pre-wrap;
+            }
+
+            /* Ukryj elementy niepotrzebne w druku */
+            .session-checkbox, .expand-btn {
+                display: none !important;
+            }
+        }
+
+        /* Elementy dla wydruku - ukryte domyślnie */
+        .print-header, .print-footer {
+            display: none;
+        }
+
+        .client-info-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: none;
+        }
+
+        .client-info-box strong {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .client-info-box .client-name {
+            font-size: 20px;
+            margin-top: 5px;
+            font-weight: 700;
+        }
+
+        #editNoteContent {
+            width: 100%;
+            min-height: 300px;
+            padding: 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1.8;
+            font-family: inherit;
+            margin-top: 10px;
+            resize: vertical;
+        }
+
+        #editNoteContent:focus {
+            outline: none;
+            border-color: #5568d3;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Elementy dla wydruku - ukryte domyślnie */
+        .print-header, .print-footer {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 System Zarządzania Sesjami Terapeutycznymi</h1>
+            <p>Dokumentacja spotkań z klientami</p>
+        </div>
+
+        <div class="grid">
+            <!-- LEWA KOLUMNA - FORMULARZ -->
+            <div class="card">
+                <h2>📅 Nowa Sesja Terapeutyczna</h2>
+
+                <div id="sessionForm">
+                    <div class="form-group">
+                        <label>Klient *</label>
+                        <select id="clientId" required>
+                            <option value="">Wybierz klienta</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Terapeuta *</label>
+                        <select id="therapistId" required>
+                            <option value="">Wybierz terapeutę</option>
+                        </select>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Data *</label>
+                            <input type="date" id="sessionDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Godzina rozpoczęcia *</label>
+                            <input type="time" id="sessionTime" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Czas trwania (minuty) *</label>
+                        <input type="number" id="duration" value="60" min="15" max="240" step="15" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Miejsce *</label>
+                        <input type="text" id="place" value="Poradnia" required placeholder="np. Poradnia, Dom klienta">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Temat Spotkania *</label>
+                        <input type="text" id="topic" required placeholder="np. Zarządzanie stresem w pracy">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Notatki z Przebiegu Spotkania</label>
+                        <textarea id="notes" placeholder="Wprowadź istotne informacje: przebieg sesji, obserwacje, postępy, zadania domowe..."></textarea>
+                    </div>
+
+                    <button class="btn" onclick="saveSession()" id="saveBtn">
+                        💾 Zapisz Sesję
+                    </button>
+                </div>
+
+                <div class="alert alert-success" id="successAlert">
+                    ✅ Sesja została pomyślnie zapisana!
+                </div>
+
+                <div class="alert alert-error" id="errorAlert">
+                    ❌ <span id="errorMessage"></span>
+                </div>
+            </div>
+
+            <!-- PRAWA KOLUMNA - HISTORIA SESJI (BEZ DRUGIEGO SELEKTORA!) -->
+            <div class="card">
+                <h2>📋 Historia Sesji</h2>
+
+                <!-- Box z nazwą wybranego klienta -->
+                <div class="client-info-box" id="clientInfoBox">
+                    <strong>👤 Aktualnie przeglądasz sesje:</strong>
+                    <div class="client-name" id="selectedClientName"></div>
+                </div>
+
+                <!-- Tylko selektor miesiąca, BEZ selektora klienta -->
+                <div class="form-group">
+                    <label>📅 Filtruj po miesiącu:</label>
+                    <input type="month" id="monthSelector" onchange="loadClientSessions()">
+                </div>
+
+                <div class="loading" id="loadingIndicator" style="display: none;">
+                    <div class="spinner"></div>
+                    Ładowanie sesji...
+                </div>
+
+                <div class="sessions-list" id="sessionsList">
+                    <div class="empty-state" style="padding: 80px 20px;">
+                        <div style="font-size: 48px; margin-bottom: 15px;">👈</div>
+                        <div style="font-size: 16px; color: #666;">
+                            Wybierz klienta w formularzu po lewej stronie,<br>
+                            aby zobaczyć jego sesje i notatki.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sekcja usuwania zaznaczonych notatek -->
+                <div class="delete-section">
+                    <button class="delete-btn" id="deleteBtn" onclick="deleteSelectedNotes()" disabled>
+                        🗑️ Usuń zaznaczone notatki (<span id="selectedCount">0</span>)
+                    </button>
+                    <div class="delete-info">
+                        Zaznacz notatki, które chcesz usunąć, a następnie kliknij przycisk powyżej.
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; font-size: 13px; color: #555; border-left: 4px solid #667eea;">
+                    <strong>💡 Jak to działa:</strong><br>
+                    Po wyboru klienta z listy po lewej, tutaj automatycznie pojawią się wszystkie jego sesje z notatkami.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal podglądu/edycji notatki -->
+    <div id="noteModal" class="modal">
+        <div class="modal-content">
+            <!-- Nagłówek wydruku -->
+            <div class="print-header">
+                <h1>Notatka z sesji terapeutycznej</h1>
+                <div class="print-date">Wygenerowano: <span id="printDate"></span></div>
+            </div>
+
+            <div class="modal-header no-print">
+                <h3>📋 Notatka z sesji</h3>
+                <button class="close-btn" onclick="closeNoteModal()">×</button>
+            </div>
+
+            <!-- TRYB PODGLĄDU -->
+            <div class="modal-body" id="viewMode">
+                <div class="note-detail">
+                    <strong>Klient:</strong>
+                    <div id="modalClientName"></div>
+                </div>
+                <div class="note-detail">
+                    <strong>Data sesji:</strong>
+                    <div id="modalSessionDate"></div>
+                </div>
+                <div class="note-detail">
+                    <strong>Terapeuta:</strong>
+                    <div id="modalTherapist"></div>
+                </div>
+                <div class="note-detail">
+                    <strong>Miejsce:</strong>
+                    <div id="modalPlace"></div>
+                </div>
+                <div class="note-detail">
+                    <strong>Temat:</strong>
+                    <div id="modalTopic"></div>
+                </div>
+                <div class="note-detail">
+                    <strong>Notatki z przebiegu spotkania:</strong>
+                    <div class="note-content" id="modalNoteContent"></div>
+                </div>
+            </div>
+
+            <!-- TRYB EDYCJI -->
+            <div class="modal-body" id="editMode" style="display: none;">
+                <div class="note-detail">
+                    <strong>Edytuj notatkę:</strong>
+                    <textarea id="editNoteContent" placeholder="Wprowadź notatki z sesji..."></textarea>
+                </div>
+                <div style="margin-top: 15px; padding: 12px; background: #f0f4ff; border-radius: 8px; font-size: 13px; color: #555;">
+                    <strong>💡 Wskazówka:</strong> Zapisz istotne informacje: przebieg sesji, obserwacje, postępy klienta, zadania domowe.
+                </div>
+            </div>
+
+            <!-- Stopka wydruku -->
+            <div class="print-footer">
+                Dokument wygenerowany przez System Zarządzania Sesjami Terapeutycznymi
+            </div>
+
+            <!-- PRZYCISKI PODGLĄDU -->
+            <div class="modal-actions no-print" id="viewModeActions">
+                <button class="btn-print" onclick="enableEditMode()">✏️ Edytuj</button>
+                <button class="btn-print" onclick="printNote()">🖨️ Drukuj</button>
+                <button class="btn-secondary" onclick="closeNoteModal()">Zamknij</button>
+            </div>
+
+            <!-- PRZYCISKI EDYCJI -->
+            <div class="modal-actions no-print" id="editModeActions" style="display: none;">
+                <button class="btn-print" id="btnSaveEdit" onclick="saveNoteEdit()">💾 Zapisz zmiany</button>
+                <button class="btn-secondary" onclick="cancelEdit()">Anuluj</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api';
+        let sessions = [];
+        let selectedNotes = [];
+
+        window.onload = function() {
+            loadClients();
+            loadTherapists();
+            setDefaultDateTime();
+            setDefaultMonth();
+        };
+
+        function setDefaultMonth() {
+            const now = new Date();
+            const monthStr = now.toISOString().slice(0, 7);
+            document.getElementById('monthSelector').value = monthStr;
+        }
+
+        function setDefaultDateTime() {
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toTimeString().slice(0, 5);
+            document.getElementById('sessionDate').value = dateStr;
+            document.getElementById('sessionTime').value = timeStr;
+        }
+
+        async function loadClients() {
+            try {
+                console.log('🔄 Ładowanie klientów...');
+                const response = await fetch(API_BASE_URL + '/clients');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const clients = await response.json();
+                console.log('✅ Otrzymano klientów:', clients.length);
+
+                const select = document.getElementById('clientId');
+                select.innerHTML = '<option value="">Wybierz klienta</option>';
+
+                clients.forEach(client => {
+                    const isActive = client.active === undefined || client.active === true;
+
+                    if (isActive) {
+                        const clientId = client.client_id || client.id;
+                        const clientName = client.full_name || `${client.first_name} ${client.last_name}` || 'Bez nazwy';
+
+                        const option = document.createElement('option');
+                        option.value = clientId;
+                        option.textContent = clientName;
+                        option.dataset.fullName = clientName;
+                        select.appendChild(option);
+                    }
+                });
+
+                // Event listener - automatyczne ładowanie sesji
+                select.addEventListener('change', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    const clientName = selectedOption.dataset.fullName || selectedOption.text;
+
+                    if (this.value) {
+                        document.getElementById('clientInfoBox').style.display = 'block';
+                        document.getElementById('selectedClientName').textContent = clientName;
+                        console.log('📡 Ładuję sesje dla:', clientName);
+                        loadClientSessions();
+                    } else {
+                        document.getElementById('clientInfoBox').style.display = 'none';
+                        document.getElementById('sessionsList').innerHTML = '<div class="empty-state" style="padding: 80px 20px;"><div style="font-size: 48px; margin-bottom: 15px;">👈</div><div style="font-size: 16px; color: #666;">Wybierz klienta w formularzu po lewej stronie,<br>aby zobaczyć jego sesje i notatki.</div></div>';
+                    }
+                });
+
+            } catch (error) {
+                console.error('❌ Błąd ładowania klientów:', error);
+                showError('Nie udało się załadować listy klientów');
+            }
+        }
+
+        async function loadTherapists() {
+            try {
+                const response = await fetch(API_BASE_URL + '/therapists');
+                const therapists = await response.json();
+
+                const select = document.getElementById('therapistId');
+                select.innerHTML = '<option value="">Wybierz terapeutę</option>';
+
+                therapists.forEach(therapist => {
+                    const option = document.createElement('option');
+                    option.value = therapist.id;
+                    option.textContent = therapist.full_name + (therapist.specialization ? ' - ' + therapist.specialization : '');
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Błąd ładowania terapeutów:', error);
+                showError('Nie udało się załadować listy terapeutów');
+            }
+        }
+
+        async function loadClientSessions() {
+            const clientId = document.getElementById('clientId').value;
+            const month = document.getElementById('monthSelector').value;
+            const list = document.getElementById('sessionsList');
+            const loading = document.getElementById('loadingIndicator');
+
+            console.log('🔍 loadClientSessions - clientId:', clientId);
+
+            if (!clientId) {
+                list.innerHTML = '<div class="empty-state" style="padding: 80px 20px;"><div style="font-size: 48px; margin-bottom: 15px;">👈</div><div style="font-size: 16px; color: #666;">Wybierz klienta w formularzu po lewej stronie,<br>aby zobaczyć jego sesje i notatki.</div></div>';
+                return;
+            }
+
+            loading.style.display = 'block';
+            list.innerHTML = '';
+            sessions = [];
+            selectedNotes = [];
+
+            // Bezpieczna aktualizacja przycisku
+            safeUpdateDeleteButton();
+
+            try {
+                const url = `${API_BASE_URL}/clients/${clientId}/sessions?month=${month}`;
+                console.log('📡 Pobieranie:', url);
+
+                const response = await fetch(url);
+                console.log('Status:', response.status);
+
+                if (response.status === 404) {
+                    throw new Error('Backend nie ma endpointu /clients/{id}/sessions');
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || response.statusText);
+                }
+
+                const data = await response.json();
+                sessions = data;
+                console.log('✅ Pobrano sesji:', sessions.length);
+
+                renderSessions();
+
+            } catch (error) {
+                console.error('❌ Błąd:', error);
+                list.innerHTML = `<div class="empty-state">❌ ${error.message}<br><br><em>Sprawdź konsolę (F12)</em></div>`;
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function renderSessions() {
+            const list = document.getElementById('sessionsList');
+
+            if (sessions.length === 0) {
+                list.innerHTML = '<div class="empty-state">Brak sesji w wybranym miesiącu.</div>';
+                return;
+            }
+
+            list.innerHTML = sessions.map((session, index) => `
+                <div class="session-item" id="session-${index}">
+                    <input type="checkbox" class="session-checkbox" onchange="toggleNoteSelection(${index})">
+                    <div class="session-header">
+                        <div class="session-title">${session.label || 'Sesja terapeutyczna'}</div>
+                        <div class="session-date">${formatDateTime(session.starts_at)}</div>
+                    </div>
+                    <div class="session-info">
+                        <strong>Terapeuta:</strong> ${session.therapist_name || 'Nieznany'}
+                    </div>
+                    <div class="session-info">
+                        <strong>Czas trwania:</strong> ${session.duration_minutes || 60} min
+                    </div>
+                    ${session.place_to ? `<div class="session-info"><strong>Miejsce:</strong> ${session.place_to}</div>` : ''}
+                    ${session.notes ? `
+                        <div class="session-notes">
+                            <strong>Notatki:</strong>
+                            <div class="notes-preview">${session.notes.substring(0, 100)}${session.notes.length > 100 ? '...' : ''}</div>
+                            <button class="expand-btn" onclick="viewNote(${index})">📋 Zobacz pełną notatkę</button>
+                        </div>
+                    ` : '<div class="session-info" style="color: #999;">Brak notatek</div>'}
+                </div>
+            `).join('');
+        }
+
+        // Funkcja do zaznaczania/odznaczania notatek
+        function toggleNoteSelection(index) {
+            const sessionItem = document.getElementById(`session-${index}`);
+            const checkbox = sessionItem.querySelector('.session-checkbox');
+
+            if (checkbox.checked) {
+                sessionItem.classList.add('selected');
+                if (!selectedNotes.includes(index)) {
+                    selectedNotes.push(index);
+                }
+            } else {
+                sessionItem.classList.remove('selected');
+                selectedNotes = selectedNotes.filter(i => i !== index);
+            }
+
+            safeUpdateDeleteButton();
+        }
+
+        // Bezpieczna aktualizacja stanu przycisku usuwania
+        function safeUpdateDeleteButton() {
+            const deleteBtn = document.getElementById('deleteBtn');
+            const selectedCount = document.getElementById('selectedCount');
+
+            // Sprawdź czy elementy istnieją przed próbą ich modyfikacji
+            if (selectedCount) {
+                selectedCount.textContent = selectedNotes.length;
+            }
+
+            if (deleteBtn) {
+                deleteBtn.disabled = selectedNotes.length === 0;
+
+                // Aktualizuj tekst przycisku
+                if (selectedNotes.length > 0) {
+                    deleteBtn.innerHTML = `🗑️ Usuń zaznaczone sesji (${selectedNotes.length})`;
+                } else {
+                    deleteBtn.innerHTML = `🗑️ Usuń zaznaczone sesji (0)`;
+                }
+            }
+        }
+
+        // Aktualizacja stanu przycisku usuwania (stara wersja dla kompatybilności)
+        function updateDeleteButton() {
+            safeUpdateDeleteButton();
+        }
+
+        // Funkcja usuwania zaznaczonych notatek
+        async function deleteSelectedNotes() {
+            if (selectedNotes.length === 0) return;
+
+            const clientId = document.getElementById('clientId').value;
+            if (!clientId) {
+                showError('Wybierz klienta!');
+                return;
+            }
+
+            const confirmDelete = confirm(`Czy na pewno chcesz usunąć ${selectedNotes.length} zaznaczonych sesji? Ta operacja jest nieodwracalna!`);
+            if (!confirmDelete) return;
+
+            const deleteBtn = document.getElementById('deleteBtn');
+            if (deleteBtn) {
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = '⏳ Usuwanie...';
+            }
+
+            try {
+                // Sortuj indeksy malejąco, aby uniknąć problemów z przesunięciami podczas usuwania
+                const sortedIndices = [...selectedNotes].sort((a, b) => b - a);
+                let deletedCount = 0;
+                let errors = [];
+
+                for (const index of sortedIndices) {
+                    const session = sessions[index];
+                    if (!session) continue;
+
+                    console.log(`🗑️ Próba usunięcia sesji ID: ${session.id}`, session);
+
+                    // Usuń sesję z bazy danych
+                    try {
+                        // Sprawdź dostępne endpointy - próbujemy różnych możliwości
+                        let deleteUrl = '';
+                        let deleteResponse;
+
+                        // Próba 1: Endpoint dla sesji
+                        if (session.id) {
+                            deleteUrl = `${API_BASE_URL}/schedule/${session.id}`;
+                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
+                            deleteResponse = await fetch(deleteUrl, {
+                                method: 'DELETE'
+                            });
+                        }
+                        // Próba 2: Endpoint dla grup
+                        else if (session.group_id) {
+                            deleteUrl = `${API_BASE_URL}/schedule/group/${session.group_id}`;
+                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
+                            deleteResponse = await fetch(deleteUrl, {
+                                method: 'DELETE'
+                            });
+                        }
+                        // Próba 3: Endpoint dla terapii
+                        else if (session.therapy_id) {
+                            deleteUrl = `${API_BASE_URL}/therapy/${session.therapy_id}`;
+                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
+                            deleteResponse = await fetch(deleteUrl, {
+                                method: 'DELETE'
+                            });
+                        } else {
+                            console.warn('⚠️ Brak ID sesji do usunięcia z bazy');
+                            errors.push(`Sesja z ${formatDateTime(session.starts_at)} - brak ID`);
+                            continue;
+                        }
+
+                        if (deleteResponse && !deleteResponse.ok) {
+                            const errorText = await deleteResponse.text();
+                            console.error(`❌ Błąd usuwania sesji ${session.id}:`, errorText);
+                            errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${deleteResponse.status}`);
+                        } else {
+                            console.log(`✅ Usunięto sesję ${session.id}`);
+                            deletedCount++;
+                        }
+
+                    } catch (error) {
+                        console.error(`❌ Błąd podczas usuwania sesji ${session.id}:`, error);
+                        errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${error.message}`);
+                    }
+
+                    // Usuń notatki z client_notes jeśli istnieją
+                    if (session.note_id) {
+                        try {
+                            console.log(`🗑️ Usuwanie notatki ID: ${session.note_id}`);
+                            const noteResponse = await fetch(`${API_BASE_URL}/clients/${clientId}/notes/${session.note_id}`, {
+                                method: 'DELETE'
+                            });
+
+                            if (!noteResponse.ok) {
+                                console.warn(`⚠️ Nie udało się usunąć notatki ${session.note_id}`);
+                            } else {
+                                console.log(`✅ Usunięto notatkę ${session.note_id}`);
+                            }
+                        } catch (noteError) {
+                            console.warn(`⚠️ Błąd usuwania notatki:`, noteError);
+                        }
+                    }
+                }
+
+                // Odśwież listę sesji z serwera
+                await loadClientSessions();
+
+                // Pokaż komunikat z podsumowaniem
+                if (errors.length > 0) {
+                    showError(`Usunięto ${deletedCount} sesji, ale wystąpiły błędy: ${errors.join(', ')}`);
+                } else {
+                    showSuccess(`Pomyślnie usunięto ${deletedCount} sesji.`);
+                }
+
+            } catch (error) {
+                console.error('❌ Błąd podczas usuwania sesji:', error);
+                showError('Nie udało się usunąć sesji: ' + error.message);
+            } finally {
+                // Bezpieczna aktualizacja przycisku
+                safeUpdateDeleteButton();
+            }
+        }
+
+        // ... (reszta funkcji pozostaje bez zmian: saveSession, clearForm, showSuccess, showError, formatDateTime, viewNote, enableEditMode, cancelEdit, saveNoteEdit, closeNoteModal, printNote) ...
+
+        async function saveSession() {
+            const btn = document.getElementById('saveBtn');
+            const clientId = document.getElementById('clientId').value;
+            const therapistId = document.getElementById('therapistId').value;
+            const sessionDate = document.getElementById('sessionDate').value;
+            const sessionTime = document.getElementById('sessionTime').value;
+            const duration = parseInt(document.getElementById('duration').value);
+            const place = document.getElementById('place').value;
+            const topic = document.getElementById('topic').value;
+            const notes = document.getElementById('notes').value;
+
+            if (!clientId || !therapistId || !sessionDate || !sessionTime || !place || !topic) {
+                showError('Proszę wypełnić wszystkie wymagane pola!');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Zapisywanie...';
+
+            try {
+                const startsAt = `${sessionDate}T${sessionTime}:00`;
+                const [startHour, startMinute] = sessionTime.split(':').map(Number);
+                const totalMinutes = startHour * 60 + startMinute + duration;
+                const endHour = Math.floor(totalMinutes / 60);
+                const endMinute = totalMinutes % 60;
+                const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
+
+                const response = await fetch(API_BASE_URL + '/schedule/group', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        client_id: parseInt(clientId),
+                        label: topic,
+                        notes: notes || undefined,
+                        therapy: {
+                            therapist_id: parseInt(therapistId),
+                            starts_at: startsAt,
+                            ends_at: endsAt,
+                            place: place,
+                            notes: notes || undefined
+                        },
+                        status: 'planned'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    if (response.status === 409) {
+                        throw new Error('Konflikt czasowy - terapeuta ma już zajęty ten czas. Wybierz inną godzinę.');
+                    }
+                    throw new Error(result.error || result.message || 'Błąd zapisu sesji');
+                }
+
+                console.log('✅ Sesja zapisana');
+                showSuccess();
+                clearForm();
+
+                // Jeśli są notatki, zapisz je do client_notes
+                if (notes && notes.trim()) {
+                    try {
+                        console.log('📝 Zapisuję notatki do client_notes...');
+                        const notesResponse = await fetch(`${API_BASE_URL}/clients/${clientId}/notes`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                content: notes.trim(),
+                                category: 'session',
+                                created_by_name: 'System',
+                                created_at: startsAt
+                            })
+                        });
+
+                        if (notesResponse.ok) {
+                            console.log('✅ Notatki zapisane do client_notes');
+                        } else {
+                            console.warn('⚠️ Nie udało się zapisać notatek do client_notes');
+                        }
+                    } catch (noteError) {
+                        console.error('❌ Błąd zapisu notatek:', noteError);
+                    }
+                }
+
+                await loadClientSessions();
+
+            } catch (error) {
+                console.error('❌ Błąd:', error);
+                showError(error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '💾 Zapisz Sesję';
+            }
+        }
+
+        function clearForm() {
+            document.getElementById('topic').value = '';
+            document.getElementById('notes').value = '';
+            document.getElementById('duration').value = '60';
+            document.getElementById('place').value = 'Poradnia';
+            setDefaultDateTime();
+        }
+
+        function showSuccess(message = 'Sesja została pomyślnie zapisana!') {
+            const alert = document.getElementById('successAlert');
+            alert.textContent = `✅ ${message}`;
+            alert.classList.add('show');
+            setTimeout(() => alert.classList.remove('show'), 5000);
+        }
+
+        function showError(message) {
+            const alert = document.getElementById('errorAlert');
+            document.getElementById('errorMessage').textContent = message;
+            alert.classList.add('show');
+            setTimeout(() => alert.classList.remove('show'), 8000);
+        }
+
+        function formatDateTime(isoString) {
+            if (!isoString) return 'Brak daty';
+            const date = new Date(isoString);
+            return date.toLocaleDateString('pl-PL') + ' ' + date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        let currentSessionIndex = null;
+        let editMode = false;
+
+        function viewNote(index) {
+            const session = sessions[index];
+            if (!session) return;
+
+            currentSessionIndex = index;
+            editMode = false;
+
+            const clientSelect = document.getElementById('clientId');
+            const selectedOption = clientSelect.options[clientSelect.selectedIndex];
+            const clientName = selectedOption.dataset.fullName || selectedOption.text;
+
+            // Wypełnij dane w trybie podglądu
+            document.getElementById('modalClientName').textContent = clientName;
+            document.getElementById('modalSessionDate').textContent = formatDateTime(session.starts_at);
+            document.getElementById('modalTherapist').textContent = session.therapist_name || 'Nieznany';
+            document.getElementById('modalPlace').textContent = session.place_to || 'Nie podano';
+            document.getElementById('modalTopic').textContent = session.label || 'Bez tematu';
+            document.getElementById('modalNoteContent').textContent = session.notes || 'Brak notatek';
+
+            // Ustaw datę dla wydruku
+            document.getElementById('printDate').textContent = new Date().toLocaleDateString('pl-PL');
+
+            // Pokaż widok podglądu, ukryj edycję
+            document.getElementById('viewMode').style.display = 'block';
+            document.getElementById('editMode').style.display = 'none';
+            document.getElementById('viewModeActions').style.display = 'flex';
+            document.getElementById('editModeActions').style.display = 'none';
+
+            const modal = document.getElementById('noteModal');
+            modal.classList.add('show');
+
+            modal.onclick = function(event) {
+                if (event.target === modal) closeNoteModal();
+            };
+        }
+
+        function enableEditMode() {
+            const session = sessions[currentSessionIndex];
+            if (!session) return;
+
+            console.log('🔧 Przełączam na tryb edycji...');
+            editMode = true;
+
+            // Wypełnij textarea wartością
+            document.getElementById('editNoteContent').value = session.notes || '';
+
+            // Przełącz widoki
+            document.getElementById('viewMode').style.display = 'none';
+            document.getElementById('editMode').style.display = 'block';
+
+            // Przełącz przyciski
+            document.getElementById('viewModeActions').style.display = 'none';
+            document.getElementById('editModeActions').style.display = 'flex';
+
+            // Focus na textarea
+            document.getElementById('editNoteContent').focus();
+        }
+
+        function cancelEdit() {
+            console.log('❌ Anulowanie edycji...');
+            editMode = false;
+
+            // Przełącz widoki
+            document.getElementById('viewMode').style.display = 'block';
+            document.getElementById('editMode').style.display = 'none';
+
+            // Przełącz przyciski
+            document.getElementById('viewModeActions').style.display = 'flex';
+            document.getElementById('editModeActions').style.display = 'none';
+        }
+
+        async function saveNoteEdit() {
+            const session = sessions[currentSessionIndex];
+            if (!session) {
+                console.error('❌ Brak sesji!');
+                return;
+            }
+
+            const newContent = document.getElementById('editNoteContent').value.trim();
+            const clientId = document.getElementById('clientId').value;
+
+            console.log('💾 Zapisywanie notatki...');
+            console.log('  - Client ID:', clientId);
+            console.log('  - Session ID:', session.id);
+            console.log('  - Note ID:', session.note_id);
+            console.log('  - Treść:', newContent.substring(0, 50) + '...');
+
+            if (!newContent) {
+                alert('Notatka nie może być pusta!');
+                return;
+            }
+
+            const saveBtn = document.getElementById('btnSaveEdit');
+            saveBtn.disabled = true;
+            saveBtn.textContent = '⏳ Zapisywanie...';
+
+            try {
+                // Jeśli notatka już istnieje w client_notes - zaktualizuj
+                if (session.note_id) {
+                    console.log('📝 Aktualizacja istniejącej notatki:', session.note_id);
+
+                    const response = await fetch(`${API_BASE_URL}/clients/${clientId}/notes/${session.note_id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            content: newContent,
+                            category: 'session'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Błąd aktualizacji notatki');
+                    }
+
+                    console.log('✅ Notatka zaktualizowana');
+                } else {
+                    // Jeśli notatki nie ma w client_notes - utwórz nową
+                    console.log('📝 Tworzenie nowej notatki dla sesji');
+
+                    const response = await fetch(`${API_BASE_URL}/clients/${clientId}/notes`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            content: newContent,
+                            category: 'session',
+                            created_by_name: 'System',
+                            created_at: session.starts_at
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Błąd tworzenia notatki');
+                    }
+
+                    const result = await response.json();
+                    session.note_id = result.id;
+                    console.log('✅ Notatka utworzona, ID:', result.id);
+                }
+
+                // Aktualizuj sesję w pamięci
+                session.notes = newContent;
+
+                // Odśwież widok podglądu
+                document.getElementById('modalNoteContent').textContent = newContent;
+
+                // Odśwież listę sesji
+                renderSessions();
+
+                // Wróć do trybu podglądu
+                cancelEdit();
+
+                // Pokaż komunikat sukcesu
+                alert('✅ Notatka została zapisana!');
+
+            } catch (error) {
+                console.error('❌ Błąd zapisu:', error);
+                alert('Nie udało się zapisać notatki:\n' + error.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 Zapisz zmiany';
+            }
+        }
+
+        function closeNoteModal() {
+            const modal = document.getElementById('noteModal');
+            modal.classList.remove('show');
+
+            // Resetuj stan
+            currentSessionIndex = null;
+            editMode = false;
+
+            // Upewnij się że widok jest w trybie podglądu
+            document.getElementById('viewMode').style.display = 'block';
+            document.getElementById('editMode').style.display = 'none';
+            document.getElementById('viewModeActions').style.display = 'flex';
+            document.getElementById('editModeActions').style.display = 'none';
+        }
+
+        function printNote() {
+            // Jeśli jesteśmy w trybie edycji, najpierw wróć do podglądu
+            if (editMode) {
+                console.log('⚠️ Anulowanie edycji przed drukowaniem...');
+                cancelEdit();
+            }
+
+            console.log('🖨️ Drukowanie notatki...');
+
+            // Utwórz tymczasowy element do druku z czystym HTML
+            const printContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Notatka z sesji terapeutycznej</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 20px;
+                            color: #000;
+                        }
+                        .header {
+                            text-align: center;
+                            margin-bottom: 30px;
+                            border-bottom: 2px solid #000;
+                            padding-bottom: 15px;
+                        }
+                        .header h1 {
+                            font-size: 24px;
+                            margin: 0 0 10px 0;
+                            color: #000;
+                        }
+                        .header .date {
+                            font-size: 14px;
+                            color: #666;
+                        }
+                        .note-section {
+                            margin-bottom: 20px;
+                            page-break-inside: avoid;
+                        }
+                        .note-section strong {
+                            display: block;
+                            font-weight: bold;
+                            margin-bottom: 5px;
+                            color: #000;
+                            font-size: 14px;
+                        }
+                        .note-content {
+                            background: #f9f9f9;
+                            padding: 15px;
+                            border-left: 3px solid #000;
+                            margin-top: 10px;
+                            white-space: pre-wrap;
+                            line-height: 1.5;
+                            font-size: 13px;
+                        }
+                        .footer {
+                            margin-top: 40px;
+                            padding-top: 15px;
+                            border-top: 1px solid #ccc;
+                            font-size: 12px;
+                            color: #666;
+                            text-align: center;
+                        }
+                        @media print {
+                            body { margin: 0; }
+                            .note-section { break-inside: avoid; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Notatka z sesji terapeutycznej</h1>
+                        <div class="date">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')}</div>
+                    </div>
+
+                    <div class="note-section">
+                        <strong>Klient:</strong>
+                        <div>${document.getElementById('modalClientName').textContent}</div>
+                    </div>
+
+                    <div class="note-section">
+                        <strong>Data sesji:</strong>
+                        <div>${document.getElementById('modalSessionDate').textContent}</div>
+                    </div>
+
+                    <div class="note-section">
+                        <strong>Terapeuta:</strong>
+                        <div>${document.getElementById('modalTherapist').textContent}</div>
+                    </div>
+
+                    <div class="note-section">
+                        <strong>Miejsce:</strong>
+                        <div>${document.getElementById('modalPlace').textContent}</div>
+                    </div>
+
+                    <div class="note-section">
+                        <strong>Temat:</strong>
+                        <div>${document.getElementById('modalTopic').textContent}</div>
+                    </div>
+
+                    <div class="note-section">
+                        <strong>Notatki z przebiegu spotkania:</strong>
+                        <div class="note-content">${document.getElementById('modalNoteContent').textContent}</div>
+                    </div>
+
+                    <div class="footer">
+                        Dokument wygenerowany przez System Zarządzania Sesjami Terapeutycznymi
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // Otwórz nowe okno do druku
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+
+            // Daj czas na załadowanie i wydrukuj
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') closeNoteModal();
+        });
+    </script>
+</body>
+</html>

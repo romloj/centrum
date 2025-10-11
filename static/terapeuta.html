@@ -207,6 +207,9 @@
         <button id="tpNext" class="btn btn-outline-secondary">»</button>
       </div>
       <button id="tpPrint" class="btn btn-outline-secondary">Drukuj</button>
+      <button id="tpAddVisit" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> Dodaj wizytę
+      </button>
     </header>
 
     <div id="alertBox" class="mb-3"></div>
@@ -269,6 +272,72 @@
       </div>
     </div>
 
+    <!-- Modal dodawania wizyty -->
+    <div class="modal fade" id="addEventModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Dodaj nową wizytę</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3" id="addTherapistGroup">
+              <label class="form-label">Terapeuta <span class="text-danger">*</span></label>
+              <select id="addTherapist" class="form-select" required>
+                <option value="">-- wybierz terapeutę --</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Klient <span class="text-danger">*</span></label>
+              <select id="addClient" class="form-select" required>
+                <option value="">-- wybierz klienta --</option>
+              </select>
+              <small class="text-muted">Lub wpisz nowego klienta poniżej:</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Nowy klient (opcjonalnie)</label>
+              <input type="text" id="addNewClientName" class="form-control" placeholder="Imię i nazwisko">
+              <small class="text-muted">Jeśli wpiszesz tu nazwisko, zostanie dodany nowy klient</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Data <span class="text-danger">*</span></label>
+              <input type="date" id="addDate" class="form-control" required>
+            </div>
+            <div class="row">
+              <div class="col-6 mb-3">
+                <label class="form-label">Godzina rozpoczęcia <span class="text-danger">*</span></label>
+                <input type="time" id="addStartTime" class="form-control" value="10:00" required>
+              </div>
+              <div class="col-6 mb-3">
+                <label class="form-label">Godzina zakończenia <span class="text-danger">*</span></label>
+                <input type="time" id="addEndTime" class="form-control" value="11:00" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Miejsce</label>
+              <input type="text" id="addPlace" class="form-control" placeholder="np. Gabinet 1">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Typ wizyty</label>
+              <select id="addType" class="form-select">
+                <option value="therapy">Terapia indywidualna</option>
+                <option value="tus">Grupa TUS</option>
+              </select>
+            </div>
+            <div id="addCollisionWarning" class="alert alert-warning d-none">
+              <i class="bi bi-exclamation-triangle"></i> <strong>Uwaga!</strong> Wykryto kolizję czasową z inną wizytą tego terapeuty.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+            <button type="button" id="createEventBtn" class="btn btn-success">
+              <i class="bi bi-plus-circle"></i> Dodaj wizytę
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="calendarHost">
       <!-- tutaj renderuję tydzień lub miesiąc -->
     </div>
@@ -316,6 +385,9 @@
   <script>
     const API = ""; // ten sam origin
 
+    // — stan —
+    let _clientsCache = null;
+
     // — helpery —
     function showAlert(msg, type="success"){
       const box = document.getElementById("alertBox");
@@ -338,13 +410,12 @@
 
     // Wykrywanie kolizji
     function detectCollisions(rows) {
-      const collisions = new Map(); // slot_id -> [colliding_slot_ids]
+      const collisions = new Map();
 
       for (let i = 0; i < rows.length; i++) {
         for (let j = i + 1; j < rows.length; j++) {
           const a = rows[i], b = rows[j];
 
-          // Sprawdź czy ten sam terapeuta
           if (a.therapist_id !== b.therapist_id) continue;
 
           const aStart = parseLocalTimestamp(a.starts_at);
@@ -354,10 +425,8 @@
 
           if (!aStart || !aEnd || !bStart || !bEnd) continue;
 
-          // Sprawdź czy ten sam dzień
           if (fmtYYYYMMDD(aStart) !== fmtYYYYMMDD(bStart)) continue;
 
-          // Sprawdź nakładanie się czasowe
           if (aStart < bEnd && bStart < aEnd) {
             if (!collisions.has(a.slot_id)) collisions.set(a.slot_id, []);
             if (!collisions.has(b.slot_id)) collisions.set(b.slot_id, []);
@@ -370,22 +439,385 @@
       return collisions;
     }
 
+    // Załaduj listę klientów
+    async function loadClients() {
+      if (_clientsCache) return _clientsCache;
+
+      try {
+        const res = await fetch(`${API}/api/clients`);
+        if (!res.ok) throw new Error('Nie można pobrać listy klientów');
+        _clientsCache = await res.json();
+        return _clientsCache;
+      } catch (e) {
+        console.error('Błąd ładowania klientów:', e);
+        showAlert('Nie można załadować listy klientów', 'warning');
+        return [];
+      }
+    }
+
+    // Otwórz modal dodawania
+    async function openAddModal() {
+      console.log('=== OPENING ADD MODAL ===');
+
+      // Resetuj formularz
+      document.getElementById('addClient').value = '';
+      document.getElementById('addNewClientName').value = '';
+      document.getElementById('addDate').value = fmtYYYYMMDD(new Date());
+      document.getElementById('addStartTime').value = '10:00';
+      document.getElementById('addEndTime').value = '11:00';
+      document.getElementById('addPlace').value = '';
+      document.getElementById('addType').value = 'therapy';
+      document.getElementById('addCollisionWarning').classList.add('d-none');
+
+      // Jeśli oglądamy konkretnego terapeutę, ukryj wybór terapeuty
+      const therapistGroup = document.getElementById('addTherapistGroup');
+      const therapistSelect = document.getElementById('addTherapist');
+
+      if (_state.therapistId === 'all') {
+        therapistGroup.classList.remove('d-none');
+        therapistSelect.innerHTML = '<option value="">-- wybierz terapeutę --</option>' +
+          _state.therapists.map(t => `<option value="${t.id}">${t.full_name}${t.specialization ? ` – ${t.specialization}` : ''}</option>`).join('');
+        therapistSelect.required = true;
+      } else {
+        therapistGroup.classList.add('d-none');
+        therapistSelect.value = _state.therapistId;
+        therapistSelect.required = false;
+      }
+
+      // Załaduj klientów
+      console.log('Loading clients...');
+      const clients = await loadClients();
+      console.log('Clients loaded:', clients.length);
+      console.log('First 3 clients:', clients.slice(0, 3));
+
+      const clientSelect = document.getElementById('addClient');
+
+      const activeClients = clients.filter(c => c.active !== false);
+      console.log('Active clients:', activeClients.length);
+
+      const sortedClients = activeClients.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+      console.log('Sorted clients:', sortedClients.length);
+
+      const options = '<option value="">-- wybierz klienta --</option>' +
+        sortedClients.map(c => {
+          const id = c.id || c.client_id;
+          const name = c.full_name || `Klient #${id}`;
+          console.log(`Creating option: value="${id}" text="${name}"`);
+          return `<option value="${id}">${name}</option>`;
+        }).join('');
+
+      clientSelect.innerHTML = options;
+      console.log('Select innerHTML set, total options:', clientSelect.options.length);
+
+      const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
+      modal.show();
+    }
+
+    // Sprawdź kolizje przy dodawaniu
+    async function checkCollisionOnAdd() {
+      const therapistId = _state.therapistId === 'all'
+        ? document.getElementById('addTherapist').value
+        : _state.therapistId;
+
+      const date = document.getElementById('addDate').value;
+      const startTime = document.getElementById('addStartTime').value;
+      const endTime = document.getElementById('addEndTime').value;
+
+      if (!therapistId || !date || !startTime || !endTime) return false;
+
+      const newStart = new Date(`${date}T${startTime}:00`);
+      const newEnd = new Date(`${date}T${endTime}:00`);
+
+      const hasCollision = _state.rows.some(r => {
+        if (r.therapist_id != therapistId) return false;
+
+        const rStart = parseLocalTimestamp(r.starts_at);
+        const rEnd = parseLocalTimestamp(r.ends_at);
+
+        if (!rStart || !rEnd) return false;
+        if (fmtYYYYMMDD(rStart) !== date) return false;
+
+        return newStart < rEnd && rStart < newEnd;
+      });
+
+      const warning = document.getElementById('addCollisionWarning');
+      if (hasCollision) {
+        warning.classList.remove('d-none');
+      } else {
+        warning.classList.add('d-none');
+      }
+
+      return hasCollision;
+    }
+
+    // Utwórz nową wizytę
+    async function createNewEvent() {
+      console.log('=== CREATE NEW EVENT START ===');
+      console.log('Create button clicked');
+
+      const therapistId = _state.therapistId === 'all'
+        ? document.getElementById('addTherapist').value
+        : _state.therapistId;
+
+      const clientId = document.getElementById('addClient').value;
+      const newClientName = document.getElementById('addNewClientName').value.trim();
+      const date = document.getElementById('addDate').value;
+      const startTime = document.getElementById('addStartTime').value;
+      const endTime = document.getElementById('addEndTime').value;
+      const place = document.getElementById('addPlace').value;
+      const type = document.getElementById('addType').value;
+
+      console.log('=== FORM VALUES ===');
+      console.log('therapistId:', therapistId, typeof therapistId);
+      console.log('clientId (raw):', `"${clientId}"`, typeof clientId, 'length:', clientId.length);
+      console.log('clientId == "":', clientId === '');
+      console.log('!clientId:', !clientId);
+      console.log('newClientName:', newClientName);
+      console.log('date:', date);
+      console.log('startTime:', startTime);
+      console.log('endTime:', endTime);
+      console.log('place:', place);
+      console.log('type:', type);
+
+      // Walidacja
+      if (!therapistId || !date || !startTime || !endTime) {
+        showAlert('Proszę wypełnić wszystkie wymagane pola (oznaczone *)', 'danger');
+        return;
+      }
+
+      // POPRAWIONA WALIDACJA - sprawdź czy clientId jest pustym stringiem
+      if ((!clientId || clientId === '') && !newClientName) {
+        showAlert('Proszę wybrać klienta z listy lub wpisać nazwisko nowego klienta', 'danger');
+        return;
+      }
+
+      const starts_at = `${date} ${startTime}:00`;
+      const ends_at = `${date} ${endTime}:00`;
+
+      let finalClientId = clientId && clientId !== '' ? clientId : null;
+
+      console.log('=== BEFORE CLIENT CREATION ===');
+      console.log('finalClientId (initial):', finalClientId, typeof finalClientId);
+
+      // Jeśli wpisano nowego klienta, najpierw go utwórz
+      if (newClientName && (!finalClientId || finalClientId === '')) {
+        try {
+          console.log('Creating new client:', newClientName);
+          const createClientRes = await fetch(`${API}/api/clients`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              full_name: newClientName,
+              active: true
+            })
+          });
+
+          if (!createClientRes.ok) {
+            const errorText = await createClientRes.text();
+            throw new Error(`Nie można utworzyć nowego klienta: ${errorText}`);
+          }
+
+          const newClient = await createClientRes.json();
+          finalClientId = newClient.id || newClient.client_id;
+          console.log('New client created with ID:', finalClientId);
+
+          if (!finalClientId) {
+            throw new Error('Serwer nie zwrócił ID nowego klienta');
+          }
+
+          _clientsCache = null;
+
+        } catch (e) {
+          console.error('Error creating client:', e);
+          showAlert(`Błąd tworzenia klienta: ${e.message}`, 'danger');
+          return;
+        }
+      }
+
+      // DODATKOWA WALIDACJA
+      if (!finalClientId || finalClientId === 'null' || finalClientId === '' || finalClientId === 'undefined') {
+        console.error('❌ BŁĄD: finalClientId jest nieprawidłowe:', finalClientId);
+        showAlert('Błąd: Nie udało się pobrać ID klienta. Wybierz klienta z listy lub wpisz jego nazwisko ponownie.', 'danger');
+        return;
+      }
+
+      // Konwersja na liczbę
+      finalClientId = Number(finalClientId);
+
+      if (isNaN(finalClientId) || finalClientId <= 0) {
+        console.error('❌ BŁĄD: finalClientId nie jest prawidłową liczbą:', finalClientId);
+        showAlert('Błąd: ID klienta nie jest prawidłową liczbą. Spróbuj ponownie.', 'danger');
+        return;
+      }
+
+      console.log('=== PRZED UTWORZENIEM PAYLOAD ===');
+      console.log('therapistId:', therapistId, typeof therapistId);
+      console.log('finalClientId:', finalClientId, typeof finalClientId);
+      console.log('starts_at:', starts_at);
+      console.log('ends_at:', ends_at);
+
+      // WALIDACJA - upewnij się że mamy wszystkie wymagane dane
+      if (!finalClientId) {
+        showAlert('Błąd: Brak ID klienta. Spróbuj ponownie wybrać klienta.', 'danger');
+        return;
+      }
+
+      const payload = {
+        therapist_id: Number(therapistId),
+        client_id: Number(finalClientId),
+        starts_at,
+        ends_at,
+        place_to: place || null,
+        kind: 'therapy',
+        status: 'planned'
+      };
+
+      console.log('=== FINAL PAYLOAD ===');
+      console.log('Payload:', payload);
+      console.log('therapist_id:', typeof payload.therapist_id, payload.therapist_id);
+      console.log('client_id:', typeof payload.client_id, payload.client_id);
+      console.log('starts_at:', payload.starts_at);
+      console.log('ends_at:', payload.ends_at);
+
+      // Rozszerzona lista możliwych endpointów i wariantów payload
+      const endpoints = [
+        // Wariant 1: Podstawowy endpoint schedule (WŁAŚCIWY FORMAT)
+        {
+          method: 'POST',
+          url: `${API}/api/schedule`,
+          payload: payload
+        },
+        // Wariant 3: Endpoint therapist-specific
+        {
+          method: 'POST',
+          url: `${API}/api/therapists/${therapistId}/schedule`,
+          payload: {
+            client_id: Number(finalClientId),
+            starts_at,
+            ends_at,
+            place_to: place || null,
+            kind: 'therapy',
+            type: type,
+            status: 'planned'
+          }
+        },
+        // Wariant 4: Endpoint sessions
+        {
+          method: 'POST',
+          url: `${API}/api/sessions`,
+          payload: payload
+        },
+        // Wariant 5: Endpoint appointments
+        {
+          method: 'POST',
+          url: `${API}/api/appointments`,
+          payload: payload
+        },
+        // Wariant 6: Slots endpoint
+        {
+          method: 'POST',
+          url: `${API}/api/slots`,
+          payload: payload
+        },
+        // Wariant 7: Endpoint z create w nazwie
+        {
+          method: 'POST',
+          url: `${API}/api/schedule/create`,
+          payload: payload
+        },
+        // Wariant 8: Therapist sessions
+        {
+          method: 'POST',
+          url: `${API}/api/therapist/schedule`,
+          payload: payload
+        }
+      ];
+
+      let success = false;
+      let lastError = null;
+      let allErrors = [];
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying ${endpoint.method} ${endpoint.url}`);
+          console.log('With payload:', endpoint.payload);
+
+          const response = await fetch(endpoint.url, {
+            method: endpoint.method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(endpoint.payload)
+          });
+
+          console.log(`Response status: ${response.status}`);
+
+          if (response.ok) {
+            console.log('✅ Success with:', endpoint);
+            const result = await response.json();
+            console.log('Response data:', result);
+            success = true;
+            showAlert('✅ Wizyta została dodana', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
+            await reloadData();
+            break;
+          } else if (response.status === 405) {
+            // Method not allowed - próbuj dalej
+            allErrors.push(`${endpoint.url}: METHOD NOT ALLOWED (405)`);
+            continue;
+          } else if (response.status === 404) {
+            // Not found - próbuj dalej
+            allErrors.push(`${endpoint.url}: NOT FOUND (404)`);
+            continue;
+          } else {
+            // Inny błąd - może to być problem z danymi
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            lastError = `Błąd ${response.status}: ${errorText}`;
+            allErrors.push(`${endpoint.url}: ${response.status} - ${errorText}`);
+
+            // Jeśli to błąd walidacji (400, 422), pokaż użytkownikowi
+            if (response.status === 400 || response.status === 422) {
+              showAlert(`Błąd walidacji danych: ${errorText}`, 'danger');
+              return;
+            }
+          }
+        } catch (e) {
+          console.error(`Error with ${endpoint.method} ${endpoint.url}:`, e);
+          lastError = e.message;
+          allErrors.push(`${endpoint.url}: ${e.message}`);
+        }
+      }
+
+      if (!success) {
+        console.error('❌ All endpoints failed');
+        console.error('All errors:', allErrors);
+
+        // Pokaż szczegółowy komunikat z instrukcją
+        const errorDetails = allErrors.slice(0, 3).join('\n');
+        showAlert(`
+          <strong>Nie można dodać wizyty - brak działającego endpointu API.</strong><br><br>
+          <small>Wypróbowano ${endpoints.length} różnych endpointów, ale żaden nie obsługuje POST.<br><br>
+          <strong>Co zrobić?</strong><br>
+          1. Sprawdź dokumentację API Twojego backendu<br>
+          2. Znajdź endpoint do tworzenia wizyt/sesji<br>
+          3. Podaj mi nazwę endpointu, a zaktualizuję kod<br><br>
+          <strong>Przykładowe błędy:</strong><br>
+          <code style="font-size:10px">${errorDetails.replace(/\n/g, '<br>')}</code></small>
+        `, 'danger');
+      }
+    }
+
     // Otwórz modal edycji
     function openEditModal(eventData) {
       console.log('=== OPENING MODAL ===');
       console.log('Event data:', eventData);
-      console.log('slot_id:', eventData.slot_id);
 
       const eventId = eventData.slot_id;
 
       if (!eventId) {
         console.error('❌ BRAK slot_id!');
-        console.log('Wszystkie klucze:', Object.keys(eventData));
         showAlert('Błąd: Brak ID wizyty (slot_id) w danych z API.', 'danger');
         return;
       }
-
-      console.log('✅ Slot ID:', eventId);
 
       document.getElementById('editEventId').value = eventId || '';
       document.getElementById('editTherapistId').value = eventData.therapist_id || '';
@@ -424,9 +856,8 @@
       const newStart = new Date(`${date}T${startTime}:00`);
       const newEnd = new Date(`${date}T${endTime}:00`);
 
-      // Sprawdź kolizje z innymi wizytami tego terapeuty
       const hasCollision = _state.rows.some(r => {
-        if (r.slot_id == eventId) return false; // pomijamy sam event
+        if (r.slot_id == eventId) return false;
         if (r.therapist_id != therapistId) return false;
 
         const rStart = parseLocalTimestamp(r.starts_at);
@@ -450,15 +881,12 @@
 
     // Zapisz zmiany
     async function saveEventChanges() {
-      console.log('Save button clicked');
       const eventId = document.getElementById('editEventId').value;
       const date = document.getElementById('editDate').value;
       const startTime = document.getElementById('editStartTime').value;
       const endTime = document.getElementById('editEndTime').value;
       const place = document.getElementById('editPlace').value;
       const status = document.getElementById('editStatus').value;
-
-      console.log('Form values:', { eventId, date, startTime, endTime, place, status });
 
       if (!eventId || !date || !startTime || !endTime) {
         showAlert('Proszę wypełnić wszystkie pola oznaczone gwiazdką (*)', 'danger');
@@ -475,9 +903,6 @@
         status
       };
 
-      console.log('Payload:', payload);
-
-      // Lista możliwych endpointów do wypróbowania
       const endpoints = [
         { method: 'PATCH', url: `${API}/api/schedule/${eventId}` },
         { method: 'PUT', url: `${API}/api/schedule/${eventId}` },
@@ -492,43 +917,34 @@
 
       for (const endpoint of endpoints) {
         try {
-          console.log(`Trying ${endpoint.method} ${endpoint.url}`);
           const response = await fetch(endpoint.url, {
             method: endpoint.method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
 
-          console.log(`Response status: ${response.status}`);
-
           if (response.ok) {
-            console.log('✅ Success with:', endpoint);
             success = true;
             showAlert('Wizyta została zaktualizowana', 'success');
             bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
             await reloadData();
             break;
           } else if (response.status !== 405 && response.status !== 404) {
-            // Jeśli błąd inny niż 405/404, to może być problem z danymi
             const errorText = await response.text();
-            console.error('Error response:', errorText);
             lastError = `Błąd ${response.status}: ${errorText}`;
           }
         } catch (e) {
-          console.error(`Error with ${endpoint.method} ${endpoint.url}:`, e);
           lastError = e.message;
         }
       }
 
       if (!success) {
-        console.error('❌ All endpoints failed');
-        showAlert(`Nie można zapisać zmian. Endpoint do edycji wizyt nie jest dostępny. ${lastError || ''}`, 'danger');
+        showAlert(`Nie można zapisać zmian. ${lastError || ''}`, 'danger');
       }
     }
 
-    // Usuń wizytę (trwale z bazy danych)
+    // Usuń wizytę
     async function deleteEvent() {
-      console.log('Delete button clicked');
       const eventId = document.getElementById('editEventId').value;
 
       if (!eventId) {
@@ -536,38 +952,25 @@
         return;
       }
 
-      const shouldDelete = confirm('⚠️ UWAGA!\n\nCzy na pewno chcesz TRWALE USUNĄĆ tę wizytę z bazy danych?\n\nTej operacji NIE MOŻNA cofnąć!\n\n(Jeśli chcesz tylko anulować wizytę, zmień status na "Anulowana" i kliknij "Zapisz zmiany")');
+      const shouldDelete = confirm('⚠️ UWAGA!\n\nCzy na pewno chcesz TRWALE USUNĄĆ tę wizytę z bazy danych?\n\nTej operacji NIE MOŻNA cofnąć!');
 
-      if (!shouldDelete) {
-        console.log('Delete cancelled by user');
-        return;
-      }
+      if (!shouldDelete) return;
 
       try {
-        console.log('Sending DELETE request to:', `${API}/api/schedule/${eventId}`);
-
         const response = await fetch(`${API}/api/schedule/${eventId}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' }
         });
 
-        console.log('DELETE Response status:', response.status);
-
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Error response:', errorText);
           throw new Error(`Nie można usunąć wizyty. Status: ${response.status}`);
         }
-
-        const result = await response.json();
-        console.log('Delete result:', result);
 
         showAlert('✅ Wizyta została trwale usunięta z bazy danych', 'success');
         bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
         await reloadData();
 
       } catch (e) {
-        console.error('Delete error:', e);
         showAlert(`❌ Błąd usuwania: ${e.message}`, 'danger');
       }
     }
@@ -590,7 +993,6 @@
       document.getElementById("tpRefMonth").value = t.toISOString().slice(0,7);
       _state.refDate = t; _state.refMonth = new Date(t.getFullYear(), t.getMonth(), 1);
 
-      // terapeuci
       try{
         const res = await fetch(`${API}/api/therapists`);
         _state.therapists = (await res.json()).filter(x => x.active !== false);
@@ -600,7 +1002,6 @@
           _state.therapists.map(t => `<option value="${t.id}">${t.full_name}${t.specialization?` – ${t.specialization}`:""}</option>`).join("");
       }catch(e){ showAlert(`Błąd ładowania terapeutów: ${e.message}`, "danger"); }
 
-      // UI
       document.getElementById("vmWeek").addEventListener("change", () => switchMode("week"));
       document.getElementById("vmMonth").addEventListener("change", () => switchMode("month"));
       document.getElementById("tpTherapistSelect").addEventListener("change", reloadData);
@@ -616,19 +1017,23 @@
       document.getElementById("tpToday").addEventListener("click", goToday);
       document.getElementById("tpPrint").addEventListener("click", printView);
 
-      // Modal edycji
       document.getElementById('saveEventBtn').addEventListener('click', saveEventChanges);
       document.getElementById('deleteEventBtn').addEventListener('click', deleteEvent);
       document.getElementById('editDate').addEventListener('change', checkCollisionOnSave);
       document.getElementById('editStartTime').addEventListener('change', checkCollisionOnSave);
       document.getElementById('editEndTime').addEventListener('change', checkCollisionOnSave);
 
-      // FAB menu
+      document.getElementById('tpAddVisit').addEventListener('click', openAddModal);
+      document.getElementById('createEventBtn').addEventListener('click', createNewEvent);
+      document.getElementById('addDate').addEventListener('change', checkCollisionOnAdd);
+      document.getElementById('addStartTime').addEventListener('change', checkCollisionOnAdd);
+      document.getElementById('addEndTime').addEventListener('change', checkCollisionOnAdd);
+      document.getElementById('addTherapist').addEventListener('change', checkCollisionOnAdd);
+
       document.getElementById('fabMainBtn').addEventListener('click', () => {
         document.getElementById('fabContainer').classList.toggle('open');
       });
 
-      // query params
       const qp = new URLSearchParams(location.search);
       const qpTid = qp.get("therapist_id");
       const qpDate = qp.get("date");
@@ -642,7 +1047,6 @@
       reloadData();
     })();
 
-    // — nawigacja —
     function switchMode(mode, reload=true){
       _state.mode = mode;
       document.getElementById("tpRefDate").classList.toggle("d-none", mode!=="week");
@@ -682,7 +1086,6 @@
       reloadData();
     }
 
-    // — ładowanie danych —
     async function reloadData(){
       _state.therapistId = document.getElementById("tpTherapistSelect").value || "all";
 
@@ -696,42 +1099,23 @@
         if (_state.therapistId === "all"){
           const promises = _state.therapists.map(t =>
             fetch(`${API}/api/therapists/${t.id}/schedule?month=${encodeURIComponent(mk)}`)
-              .then(r=>{
-                console.log(`Response dla terapeuty ${t.id}:`, r.status, r.ok);
-                return r.ok?r.json():[];
-              })
-              .then(rows => {
-                console.log(`Surowe dane dla terapeuty ${t.id}:`, rows);
-                const filtered = rows.filter(r=>r.kind==='therapy').map(r => ({...r, therapist_id: t.id, therapist_name: t.full_name }));
-                console.log(`Po filtrze (therapy only) dla terapeuty ${t.id}:`, filtered);
-                return filtered;
-              })
+              .then(r=>r.ok?r.json():[])
+              .then(rows => rows.filter(r=>r.kind==='therapy').map(r => ({...r, therapist_id: t.id, therapist_name: t.full_name })))
           );
           _state.rows = (await Promise.all(promises)).flat();
         } else {
           const tid = Number(_state.therapistId);
-          console.log(`Ładowanie dla terapeuty ${tid}, miesiąc: ${mk}`);
           const res = await fetch(`${API}/api/therapists/${tid}/schedule?month=${encodeURIComponent(mk)}`);
-          console.log('Response status:', res.status);
           const data = await res.json();
-          console.log('Surowe dane z API:', data);
-          console.log('Liczba wierszy:', data?.length || 0);
           _state.rows = (data||[]).filter(r=>r.kind==='therapy').map(r=>({...r, therapist_id: tid}));
-          console.log('Po filtrze (therapy only):', _state.rows);
         }
 
-        console.log('=== FINALNE DANE ===');
-        console.log('Wszystkie wiersze PRZED deduplikacją:', _state.rows);
-        console.log('Liczba wierszy PRZED:', _state.rows.length);
-
-        // DEDUPLIKACJA dla grup TUS - pozostaw tylko jeden wpis per slot_id
         const uniqueMap = new Map();
         _state.rows.forEach(row => {
           const key = row.slot_id;
           if (!uniqueMap.has(key)) {
             uniqueMap.set(key, row);
           } else {
-            // Jeśli już istnieje, zachowaj ten z group_name (dla TUS)
             const existing = uniqueMap.get(key);
             if (row.group_name && !existing.group_name) {
               uniqueMap.set(key, row);
@@ -741,18 +1125,6 @@
 
         _state.rows = Array.from(uniqueMap.values());
 
-        console.log('Wszystkie wiersze PO deduplikacji:', _state.rows);
-        console.log('Liczba wierszy PO:', _state.rows.length);
-        console.log('Przykładowy wiersz:', _state.rows[0]);
-        console.log('Wszystkie slot_id:', _state.rows.map(r => r.slot_id));
-
-        // Sprawdź statusy
-        const statuses = _state.rows.reduce((acc, r) => {
-          acc[r.status || 'undefined'] = (acc[r.status || 'undefined'] || 0) + 1;
-          return acc;
-        }, {});
-        console.log('Podsumowanie statusów:', statuses);
-
         if (_state.mode === "week") renderWeek();
         else renderMonth();
       }catch(e){
@@ -761,7 +1133,6 @@
       }
     }
 
-    // — tydzień —
     function weekRange(date){
       const d = new Date(date);
       const dow = (d.getDay()+6)%7;
@@ -774,7 +1145,6 @@
       const host = document.getElementById("calendarHost");
       const { days } = weekRange(_state.refDate);
 
-      // Wykryj kolizje
       const collisions = detectCollisions(_state.rows);
       const hasAnyCollision = collisions.size > 0;
 
@@ -848,10 +1218,8 @@
             ${hasCollision ? '<span class="collision-badge">!</span>' : ''}
           `;
 
-          // Kliknięcie w cały element
           el.addEventListener('click', (e) => {
             e.stopPropagation();
-            console.log('Event clicked:', r);
             openEditModal(r);
           });
 
@@ -859,7 +1227,6 @@
       }
     }
 
-    // — miesiąc —
     function monthMatrix(firstDay){
       const first = new Date(firstDay.getFullYear(), firstDay.getMonth(), 1);
       const offset = (first.getDay()+6)%7;
@@ -945,28 +1312,17 @@
         chip.addEventListener('click', (e) => {
           e.stopPropagation();
           const slotId = chip.getAttribute('data-slot-id');
-          console.log('=== CHIP CLICKED ===');
-          console.log('Chip slot ID:', slotId);
-          console.log('Szukam w _state.rows...');
-
-          const eventData = _state.rows.find(r => {
-            console.log(`Porównuję: r.slot_id=${r.slot_id} (${typeof r.slot_id}) vs slotId=${slotId} (${typeof slotId})`);
-            return String(r.slot_id) === String(slotId);
-          });
+          const eventData = _state.rows.find(r => String(r.slot_id) === String(slotId));
 
           if (eventData) {
-            console.log('✅ Znaleziono dane:', eventData);
             openEditModal(eventData);
           } else {
-            console.error('❌ NIE ZNALEZIONO event data dla slot_id:', slotId);
-            console.log('Dostępne slot_id w _state.rows:', _state.rows.map(r => r.slot_id));
             showAlert(`Błąd: Nie znaleziono danych wizyty o ID ${slotId}`, 'danger');
           }
         });
       });
     }
 
-    // — drukowanie —
     const _sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
     function _probeCalendar(){
@@ -1149,7 +1505,6 @@
       if (ifrw) ifrw.onafterprint = cleanup; setTimeout(cleanup, 5000);
     }
 
-    // Parsery dat
     function parseLocalTimestamp(str){
       if (!str) return null;
       const s = str.trim().replace('T', ' ');

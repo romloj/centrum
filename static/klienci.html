@@ -6,9 +6,123 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="menu_fab.css">
+
   <style>
-    
+    .fab-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 1030;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: flex-end;
+      gap: 0.75rem;
+      pointer-events: none;
+    }
+
+    .fab-main,
+    .fab-button,
+    .fab-label,
+    .fab-menu {
+      pointer-events: auto;
+    }
+
+    .fab-main {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .fab-main:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    .fab-main i {
+      transition: transform 0.3s ease;
+    }
+
+    .fab-container.open .fab-main i {
+      transform: rotate(45deg);
+    }
+
+    .fab-menu {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 0.75rem;
+      opacity: 0;
+      transform: translateY(10px) scale(0.9);
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .fab-container.open .fab-menu {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .fab-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      justify-content: flex-end;
+    }
+
+    .fab-label {
+      background: white;
+      color: #333;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      font-size: 0.875rem;
+      font-weight: 500;
+      white-space: nowrap;
+      opacity: 1;
+      transition: all 0.3s ease;
+    }
+
+    .fab-item:hover .fab-label {
+      background: #f8f9fa;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+    }
+
+    .fab-button {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      text-decoration: none;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+    }
+
+    .fab-button:hover {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      transform: scale(1.15);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.5);
+    }
+
     .client-photo {
       width: 50px;
       height: 50px;
@@ -123,57 +237,46 @@
     </div>
   </div>
 
-  <!-- Floating Action Menu - TYLKO RAZ, na końcu body -->
-    <div class="fab-container" id="fabContainer">
+  <!-- FAB Menu -->
+  <div class="fab-container" id="fabContainer">
     <ul class="fab-menu">
-        <li class="fab-item">
-            <span class="fab-label">Plan terapeuty</span>
-            <a href="therapist.html" class="fab-button" title="Plan terapeuty">
-                <i class="bi bi-heart-pulse"></i>
-            </a>
-        </li>
-        <li class="fab-item">
-            <span class="fab-label">Moduł TUS</span>
-            <a href="tus.html" class="fab-button" title="Moduł TUS">
-                <i class="bi bi-star-fill"></i>
-            </a>
-        </li>
-        <li class="fab-item">
-            <span class="fab-label">Lista klientów</span>
-            <a href="klienci.html" class="fab-button" title="Lista klientów">
-                <i class="bi bi-people-fill"></i>
-            </a>
-        </li>
-        <li class="fab-item">
-            <span class="fab-label">Historia klientów</span>
-            <a href="client_history.html" class="fab-button" title="Historia klientów">
-                <i class="bi bi-clock-history"></i>
-            </a>
-        </li>
-        <li class="fab-item">
-            <span class="fab-label">Moduł Kierowcy</span>
-            <a href="drivers.html" class="fab-button" title="Plan terapeuty">
-                <i class="bi bi-car-front-fill"></i>
-            </a>
-        </li>
-        <li class="fab-item">
-            <span class="fab-label">Strona główna</span>
-            <a href="index.html" class="fab-button" title="Strona główna">
-                <i class="bi bi-house-fill"></i>
-            </a>
-        </li>
+      <li class="fab-item">
+        <span class="fab-label">Plan terapeuty</span>
+        <a href="therapist1.html" class="fab-button" title="Plan terapeuty">
+          <i class="bi bi-heart-pulse"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Moduł TUS</span>
+        <a href="tus.html" class="fab-button" title="Moduł TUS">
+          <i class="bi bi-star-fill"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Lista klientów</span>
+        <a href="klienci.html" class="fab-button" title="Lista klientów">
+          <i class="bi bi-people-fill"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Historia klientów</span>
+        <a href="client_history.html" class="fab-button" title="Historia klientów">
+          <i class="bi bi-clock-history"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Strona główna</span>
+        <a href="index.html" class="fab-button" title="Strona główna">
+          <i class="bi bi-house-fill"></i>
+        </a>
+      </li>
     </ul>
     <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
-        <i class="bi bi-plus-lg"></i>
+      <i class="bi bi-plus-lg"></i>
     </button>
-</div>
-    <div class="fab-backdrop" id="fabBackdrop"></div>
-   <!-- Skrypty -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <script src="fab-menu.js"></script>
-    <script src="panel.js"></script>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const API = "";
@@ -429,7 +532,4 @@
     });
   </script>
 </body>
-
 </html>
-
-

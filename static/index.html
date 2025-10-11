@@ -282,7 +282,7 @@ a.card-link:hover .start-card {
     <!-- Główne kafelki -->
     <div class="dashboard-grid">
       <!-- Klienci -->
-      <div class="app-card" onclick="navigateTo('klienci.html')">
+      <div class="app-card" onclick="navigateTo('klient-panel.html')">
         <span class="badge bg-success badge-status">Aktywne</span>
         <i class="bi bi-people-fill card-icon"></i>
         <h2 class="card-title">Klienci</h2>
@@ -371,6 +371,14 @@ a.card-link:hover .start-card {
         </p>
       </div>
 
+        <div class="app-card" onclick="navigateTo('terapeuta.html')">
+        <i class="bi bi-heart-pulse-fill card-icon"></i>
+        <h2 class="card-title">Plan Terapeutów</h2>
+        <p class="card-description">
+          Przeglądaj grafiki, dodawaj terapeutów i planuj zajęcia
+        </p>
+      </div>
+
       <!-- Kierowcy -->
       <div class="app-card" onclick="navigateTo('drivers.html')">
         <i class="bi bi-truck card-icon"></i>
@@ -416,7 +424,7 @@ a.card-link:hover .start-card {
           Importuj plany z obrazów lub dokumentów
         </p>
       </div>
-    
+
 
       <!-- Dokumenty IPET -->
     <div class="app-card" onclick="navigateTo('ipet.html')">
@@ -438,7 +446,7 @@ a.card-link:hover .start-card {
       </div>
 
       <!-- Sprawozdania - NOWY KAFELEK -->
-      <div class="app-card" onclick="navigateTo('sprawozdania.html')">
+      <div class="app-card" onclick="navigateTo('project_raports.html')">
                 <span class="new-badge">NOWE</span>
                 <span class="module-icon">📊</span>
                 <h2 class="module-title">Sprawozdania</h2>
@@ -447,7 +455,18 @@ a.card-link:hover .start-card {
                 </p>
                 <span class="module-badge">Raporty i analizy</span>
       </div>
-</div><!--koniec menu-->
+
+      <!-- Sprawozdania - NOWY KAFELEK -->
+      <div class="app-card" onclick="navigateTo('raport.html')">
+                <span class="new-badge">NOWE</span>
+                <span class="module-icon">📊</span>
+                <h2 class="module-title">Raporty</h2>
+                <p class="module-description">
+                    Generuj roczne sprawozdania merytoryczne z realizowanych projektów i działań
+                </p>
+                <span class="module-badge">Raporty i analizy</span>
+      </div>
+    </div> <!--koniec bloku menu-->
     <!-- Szybkie akcje -->
     <div class="quick-actions">
       <h3><i class="bi bi-lightning-fill"></i> Szybkie akcje</h3>
@@ -1242,5 +1261,4 @@ document.getElementById('packageForm')?.addEventListener('submit', async (e) => 
 });
   </script>
 </body>
-
 </html>
