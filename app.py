@@ -58,7 +58,7 @@ CORS(app)
 # Wczytywanie konfiguracji ze zmiennych środowiskowych
 #DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:EDUQ@localhost:5432/suo")
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://odnowa_unwh_user:hr5g2iWpbfxi8Z5ZKBT0PUVQqhuvPAnd@dpg-d3f4mmhr0fns73d8e5qg-a.frankfurt-postgres.render.com/odnowa_unwh")
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = "DATABASE_URL"
 
 # Dodaj na początku pliku, po innych importach
 UPLOAD_FOLDER = 'uploads/documents'
@@ -6721,6 +6721,7 @@ def get_waiting_stats():
     except Exception as e:
         print(f"Błąd w get_waiting_stats: {str(e)}")
         return jsonify({'error': 'Błąd pobierania statystyk'}), 500
+
 
 
 
