@@ -57,8 +57,8 @@ CORS(app)
 
 # Wczytywanie konfiguracji ze zmiennych środowiskowych
 #DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:EDUQ@localhost:5432/suo")
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://odnowa_unwh_user:hr5g2iWpbfxi8Z5ZKBT0PUVQqhuvPAnd@dpg-d3f4mmhr0fns73d8e5qg-a.frankfurt-postgres.render.com/odnowa_unwh")
-#DATABASE_URL = os.getenv("DATABASE_URL")
+#DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://odnowa_unwh_user:hr5g2iWpbfxi8Z5ZKBT0PUVQqhuvPAnd@dpg-d3f4mmhr0fns73d8e5qg-a.frankfurt-postgres.render.com/odnowa_unwh")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Dodaj na początku pliku, po innych importach
 UPLOAD_FOLDER = 'uploads/documents'
@@ -582,13 +582,13 @@ def session_scope():
     finally:
         session.close()
 
-Session = sessionmaker(bind=engine)
-with session_scope() as db_session:
+#Session = sessionmaker(bind=engine)
+#with session_scope() as db_session:
     # Pobieramy pierwszego terapeutę z bazy
-    pierwszy_terapeuta = db_session.query(Therapist).first()
+    #pierwszy_terapeuta = db_session.query(Therapist).first()
 
-    if pierwszy_terapeuta:
-        print(f"Znaleziono terapeutę: {pierwszy_terapeuta.full_name}")
+    #if pierwszy_terapeuta:
+        #print(f"Znaleziono terapeutę: {pierwszy_terapeuta.full_name}")
 
 
 def get_route_distance(origin, destination):
@@ -6721,6 +6721,7 @@ def get_waiting_stats():
     except Exception as e:
         print(f"Błąd w get_waiting_stats: {str(e)}")
         return jsonify({'error': 'Błąd pobierania statystyk'}), 500
+
 
 
 
