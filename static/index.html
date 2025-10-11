@@ -306,6 +306,13 @@ a.card-link:hover .start-card {
         </div>
     </div>
 </a>-->
+<!-- DODAJ TEN NOWY PRZYCISK NA POCZĄTKU
+    <div class="col-md-6">
+      <button class="action-btn" onclick="openClientSelectForPackage()">
+        <i class="bi bi-plus-circle-fill"></i>
+        <span>Dodaj pakiet zajęć</span>
+      </button>
+    </div>
         <div class="app-card" onclick="openClientSelectForPackage()" style="cursor: pointer;">
 
             <div class="card-body text-center">
@@ -319,7 +326,7 @@ a.card-link:hover .start-card {
                 <p class="card-text text-muted">Zaplanuj nową terapię z dowozem i odwozem dla klienta</p>
             </div>
 
-        </div>
+        </div>-->
 
         <!-- Modal wyboru typu pakietu -->
 <div class="modal fade" id="packageTypeModal" tabindex="-1" aria-hidden="true">
@@ -363,7 +370,7 @@ a.card-link:hover .start-card {
 </div>
 
       <!-- Terapeuci -->
-      <div class="app-card" onclick="navigateTo('therapist.html')">
+      <div class="app-card" onclick="navigateTo('terapeuta-panel.html')">
         <i class="bi bi-heart-pulse-fill card-icon"></i>
         <h2 class="card-title">Terapeuci</h2>
         <p class="card-description">
@@ -371,13 +378,13 @@ a.card-link:hover .start-card {
         </p>
       </div>
 
-        <div class="app-card" onclick="navigateTo('terapeuta.html')">
+       <!-- <div class="app-card" onclick="navigateTo('terapeuta.html')">
         <i class="bi bi-heart-pulse-fill card-icon"></i>
         <h2 class="card-title">Plan Terapeutów</h2>
         <p class="card-description">
           Przeglądaj grafiki, dodawaj terapeutów i planuj zajęcia
         </p>
-      </div>
+      </div>-->
 
       <!-- Kierowcy -->
       <div class="app-card" onclick="navigateTo('drivers.html')">
@@ -407,26 +414,34 @@ a.card-link:hover .start-card {
         </p>
       </div>
 
-      <!-- Lista Obecności -->
+      <!-- Lista Obecności
       <div class="app-card" onclick="navigateTo('lista.html')">
         <i class="bi bi-list-check card-icon"></i>
         <h2 class="card-title">Lista Obecności</h2>
         <p class="card-description">
           Sprawdź i oznacz obecność klientów na zajęciach
         </p>
-      </div>
+      </div>-->
 
-      <!-- Import Planu -->
+      <!-- Import Planu
       <div class="app-card" onclick="navigateTo('import_image.html')">
         <i class="bi bi-image-alt card-icon"></i>
         <h2 class="card-title">Import Planu</h2>
         <p class="card-description">
           Importuj plany z obrazów lub dokumentów
         </p>
-      </div>
+      </div>-->
+        <!--Menadżer-->
+        <div class="app-card" onclick="navigateTo('manager.html')">
+      <span class="badge bg-warning badge-status">Menadżer</span>
+      <i class="bi bi-file-earmark-medical card-icon"></i>
+      <h2 class="card-title">Menadżer</h2>
+      <p class="card-description">
+        Zarządzaj dokumentacją klientów, skanuj i przesyłaj pliki
+      </p>
+    </div>
 
-
-      <!-- Dokumenty IPET -->
+      <!-- Dokumenty IPET
     <div class="app-card" onclick="navigateTo('ipet.html')">
       <span class="badge bg-warning badge-status">Dokumenty</span>
       <i class="bi bi-file-earmark-medical card-icon"></i>
@@ -434,8 +449,9 @@ a.card-link:hover .start-card {
       <p class="card-description">
         Zarządzaj dokumentacją klientów, skanuj i przesyłaj pliki
       </p>
-    </div>
+    </div>-->
 
+        <!--
       <div class="app-card" onclick="navigateTo('projects.html')">
       <span class="badge bg-warning badge-status">Projekty</span>
       <i class="bi bi-file-earmark-medical card-icon"></i>
@@ -443,9 +459,9 @@ a.card-link:hover .start-card {
       <p class="card-description">
         Zarządzaj dokumentacją projektów
       </p>
-      </div>
+      </div>-->
 
-      <!-- Sprawozdania - NOWY KAFELEK -->
+      <!-- Sprawozdania - NOWY KAFELEK
       <div class="app-card" onclick="navigateTo('project_raports.html')">
                 <span class="new-badge">NOWE</span>
                 <span class="module-icon">📊</span>
@@ -454,9 +470,9 @@ a.card-link:hover .start-card {
                     Generuj roczne sprawozdania merytoryczne z realizowanych projektów i działań
                 </p>
                 <span class="module-badge">Raporty i analizy</span>
-      </div>
+      </div>-->
 
-      <!-- Sprawozdania - NOWY KAFELEK -->
+      <!-- Sprawozdania - NOWY KAFELEK
       <div class="app-card" onclick="navigateTo('raport.html')">
                 <span class="new-badge">NOWE</span>
                 <span class="module-icon">📊</span>
@@ -465,10 +481,10 @@ a.card-link:hover .start-card {
                     Generuj roczne sprawozdania merytoryczne z realizowanych projektów i działań
                 </p>
                 <span class="module-badge">Raporty i analizy</span>
-      </div>
+      </div> -->
 
          <div class="app-card" onclick="navigateTo('poczekalnia.html')">
-        <i class="bi bi-truck card-icon"></i>
+        <i class="bi bi-alarm" style="font-size: 2rem; color: cornflowerblue;"></i>
         <h2 class="card-title">Oczekujący</h2>
         <p class="card-description">
           Zarządzaj kierowcami i przeglądaj plany transportu
@@ -479,6 +495,14 @@ a.card-link:hover .start-card {
     <div class="quick-actions">
       <h3><i class="bi bi-lightning-fill"></i> Szybkie akcje</h3>
       <div class="row g-3">
+          <!-- DODAJ TEN NOWY PRZYCISK NA POCZĄTKU -->
+        <div class="col-md-6">
+          <button class="action-btn" onclick="openClientSelectForPackage()">
+            <i class="bi bi-plus-circle-fill"></i>
+            <span>Dodaj pakiet zajęć</span>
+          </button>
+        </div>
+
         <div class="col-md-6">
           <button class="action-btn" onclick="quickAddClient()">
             <i class="bi bi-person-plus-fill"></i>
@@ -838,6 +862,7 @@ a.card-link:hover .start-card {
         alert('Klient został dodany pomyślnie!');
         loadStats();
 
+
         const viewClient = confirm('Czy chcesz przejść do listy klientów?');
         if (viewClient) {
           navigateTo('klienci.html');
@@ -943,6 +968,58 @@ a.card-link:hover .start-card {
         }
       } catch (err) {
         alert(`Błąd dodawania kierowcy: ${err.message}`);
+      } finally {
+        spinner.classList.add('d-none');
+      }
+    }
+
+    //Dodawnie pakietu
+    // Dodaj terapeutę - otwórz modal
+    function quickAddTherapist() {
+      document.getElementById('therapistName').value = '';
+      document.getElementById('therapistSpec').value = '';
+      document.getElementById('therapistPhone').value = '';
+      new bootstrap.Modal(document.getElementById('addTherapistModal')).show();
+    }
+
+    // Submit dodawania terapeuty
+    async function submitAddTherapist() {
+      const name = document.getElementById('therapistName').value.trim();
+      if (!name) {
+        alert('Podaj imię i nazwisko terapeuty');
+        return;
+      }
+
+      const spec = document.getElementById('therapistSpec').value.trim();
+      const phone = document.getElementById('therapistPhone').value.trim();
+      const spinner = document.getElementById('therapistSpinner');
+
+      spinner.classList.remove('d-none');
+
+      try {
+        const res = await fetch(`${API}/api/therapists`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name: name,
+            specialization: spec || null,
+            phone: phone || null,
+            active: true
+          })
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        bootstrap.Modal.getInstance(document.getElementById('addTherapistModal')).hide();
+        alert('Terapeuta został dodany pomyślnie!');
+        loadStats();
+
+        const viewTherapist = confirm('Czy chcesz przejść do planów terapeutów?');
+        if (viewTherapist) {
+          navigateTo('therapist.html');
+        }
+      } catch (err) {
+        alert(`Błąd dodawania terapeuty: ${err.message}`);
       } finally {
         spinner.classList.add('d-none');
       }
