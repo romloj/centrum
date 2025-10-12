@@ -2,7 +2,7 @@
 import multiprocessing
 
 # Bind
-bind = f"0.0.0.0:{os.environ.get('PORT', 10000)}"
+bind = "0.0.0.0:10000"
 
 # Workers
 workers = 1
@@ -17,3 +17,4 @@ keepalive = 5
 accesslog = "-"
 
 errorlog = "-"
+
