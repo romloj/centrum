@@ -1,4 +1,4 @@
-const API = "http://127.0.0.1:5000";
+const API = window.location.origin;
 
 console.log('=== DRIVERS.JS ZAŁADOWANY ===');
 console.log('API URL:', API);
@@ -572,4 +572,5 @@ document.getElementById('loadBtn').addEventListener('click', loadDriversSchedule
 
 // Inicjalizacja
 loadDriversFilter();
+
 loadDriversSchedule();
