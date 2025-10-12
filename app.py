@@ -5633,10 +5633,10 @@ def delete_schedule(slot_id):
 
     try:
         database_url = os.environ.get('DATABASE_URL')
-      if database_url:
+        if database_url:
         # Połącz się używając DATABASE_URL (działa na Render)
-        conn = psycopg2.connect(database_url)
-      else:
+          conn = psycopg2.connect(database_url)
+        else:
           # Fallback do lokalnej bazy (dla developmentu)
           conn = psycopg2.connect(
               host='localhost',
@@ -6731,6 +6731,7 @@ def get_waiting_stats():
     except Exception as e:
         print(f"Błąd w get_waiting_stats: {str(e)}")
         return jsonify({'error': 'Błąd pobierania statystyk'}), 500
+
 
 
 
