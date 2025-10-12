@@ -361,9 +361,9 @@
     </div>
 
     <script>
-        // KONFIGURACJA - Zmień na adres swojego backendu Flask
-        const API_URL = 'http://localhost:5000/api/waiting-clients';
-        const STATS_URL = 'http://localhost:5000/api/waiting-clients/stats';
+           const API_BASE_URL = window.location.origin;
+        const API_URL = '/api/waiting-clients';
+        const STATS_URL = '/api/waiting-clients/stats';
 
         let clients = [];
 
@@ -589,4 +589,5 @@
         setInterval(fetchClients, 60000);
     </script>
 </body>
+
 </html>
