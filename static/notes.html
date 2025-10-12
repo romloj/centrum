@@ -863,7 +863,7 @@
         async function loadClients() {
             try {
                 console.log('🔄 Ładowanie klientów...');
-                const response = await fetch(API_BASE_URL + '/clients');
+                const response = await fetch('/api/clients');
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -1618,3 +1618,4 @@
 </body>
 
 </html>
+
