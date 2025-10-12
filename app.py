@@ -5633,21 +5633,29 @@ def delete_schedule(slot_id):
 
     try:
         database_url = os.environ.get('DATABASE_URL')
+        
         if database_url:
-        # Połącz się używając DATABASE_URL (działa na Render)
-          conn = psycopg2.connect(database_url)
+            conn = psycopg2.connect(database_url)
         else:
-          # Fallback do lokalnej bazy (dla developmentu)
-          conn = psycopg2.connect(
-              host='localhost',
-              port='5432',
-              database='suo',
-              user='postgres',
-              password='EDUQ'
-          )
-    
-      cur = conn.cursor(cursor_factory=RealDictCursor)
-    
+            conn = psycopg2.connect(
+                host='localhost',
+                port='5432',
+                database='suo',
+                user='postgres',
+                password='EDUQ'
+            )
+        
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Tutaj DELETE logic
+        cur.execute("DELETE FROM schedule WHERE id = %s", (schedule_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+    except Exception as e:
+        print(f"Błąd: {e}")
+        
     except Exception as e:
         print(f"Błąd połączenia z bazą: {e}")
 
@@ -6731,6 +6739,7 @@ def get_waiting_stats():
     except Exception as e:
         print(f"Błąd w get_waiting_stats: {str(e)}")
         return jsonify({'error': 'Błąd pobierania statystyk'}), 500
+
 
 
 
