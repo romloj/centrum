@@ -559,53 +559,54 @@
       // W pliku tus.html znajdź i podmień tę funkcję
 
 async function openGroupDetails(groupId) {
-        try {
-            const g = await fetchJSON(`${API_BASE}/api/tus/groups/${groupId}`);
-            const [bonusDetails, bonusHistory] = await Promise.all([
-               fetchJSON(`${API_BASE}/api/tus/groups/${groupId}/bonus-details`),
-               fetchJSON(`${API_BASE}/api/tus/groups/${groupId}/general-bonus-history`)
-            ]);
+        try {
+            const g = await fetchJSON(`${API_BASE}/api/tus/groups/${groupId}`);
+            const [bonusDetails, bonusHistory] = await Promise.all([
+               fetchJSON(`${API_BASE}/api/tus/groups/${groupId}/bonus-details`),
+               fetchJSON(`${API_BASE}/api/tus/groups/${groupId}/general-bonus-history`)
+            ]);
 
-            $('#groupDetailsTitle').text(`Zarządzaj grupą: ${g.name}`);
-            $('#deleteGroupFromDetailsBtn').show().data('group-id', g.id);
+            $('#groupDetailsTitle').text(`Zarządzaj grupą: ${g.name}`);
+            $('#deleteGroupFromDetailsBtn').show().data('group-id', g.id);
 
-            // --- LOGIKA KALENDARZA ---
-            let calendarCurrentDate = new Date();
-            const scheduledDates = new Set(g.sessions.map(s => s.session_date.slice(0, 10)));
-            const DOW_SHORT = ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "So"];
-            let selectedDates = new Set(g.schedule_days || []);
+            // --- LOGIKA KALENDARZA ---
+            let calendarCurrentDate = new Date();
+            const scheduledDates = new Set(g.sessions.map(s => s.session_date.slice(0, 10)));
+            const DOW_SHORT = ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "So"];
+            let selectedDates = new Set(g.schedule_days || []);
 
-            function renderSessionCalendar() {
-                const year = calendarCurrentDate.getFullYear();
-                const month = calendarCurrentDate.getMonth();
-                const calendarEl = document.getElementById('sessionCalendar');
-                if (!calendarEl) return;
+            function renderSessionCalendar() {
+                const year = calendarCurrentDate.getFullYear();
+                const month = calendarCurrentDate.getMonth();
+                const calendarEl = document.getElementById('sessionCalendar');
+                if (!calendarEl) return;
 
-                const firstOfMonth = new Date(year, month, 1);
-                const lastOfMonth = new Date(year, month + 1, 0);
-                const startDay = firstOfMonth.getDay();
+                const firstOfMonth = new Date(year, month, 1);
+                const lastOfMonth = new Date(year, month + 1, 0);
+                const startDay = firstOfMonth.getDay();
 
-                let headerHtml = `<div class="session-calendar-header"><button type="button" class="btn btn-sm btn-outline-secondary cal-prev-month">«</button><strong class="mx-2">${firstOfMonth.toLocaleString('pl-PL', { month: 'long', year: 'numeric' })}</strong><button type="button" class="btn btn-sm btn-outline-secondary cal-next-month">»</button></div>`;
-                let gridHtml = `<div class="session-calendar-grid">`;
-                DOW_SHORT.forEach(day => gridHtml += `<div class="session-calendar-dow">${day}</div>`);
-                for (let i = 0; i < startDay; i++) { gridHtml += `<div class="session-calendar-day other-month"></div>`; }
+                let headerHtml = `<div class="session-calendar-header"><button type="button" class="btn btn-sm btn-outline-secondary cal-prev-month">«</button><strong class="mx-2">${firstOfMonth.toLocaleString('pl-PL', { month: 'long', year: 'numeric' })}</strong><button type="button" class="btn btn-sm btn-outline-secondary cal-next-month">»</button></div>`;
+                let gridHtml = `<div class="session-calendar-grid">`;
+                DOW_SHORT.forEach(day => gridHtml += `<div class="session-calendar-dow">${day}</div>`);
+                for (let i = 0; i < startDay; i++) { gridHtml += `<div class="session-calendar-day other-month"></div>`; }
 
-                for (let i = 1; i <= lastOfMonth.getDate(); i++) {
-                    const dayDate = new Date(year, month, i);
-                    const dateString = fmtYYYYMMDD(dayDate);
+                for (let i = 1; i <= lastOfMonth.getDate(); i++) {
+                    const dayDate = new Date(year, month, i);
+                    const dateString = fmtYYYYMMDD(dayDate);
 
-                    const isScheduled = scheduledDates.has(dateString);
-                    const isSelected = selectedDates.has(dateString);
+                    const isScheduled = scheduledDates.has(dateString);
+                    const isSelected = selectedDates.has(dateString);
 
-                    let classes = 'session-calendar-day';
-                    if (isScheduled) classes += ' scheduled';
-                    if (isSelected) classes += ' is-selected-day';
+                    let classes = 'session-calendar-day';
+                    if (isScheduled) classes += ' scheduled';
+                    if (isSelected) classes += ' is-selected-day';
 
-                    gridHtml += `<div class="${classes}" data-date="${dateString}">${i}</div>`;
-                }
-            gridHtml += `</div>`;
-            calendarEl.innerHTML = `<div class="session-calendar">${headerHtml}${gridHtml}</div>`;
-        }
+                    gridHtml += `<div class="${classes}" data-date="${dateString}">${i}</div>`;
+                }
+            gridHtml += `</div>`;
+            calendarEl.innerHTML = `<div class="session-calendar">${headerHtml}${gridHtml}</div>`;
+        }
+
 
         // --- KONIEC NOWEJ SEKCJI: Logika Kalendarza ---
 
@@ -719,16 +720,16 @@ async function openGroupDetails(groupId) {
                       <div class="card-body">
                         <h6 class="card-title">Dodaj nową sesję</h6>
                         <form id="addSessionForm" data-group-id="${g.id}">
-                           <div class="row g-2">
-                            <div class="col-6"><label class="form-label">Data</label><input type="date" class="form-control" name="date" id="sessionDateInput" required></div>
-                            <div class="col-6"><label class="form-label">Godzina</label><input type="time" class="form-control" name="time" required></div>
-                            <div class="col-12"><label class="form-label">Temat</label><input type="text"  id="sessionTopicSelect" class="form-control placeholder="Temat zajęć" required></div>
-                           
-                            <!--<div class="col-12"><label class="form-label">Temat</label><select id="sessionTopicSelect" class="form-select" required></select></div>-->
-                            <div class="col-12"><label class="form-label">Zachowania do modelowania (max 4)</label><select id="sessionBehaviorsSelect" class="form-select" multiple></select></div>
-                            <div class="col-12"><button class="btn btn-primary w-100" type="submit">Dodaj sesję</button></div>
-                           </div>
-                        </form>
+                           <div class="row g-2">
+                            <div class="col-6"><label class="form-label">Data</label><input type="date" class="form-control" name="date" id="sessionDateInput" required></div>
+                            <div class="col-6"><label class="form-label">Godzina</label><input type="time" class="form-control" name="time" required></div>
+                                
+                           <div class="col-12"><label class="form-label">Temat</label><input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required></div>
+                            
+                            <div class="col-12"><label class="form-label">Zachowania do modelowania (max 4)</label><select id="sessionBehaviorsSelect" class="form-select" multiple></select></div>
+                            <div class="col-12"><button class="btn btn-primary w-100" type="submit">Dodaj sesję</button></div>
+                           </div>
+                        </form>
                       </div>
                     </div>
                   </div>
@@ -834,12 +835,6 @@ async function openGroupDetails(groupId) {
                     }
                 });
             }
-
-
-
-        const topics = await fetchJSON(`${API_BASE}/api/tus/topics`);
-        const $topicSelect = $('#sessionTopicSelect').empty();
-        (topics || []).forEach(t => $topicSelect.append(new Option(t.title, String(t.id))));
 
         const behaviors = await fetchJSON(`${API_BASE}/api/tus/behaviors`);
         const $behaviorSelect = $('#sessionBehaviorsSelect').empty();
@@ -1069,53 +1064,51 @@ async function openGroupDetails(groupId) {
       });
 
       $(document).on('submit', '#addSessionForm', async function(e) {
-    e.preventDefault();
-    const $form = $(this);
-    const gid = $form.data('group-id');
+        e.preventDefault();
+        const $form = $(this);
+        const gid = $form.data('group-id');
 
-    const dateValue = $form.find('input[name="date"]').val(); // Format: YYYY-MM-DD
-    const timeValue = $form.find('input[name="time"]').val(); // Format: HH:MM
+        const dateValue = $form.find('input[name="date"]').val();
+        const timeValue = $form.find('input[name="time"]').val();
 
-    console.log("Surowa data:", dateValue, "Surowy czas:", timeValue);
+        if (!dateValue || !timeValue) {
+            alert('Data i godzina są wymagane!');
+            return;
+        }
 
-    // UPEWNIJ SIĘ ŻE DANE SĄ POPRAWNE
-    if (!dateValue || !timeValue) {
-        alert('Data i godzina są wymagane!');
-        return;
-    }
+        let timeFormatted = timeValue;
+        if (timeValue.length === 5) { // Format HH:MM -> HH:MM:SS
+            timeFormatted = timeValue + ':00';
+        }
+        
+        // ZMIANA TUTAJ: Pobieramy tekst z pola input
+        const topicTitle = ($('#sessionTopicInput').val() || '').trim();
 
-    // FORMATUJ CZAS - upewnij się że ma sekundy
-    let timeFormatted = timeValue;
-    if (timeValue.length === 5) { // Format HH:MM
-        timeFormatted = timeValue + ':00';
-    }
+        // ZMIANA TUTAJ: Wysyłamy `topic_title` zamiast `topic_id`
+        const payload = {
+            group_id: gid,
+            topic_title: topicTitle,
+            session_date: `${dateValue}T${timeFormatted}`, // Format: "YYYY-MM-DDTHH:MM:SS"
+            behavior_ids: ($('#sessionBehaviorsSelect').val() || []).map(v => parseInt(v, 10))
+        };
+        
+        // ZMIANA TUTAJ: Walidacja sprawdza `topic_title`
+        if (!payload.topic_title) {
+            return alert('Temat jest wymagany.');
+        }
 
-    const payload = {
-        group_id: gid,
-        topic_id: parseInt($('#sessionTopicSelect').val(), 10),
-        session_date: `${dateValue}T${timeFormatted}`, // Format: "YYYY-MM-DDTHH:MM:SS"
-        behavior_ids: ($('#sessionBehaviorsSelect').val() || []).map(v => parseInt(v, 10))
-    };
-
-    console.log("Wysyłane dane sesji:", JSON.stringify(payload, null, 2));
-
-    if (!payload.topic_id) {
-        return alert('Temat jest wymagany.');
-    }
-
-    try {
-        const response = await fetchJSON(`${API_BASE}/api/tus/sessions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        console.log("Odpowiedź serwera:", response);
-        await openGroupDetails(gid);
-    } catch (err) {
-        console.error("Błąd podczas tworzenia sesji:", err);
-        alert('Nie udało się dodać sesji: ' + err.message);
-    }
-});
+        try {
+            await fetchJSON(`${API_BASE}/api/tus/sessions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            await openGroupDetails(gid); // Odśwież widok
+        } catch (err) {
+            console.error("Błąd podczas tworzenia sesji:", err);
+            alert('Nie udało się dodać sesji: ' + err.message);
+        }
+    });
       $(document).on('click', '.delete-session-btn', async function() {
     const sid = $(this).data('session-id');
     const gid = $(this).data('group-id');
@@ -1443,5 +1436,6 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
 
 
