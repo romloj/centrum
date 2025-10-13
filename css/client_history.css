@@ -1,0 +1,57 @@
+/* Dodatkowe style dla lepszego wyglądu */
+    .table th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      border-bottom: 2px solid #dee2e6;
+    }
+
+    .table tbody tr:hover {
+      background-color: #f1f3f5;
+    }
+
+    .btn-outline-primary:hover {
+      transform: scale(1.05);
+      transition: transform 0.2s;
+    }
+
+    /* Style dla modala z notatkami */
+    .modal-body pre {
+      background-color: #f8f9fa;
+      border-left: 4px solid #0d6efd;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .table {
+        font-size: 0.875rem;
+      }
+
+      #searchInput {
+        width: 100% !important;
+        margin-bottom: 0.5rem;
+      }
+
+      #clientSelector {
+        width: 100% !important;
+      }
+
+      header {
+        flex-direction: column;
+        align-items: stretch !important;
+      }
+
+      .ms-auto {
+        margin-left: 0 !important;
+        flex-direction: column;
+      }
+    }
+
+    /* Animacja ładowania */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .text-muted.p-5 {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
