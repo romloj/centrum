@@ -721,14 +721,26 @@ async function openGroupDetails(groupId) {
                         <h6 class="card-title">Dodaj nową sesję</h6>
                         <form id="addSessionForm" data-group-id="${g.id}">
                            <div class="row g-2">
-                            <div class="col-6"><label class="form-label">Data</label><input type="date" class="form-control" name="date" id="sessionDateInput" required></div>
-                            <div class="col-6"><label class="form-label">Godzina</label><input type="time" class="form-control" name="time" required></div>
-                                
-                           <div class="col-12"><label class="form-label">Temat</label><input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required></div>
-                            
-                            <div class="col-12"><label class="form-label">Zachowania do modelowania (max 4)</label><select id="sessionBehaviorsSelect" class="form-select" multiple></select></div>
-                            <div class="col-12"><button class="btn btn-primary w-100" type="submit">Dodaj sesję</button></div>
-                           </div>
+                          <div class="col-6">
+                              <label for="sessionDateInput" class="form-label">Data</label>
+                              <input type="date" class="form-control" name="date" id="sessionDateInput" required>
+                          </div>
+                          <div class="col-6">
+                              <label for="sessionTimeInput" class="form-label">Godzina</label>
+                              <input type="time" class="form-control" name="time" id="sessionTimeInput" required>
+                          </div>
+                          <div class="col-12">
+                              <label for="sessionTopicInput" class="form-label">Temat</label>
+                              <input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required>
+                          </div>
+                          <div class="col-12">
+                              <label for="sessionBehaviorsSelect" class="form-label">Zachowania do modelowania (max 4)</label>
+                              <select id="sessionBehaviorsSelect" class="form-select" multiple></select>
+                          </div>
+                          <div class="col-12">
+                              <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
+                          </div>
+                          </div>
                         </form>
                       </div>
                     </div>
@@ -1436,6 +1448,7 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
 
 
 
