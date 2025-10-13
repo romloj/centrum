@@ -1062,219 +1062,165 @@
             safeUpdateDeleteButton();
         }
 
-        // Funkcja usuwania zaznaczonych notatek
-        async function deleteSelectedNotes() {
-            if (selectedNotes.length === 0) return;
-
-            const clientId = document.getElementById('clientId').value;
-            if (!clientId) {
-                showError('Wybierz klienta!');
-                return;
-            }
-
-            const confirmDelete = confirm(`Czy na pewno chcesz usunąć ${selectedNotes.length} zaznaczonych sesji? Ta operacja jest nieodwracalna!`);
-            if (!confirmDelete) return;
-
-            const deleteBtn = document.getElementById('deleteBtn');
-            if (deleteBtn) {
-                deleteBtn.disabled = true;
-                deleteBtn.textContent = '⏳ Usuwanie...';
-            }
-
-            try {
-                // Sortuj indeksy malejąco, aby uniknąć problemów z przesunięciami podczas usuwania
-                const sortedIndices = [...selectedNotes].sort((a, b) => b - a);
-                let deletedCount = 0;
-                let errors = [];
-
-                for (const index of sortedIndices) {
-                    const session = sessions[index];
-                    if (!session) continue;
-
-                    console.log(`🗑️ Próba usunięcia sesji ID: ${session.id}`, session);
-
-                    // Usuń sesję z bazy danych
-                    try {
-                        // Sprawdź dostępne endpointy - próbujemy różnych możliwości
-                        let deleteUrl = '';
-                        let deleteResponse;
-
-                        // Próba 1: Endpoint dla sesji
-                        if (session.id) {
-                            deleteUrl = `${API_BASE_URL}/api/schedule/${session.id}`;
-                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
-                            deleteResponse = await fetch(deleteUrl, {
-                                method: 'DELETE'
-                            });
-                        }
-                        // Próba 2: Endpoint dla grup
-                        else if (session.group_id) {
-                            deleteUrl = `${API_BASE_URL}/api/schedule/group/${session.group_id}`;
-                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
-                            deleteResponse = await fetch(deleteUrl, {
-                                method: 'DELETE'
-                            });
-                        }
-                        // Próba 3: Endpoint dla terapii
-                        else if (session.therapy_id) {
-                            deleteUrl = `${API_BASE_URL}/api/therapy/${session.therapy_id}`;
-                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
-                            deleteResponse = await fetch(deleteUrl, {
-                                method: 'DELETE'
-                            });
-                        } else {
-                            console.warn('⚠️ Brak ID sesji do usunięcia z bazy');
-                            errors.push(`Sesja z ${formatDateTime(session.starts_at)} - brak ID`);
-                            continue;
-                        }
-
-                        if (deleteResponse && !deleteResponse.ok) {
-                            const errorText = await deleteResponse.text();
-                            console.error(`❌ Błąd usuwania sesji ${session.id}:`, errorText);
-                            errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${deleteResponse.status}`);
-                        } else {
-                            console.log(`✅ Usunięto sesję ${session.id}`);
-                            deletedCount++;
-                        }
-
-                    } catch (error) {
-                        console.error(`❌ Błąd podczas usuwania sesji ${session.id}:`, error);
-                        errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${error.message}`);
+       async function deleteSelectedNotes() {
+        if (selectedNotes.length === 0) return;
+    
+        const clientId = document.getElementById('clientId').value;
+        if (!clientId) {
+            showError('Wybierz klienta!');
+            return;
+        }
+    
+        const confirmDelete = confirm(`Czy na pewno chcesz usunąć ${selectedNotes.length} zaznaczonych sesji?`);
+        if (!confirmDelete) return;
+    
+        const deleteBtn = document.getElementById('deleteBtn');
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = '⏳ Usuwanie...';
+    
+        try {
+            const sortedIndices = [...selectedNotes].sort((a, b) => b - a);
+            let deletedCount = 0;
+            let errors = [];
+    
+            for (const index of sortedIndices) {
+                const session = sessions[index];
+                if (!session) continue;
+    
+                console.log(`🗑️ Usuwanie sesji ID: ${session.id}`);
+    
+                try {
+                    // Uproszczone usuwanie - używaj tylko endpointu dla schedule
+                    const response = await fetch(`${API_BASE_URL}/api/schedule/${session.id}`, {
+                        method: 'DELETE'
+                    });
+    
+                    if (response.ok) {
+                        console.log(`✅ Usunięto sesję ${session.id}`);
+                        deletedCount++;
+                    } else {
+                        const errorText = await response.text();
+                        console.error(`❌ Błąd usuwania: ${errorText}`);
+                        errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${response.status}`);
                     }
-
-                    // Usuń notatki z client_notes jeśli istnieją
-                    if (session.note_id) {
+                } catch (error) {
+                    console.error(`❌ Błąd: ${error}`);
+                    errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${error.message}`);
+                }
+            }
+    
+            // Odśwież listę
+            await loadClientSessions();
+    
+            if (errors.length > 0) {
+                showError(`Usunięto ${deletedCount} sesji, błędy: ${errors.length}`);
+            } else {
+                showSuccess(`Usunięto ${deletedCount} sesji`);
+            }
+    
+        } catch (error) {
+            console.error('❌ Błąd:', error);
+            showError('Nie udało się usunąć sesji: ' + error.message);
+        } finally {
+            safeUpdateDeleteButton();
+        }
+    }
+    
+            // ... (reszta funkcji pozostaje bez zmian: saveSession, clearForm, showSuccess, showError, formatDateTime, viewNote, enableEditMode, cancelEdit, saveNoteEdit, closeNoteModal, printNote) ...
+    
+            async function saveSession() {
+                const btn = document.getElementById('saveBtn');
+                const clientId = document.getElementById('clientId').value;
+                const therapistId = document.getElementById('therapistId').value;
+                const sessionDate = document.getElementById('sessionDate').value;
+                const sessionTime = document.getElementById('sessionTime').value;
+                const duration = parseInt(document.getElementById('duration').value);
+                const place = document.getElementById('place').value;
+                const topic = document.getElementById('topic').value;
+                const notes = document.getElementById('notes').value;
+    
+                if (!clientId || !therapistId || !sessionDate || !sessionTime || !place || !topic) {
+                    showError('Proszę wypełnić wszystkie wymagane pola!');
+                    return;
+                }
+    
+                btn.disabled = true;
+                btn.textContent = '⏳ Zapisywanie...';
+    
+                try {
+                    const startsAt = `${sessionDate}T${sessionTime}:00`;
+                    const [startHour, startMinute] = sessionTime.split(':').map(Number);
+                    const totalMinutes = startHour * 60 + startMinute + duration;
+                    const endHour = Math.floor(totalMinutes / 60);
+                    const endMinute = totalMinutes % 60;
+                    const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
+    
+                    const response = await fetch(API_BASE_URL + '/api/schedule/group', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            client_id: parseInt(clientId),
+                            label: topic,
+                            notes: notes || undefined,
+                            therapy: {
+                                therapist_id: parseInt(therapistId),
+                                starts_at: startsAt,
+                                ends_at: endsAt,
+                                place: place,
+                                notes: notes || undefined
+                            },
+                            status: 'planned'
+                        })
+                    });
+    
+                    const result = await response.json();
+    
+                    if (!response.ok) {
+                        if (response.status === 409) {
+                            throw new Error('Konflikt czasowy - terapeuta ma już zajęty ten czas. Wybierz inną godzinę.');
+                        }
+                        throw new Error(result.error || result.message || 'Błąd zapisu sesji');
+                    }
+    
+                    console.log('✅ Sesja zapisana');
+                    showSuccess();
+                    clearForm();
+    
+                    // Jeśli są notatki, zapisz je do client_notes
+                    if (notes && notes.trim()) {
                         try {
-                            console.log(`🗑️ Usuwanie notatki ID: ${session.note_id}`);
-                            const noteResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes/${session.note_id}`, {
-                                method: 'DELETE'
+                            console.log('📝 Zapisuję notatki do client_notes...');
+                            const notesResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    content: notes.trim(),
+                                    category: 'session',
+                                    created_by_name: 'System',
+                                    created_at: startsAt
+                                })
                             });
-
-                            if (!noteResponse.ok) {
-                                console.warn(`⚠️ Nie udało się usunąć notatki ${session.note_id}`);
+    
+                            if (notesResponse.ok) {
+                                console.log('✅ Notatki zapisane do client_notes');
                             } else {
-                                console.log(`✅ Usunięto notatkę ${session.note_id}`);
+                                console.warn('⚠️ Nie udało się zapisać notatek do client_notes');
                             }
                         } catch (noteError) {
-                            console.warn(`⚠️ Błąd usuwania notatki:`, noteError);
+                            console.error('❌ Błąd zapisu notatek:', noteError);
                         }
                     }
+    
+                    await loadClientSessions();
+    
+                } catch (error) {
+                    console.error('❌ Błąd:', error);
+                    showError(error.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = '💾 Zapisz Sesję';
                 }
-
-                // Odśwież listę sesji z serwera
-                await loadClientSessions();
-
-                // Pokaż komunikat z podsumowaniem
-                if (errors.length > 0) {
-                    showError(`Usunięto ${deletedCount} sesji, ale wystąpiły błędy: ${errors.join(', ')}`);
-                } else {
-                    showSuccess(`Pomyślnie usunięto ${deletedCount} sesji.`);
-                }
-
-            } catch (error) {
-                console.error('❌ Błąd podczas usuwania sesji:', error);
-                showError('Nie udało się usunąć sesji: ' + error.message);
-            } finally {
-                // Bezpieczna aktualizacja przycisku
-                safeUpdateDeleteButton();
             }
-        }
-
-        // ... (reszta funkcji pozostaje bez zmian: saveSession, clearForm, showSuccess, showError, formatDateTime, viewNote, enableEditMode, cancelEdit, saveNoteEdit, closeNoteModal, printNote) ...
-
-        async function saveSession() {
-            const btn = document.getElementById('saveBtn');
-            const clientId = document.getElementById('clientId').value;
-            const therapistId = document.getElementById('therapistId').value;
-            const sessionDate = document.getElementById('sessionDate').value;
-            const sessionTime = document.getElementById('sessionTime').value;
-            const duration = parseInt(document.getElementById('duration').value);
-            const place = document.getElementById('place').value;
-            const topic = document.getElementById('topic').value;
-            const notes = document.getElementById('notes').value;
-
-            if (!clientId || !therapistId || !sessionDate || !sessionTime || !place || !topic) {
-                showError('Proszę wypełnić wszystkie wymagane pola!');
-                return;
-            }
-
-            btn.disabled = true;
-            btn.textContent = '⏳ Zapisywanie...';
-
-            try {
-                const startsAt = `${sessionDate}T${sessionTime}:00`;
-                const [startHour, startMinute] = sessionTime.split(':').map(Number);
-                const totalMinutes = startHour * 60 + startMinute + duration;
-                const endHour = Math.floor(totalMinutes / 60);
-                const endMinute = totalMinutes % 60;
-                const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
-
-                const response = await fetch(API_BASE_URL + '/api/schedule/group', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        client_id: parseInt(clientId),
-                        label: topic,
-                        notes: notes || undefined,
-                        therapy: {
-                            therapist_id: parseInt(therapistId),
-                            starts_at: startsAt,
-                            ends_at: endsAt,
-                            place: place,
-                            notes: notes || undefined
-                        },
-                        status: 'planned'
-                    })
-                });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    if (response.status === 409) {
-                        throw new Error('Konflikt czasowy - terapeuta ma już zajęty ten czas. Wybierz inną godzinę.');
-                    }
-                    throw new Error(result.error || result.message || 'Błąd zapisu sesji');
-                }
-
-                console.log('✅ Sesja zapisana');
-                showSuccess();
-                clearForm();
-
-                // Jeśli są notatki, zapisz je do client_notes
-                if (notes && notes.trim()) {
-                    try {
-                        console.log('📝 Zapisuję notatki do client_notes...');
-                        const notesResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                content: notes.trim(),
-                                category: 'session',
-                                created_by_name: 'System',
-                                created_at: startsAt
-                            })
-                        });
-
-                        if (notesResponse.ok) {
-                            console.log('✅ Notatki zapisane do client_notes');
-                        } else {
-                            console.warn('⚠️ Nie udało się zapisać notatek do client_notes');
-                        }
-                    } catch (noteError) {
-                        console.error('❌ Błąd zapisu notatek:', noteError);
-                    }
-                }
-
-                await loadClientSessions();
-
-            } catch (error) {
-                console.error('❌ Błąd:', error);
-                showError(error.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '💾 Zapisz Sesję';
-            }
-        }
 
         function clearForm() {
             document.getElementById('topic').value = '';
@@ -1505,4 +1451,5 @@
     </script>
 </body>
 </html>
+
 
