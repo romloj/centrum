@@ -864,7 +864,7 @@
         async function loadClients() {
             try {
                 console.log('🔄 Ładowanie klientów...');
-                const response = await fetch(API_BASE_URL + '/clients');
+                const response = await fetch(API_BASE_URL + '/api/clients');
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -915,7 +915,7 @@
 
         async function loadTherapists() {
             try {
-                const response = await fetch(API_BASE_URL + '/therapists');
+                const response = await fetch(API_BASE_URL + '/api/therapists');
                 const therapists = await response.json();
 
                 const select = document.getElementById('therapistId');
@@ -955,7 +955,7 @@
             safeUpdateDeleteButton();
 
             try {
-                const url = `${API_BASE_URL}/clients/${clientId}/sessions?month=${month}`;
+                const url = `${API_BASE_URL}/api/clients/${clientId}/sessions?month=${month}`;
                 console.log('📡 Pobieranie:', url);
 
                 const response = await fetch(url);
@@ -1101,7 +1101,7 @@
 
                         // Próba 1: Endpoint dla sesji
                         if (session.id) {
-                            deleteUrl = `${API_BASE_URL}/schedule/${session.id}`;
+                            deleteUrl = `${API_BASE_URL}/api/schedule/${session.id}`;
                             console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
                             deleteResponse = await fetch(deleteUrl, {
                                 method: 'DELETE'
@@ -1109,7 +1109,7 @@
                         }
                         // Próba 2: Endpoint dla grup
                         else if (session.group_id) {
-                            deleteUrl = `${API_BASE_URL}/schedule/group/${session.group_id}`;
+                            deleteUrl = `${API_BASE_URL}/api/schedule/group/${session.group_id}`;
                             console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
                             deleteResponse = await fetch(deleteUrl, {
                                 method: 'DELETE'
@@ -1117,7 +1117,7 @@
                         }
                         // Próba 3: Endpoint dla terapii
                         else if (session.therapy_id) {
-                            deleteUrl = `${API_BASE_URL}/therapy/${session.therapy_id}`;
+                            deleteUrl = `${API_BASE_URL}/api/therapy/${session.therapy_id}`;
                             console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
                             deleteResponse = await fetch(deleteUrl, {
                                 method: 'DELETE'
@@ -1146,7 +1146,7 @@
                     if (session.note_id) {
                         try {
                             console.log(`🗑️ Usuwanie notatki ID: ${session.note_id}`);
-                            const noteResponse = await fetch(`${API_BASE_URL}/clients/${clientId}/notes/${session.note_id}`, {
+                            const noteResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes/${session.note_id}`, {
                                 method: 'DELETE'
                             });
 
@@ -1209,7 +1209,7 @@
                 const endMinute = totalMinutes % 60;
                 const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
 
-                const response = await fetch(API_BASE_URL + '/schedule/group', {
+                const response = await fetch(API_BASE_URL + '/api/schedule/group', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1244,7 +1244,7 @@
                 if (notes && notes.trim()) {
                     try {
                         console.log('📝 Zapisuję notatki do client_notes...');
-                        const notesResponse = await fetch(`${API_BASE_URL}/clients/${clientId}/notes`, {
+                        const notesResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1408,7 +1408,7 @@
                 if (session.note_id) {
                     console.log('📝 Aktualizacja istniejącej notatki:', session.note_id);
 
-                    const response = await fetch(`${API_BASE_URL}/clients/${clientId}/notes/${session.note_id}`, {
+                    const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes/${session.note_id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1427,7 +1427,7 @@
                     // Jeśli notatki nie ma w client_notes - utwórz nową
                     console.log('📝 Tworzenie nowej notatki dla sesji');
 
-                    const response = await fetch(`${API_BASE_URL}/clients/${clientId}/notes`, {
+                    const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1497,10 +1497,12 @@
             console.log('🖨️ Drukowanie notatki...');
             window.print();
         }
-
+            
+        }
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') closeNoteModal();
         });
     </script>
 </body>
 </html>
+
