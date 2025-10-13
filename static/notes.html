@@ -1321,35 +1321,46 @@
 
         function viewNote(index) {
             const session = sessions[index];
-            if (!session) return;
-
+            if (!session) {
+                console.error('Nie znaleziono sesji dla indeksu:', index);
+                return;
+            }
+        
+            // --- KLUCZOWY KROK DIAGNOSTYCZNY ---
+            // Sprawdź w konsoli (F12), czy obiekt 'session' zawiera pole 'notes' z tekstem.
+            console.log('Otwieram notatkę dla sesji:', session);
+        
             currentSessionIndex = index;
             editMode = false;
-
+        
             const clientSelect = document.getElementById('clientId');
             const selectedOption = clientSelect.options[clientSelect.selectedIndex];
             const clientName = selectedOption.dataset.fullName || selectedOption.text;
-
-            // Wypełnij dane w trybie podglądu
+        
+            // --- POCZĄTEK POPRAWKI ---
+            
+            // Używamy .innerHTML, aby poprawnie renderować znaki nowej linii (enter)
+            // Dodajemy też czytelniejszy komunikat, jeśli notatki są puste.
+            document.getElementById('modalNoteContent').innerHTML = (session.notes || 'Brak zapisanych notatek dla tej sesji.').replace(/\n/g, '<br>');
+        
+            // --- KONIEC POPRAWKI ---
+            
             document.getElementById('modalClientName').textContent = clientName;
             document.getElementById('modalSessionDate').textContent = formatDateTime(session.starts_at);
             document.getElementById('modalTherapist').textContent = session.therapist_name || 'Nieznany';
             document.getElementById('modalPlace').textContent = session.place_to || 'Nie podano';
             document.getElementById('modalTopic').textContent = session.label || 'Bez tematu';
-            document.getElementById('modalNoteContent').textContent = session.notes || 'Brak notatek';
-
-            // Ustaw datę dla wydruku
+            
             document.getElementById('printDate').textContent = new Date().toLocaleDateString('pl-PL');
-
-            // Pokaż widok podglądu, ukryj edycję
+        
             document.getElementById('viewMode').style.display = 'block';
             document.getElementById('editMode').style.display = 'none';
             document.getElementById('viewModeActions').style.display = 'flex';
             document.getElementById('editModeActions').style.display = 'none';
-
+        
             const modal = document.getElementById('noteModal');
             modal.classList.add('show');
-
+        
             modal.onclick = function(event) {
                 if (event.target === modal) closeNoteModal();
             };
@@ -1631,6 +1642,7 @@
 </body>
 
 </html>
+
 
 
 
