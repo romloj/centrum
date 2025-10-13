@@ -722,7 +722,9 @@ async function openGroupDetails(groupId) {
                            <div class="row g-2">
                             <div class="col-6"><label class="form-label">Data</label><input type="date" class="form-control" name="date" id="sessionDateInput" required></div>
                             <div class="col-6"><label class="form-label">Godzina</label><input type="time" class="form-control" name="time" required></div>
-                            <div class="col-12"><label class="form-label">Temat</label><select id="sessionTopicSelect" class="form-select" required></select></div>
+                            <div class="col-12"><label class="form-label">Temat</label><input type="text"  id="sessionTopicSelect" class="form-select placeholder="Temat zajęć" ></div>
+                           
+                            <!--<div class="col-12"><label class="form-label">Temat</label><select id="sessionTopicSelect" class="form-select" required></select></div>-->
                             <div class="col-12"><label class="form-label">Zachowania do modelowania (max 4)</label><select id="sessionBehaviorsSelect" class="form-select" multiple></select></div>
                             <div class="col-12"><button class="btn btn-primary w-100" type="submit">Dodaj sesję</button></div>
                            </div>
@@ -1441,3 +1443,4 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
