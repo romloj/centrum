@@ -1155,10 +1155,647 @@
         }
 
         async function downloadDOCX() {
-            // Ta funkcja pozostaje bez zmian, ponieważ już obsługuje pełny formularz
-            // Implementacja downloadDOCX() pozostaje taka sama jak w poprzednim kodzie
-            // ... (pominięte dla czytelności, ale w rzeczywistym kodzie powinno być w pełni zaimplementowane)
-        }
+    const year = document.getElementById('yearSelect').value;
+    const foundationName = document.getElementById('foundationName').value;
+    const foundationNIP = document.getElementById('foundationNIP').value;
+    const foundationREGON = document.getElementById('foundationREGON').value;
+    const foundationKRS = document.getElementById('foundationKRS').value;
+    const krsDate = document.getElementById('krsDate').value;
+    const foundationStreet = document.getElementById('foundationStreet').value;
+    const foundationHouseNo = document.getElementById('foundationHouseNo').value;
+    const foundationCity = document.getElementById('foundationCity').value;
+    const foundationPostalCode = document.getElementById('foundationPostalCode').value;
+    const foundationProvince = document.getElementById('foundationProvince').value;
+    const boardPresident = document.getElementById('boardPresident').value;
+    const boardVicePresident = document.getElementById('boardVicePresident').value;
+    const boardMember = document.getElementById('boardMember').value;
+    const foundationGoals = document.getElementById('foundationGoals').value;
+    const incomeStatutory = document.getElementById('incomeStatutory').value;
+    const costsStatutory = document.getElementById('costsStatutory').value;
+    const costsAdmin = document.getElementById('costsAdmin').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    const reportType = document.getElementById('reportType').value;
+
+    let filteredProjects = projectsData.filter(project => {
+        const projectYear = project.start_date ? new Date(project.start_date).getFullYear() : null;
+        const yearMatch = !project.start_date || projectYear == year ||
+                         (project.end_date && new Date(project.end_date).getFullYear() == year);
+        const statusMatch = !statusFilter || project.status === statusFilter;
+        return yearMatch && statusMatch;
+    });
+
+    const stats = calculateStatistics(filteredProjects);
+    const activityDescription = generateActivityDescription(filteredProjects, year, stats);
+
+    const { Document, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, HeadingLevel, BorderStyle } = docx;
+
+    let sections = [];
+
+    if (reportType === 'official') {
+        // Nagłówek dokumentu
+        sections.push(
+            new Paragraph({
+                text: "Sprawozdanie z działalności fundacji",
+                heading: HeadingLevel.HEADING_1,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 200 }
+            }),
+            new Paragraph({
+                text: `za rok ${year}`,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 400 }
+            }),
+            new Paragraph({
+                text: "Podstawa prawna: Ustawa z dnia 6 kwietnia 1984 r. o fundacjach (Dz.U. 2020 r. poz. 2167 oraz z 2022 r. poz. 2185)",
+                alignment: AlignmentType.LEFT,
+                spacing: { after: 400 }
+            })
+        );
+
+        // Instrukcje wypełniania
+        sections.push(
+            new Paragraph({
+                text: "Instrukcja:",
+                spacing: { before: 200, after: 100 }
+            }),
+            new Paragraph({
+                text: "- Sprawozdawca wypełnia tylko przeznaczone dla niego białe pola;",
+                spacing: { after: 50 }
+            }),
+            new Paragraph({
+                text: "- We wszystkich polach, w których nie będą wpisane odpowiednie informacje, należy wstawić pojedynczy znak myślnika (–);",
+                spacing: { after: 50 }
+            }),
+            new Paragraph({
+                text: "- Pola wyboru należy uzupełnić przez wstawienie pojedynczego znaku X.",
+                spacing: { after: 400 }
+            })
+        );
+
+        // Sekcja I - Dane fundacji
+        sections.push(
+            new Paragraph({
+                text: "I. Dane fundacji",
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 }
+            })
+        );
+
+        // Tabela z danymi fundacji
+        const foundationDataTable = new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+                top: { style: BorderStyle.SINGLE },
+                bottom: { style: BorderStyle.SINGLE },
+                left: { style: BorderStyle.SINGLE },
+                right: { style: BorderStyle.SINGLE },
+                insideHorizontal: { style: BorderStyle.SINGLE },
+                insideVertical: { style: BorderStyle.SINGLE },
+            },
+            rows: [
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "1. Nazwa fundacji" })],
+                            width: { size: 30, type: WidthType.PERCENTAGE }
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: foundationName || "–" })],
+                            width: { size: 70, type: WidthType.PERCENTAGE }
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "2. Adres siedziby" })],
+                            rowSpan: 4
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `Kraj: Polska, Województwo: ${foundationProvince || "–"}` })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: `Gmina: ${foundationCity || "–"}, Ulica: ${foundationStreet || "–"}` })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: `Nr lokalu: –, Miejscowość: ${foundationCity || "–"}` })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: `Nr telefonu: –, Adres e-mail: –` })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "3. Nr REGON" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: foundationREGON || "–" })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "4. Data wpisu do KRS" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: krsDate || "–" })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "5. Nr KRS" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: foundationKRS || "–" })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "6. Członkowie zarządu" })]
+                        }),
+                        new TableCell({
+                            children: [
+                                new Paragraph({ text: `${boardPresident || "–"} - Prezes` }),
+                                new Paragraph({ text: `${boardVicePresident || "–"} - Wiceprezes` }),
+                                new Paragraph({ text: `${boardMember || "–"} - Członek` })
+                            ]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "7. NIP fundacji" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: foundationNIP || "–" })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "8. Cele statutowe" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: foundationGoals || "–" })]
+                        })
+                    ]
+                })
+            ]
+        });
+
+        sections.push(foundationDataTable);
+
+        // Sekcja II - Charakterystyka działalności
+        sections.push(
+            new Paragraph({
+                text: "II. Charakterystyka działalności fundacji w okresie sprawozdawczym",
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 }
+            }),
+            new Paragraph({
+                text: "1. Zasady, formy i zakres działalności statutowej z podaniem realizacji celów statutowych",
+                bold: true,
+                spacing: { after: 100 }
+            }),
+            new Paragraph({
+                text: activityDescription.replace(/<br>/g, '\n').replace(/<strong>|<\/strong>/g, ''),
+                spacing: { after: 400 }
+            }),
+            new Paragraph({
+                text: "2. Opis głównych zdarzeń prawnych w działalności fundacji o skutkach finansowych",
+                bold: true,
+                spacing: { after: 100 }
+            }),
+            new Paragraph({
+                text: "W okresie sprawozdawczym nie wystąpiły szczególne zdarzenia prawne o istotnych skutkach finansowych.",
+                spacing: { after: 400 }
+            })
+        );
+
+        // Sekcja III - Informacja o przychodach
+        sections.push(
+            new Paragraph({
+                text: "III. Informacja o wysokości uzyskanych przychodów",
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 }
+            })
+        );
+
+        const incomeTable = new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+                top: { style: BorderStyle.SINGLE },
+                bottom: { style: BorderStyle.SINGLE },
+                left: { style: BorderStyle.SINGLE },
+                right: { style: BorderStyle.SINGLE },
+                insideHorizontal: { style: BorderStyle.SINGLE },
+                insideVertical: { style: BorderStyle.SINGLE },
+            },
+            rows: [
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "Źródło przychodu" })],
+                            width: { size: 40, type: WidthType.PERCENTAGE }
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "Przelew", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "Gotówka", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "Inne formy", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "Łączna kwota przychodów" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(incomeStatutory || 0)} PLN`, alignment: AlignmentType.RIGHT })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "a. Przychody z działalności statutowej" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(incomeStatutory || 0)} PLN`, alignment: AlignmentType.RIGHT })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "b. Przychody z działalności gospodarczej" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "c. Pozostałe przychody" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                })
+            ]
+        });
+
+        sections.push(incomeTable);
+
+        // Sekcja IV - Informacja o kosztach
+        sections.push(
+            new Paragraph({
+                text: "IV. Informacja o poniesionych kosztach w okresie sprawozdawczym",
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 }
+            })
+        );
+
+        const costsTable = new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+                top: { style: BorderStyle.SINGLE },
+                bottom: { style: BorderStyle.SINGLE },
+                left: { style: BorderStyle.SINGLE },
+                right: { style: BorderStyle.SINGLE },
+                insideHorizontal: { style: BorderStyle.SINGLE },
+                insideVertical: { style: BorderStyle.SINGLE },
+            },
+            rows: [
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "Rodzaj kosztu" })],
+                            width: { size: 40, type: WidthType.PERCENTAGE }
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "Przelew", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "Gotówka", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "Inne formy", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "Łączna kwota kosztów" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney((parseInt(costsStatutory || 0) + parseInt(costsAdmin || 0)))} PLN`, alignment: AlignmentType.RIGHT })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "a. Koszty realizacji celów statutowych" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(costsStatutory || 0)} PLN`, alignment: AlignmentType.RIGHT })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "b. Koszty działalności gospodarczej" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "c. Koszty administracyjne" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(costsAdmin || 0)} PLN`, alignment: AlignmentType.RIGHT })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                })
+            ]
+        });
+
+        sections.push(costsTable);
+
+        // Pozostałe sekcje (skrócone dla przykładu)
+        sections.push(
+            new Paragraph({
+                text: "V. Informacja o zatrudnieniu i wynagrodzeniu",
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 }
+            }),
+            new Paragraph({
+                text: "1. Liczba osób zatrudnionych w fundacji w okresie sprawozdawczym: –",
+                spacing: { after: 100 }
+            }),
+            new Paragraph({
+                text: "2. Łączna kwota wynagrodzeń wypłaconych w okresie sprawozdawczym: –",
+                spacing: { after: 400 }
+            }),
+
+            new Paragraph({
+                text: "VI. Informacja o składnikach majątkowych",
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 }
+            }),
+            new Paragraph({
+                text: "1. Wartość składników majątkowych na dzień 31 grudnia roku sprawozdawczego: –",
+                spacing: { after: 400 }
+            }),
+
+            new Paragraph({
+                text: "VII. Informacja o środkach pieniężnych",
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 }
+            }),
+            new Paragraph({
+                text: "1. Środki pieniężne na rachunkach bankowych na dzień 31 grudnia roku sprawozdawczego: –",
+                spacing: { after: 100 }
+            }),
+            new Paragraph({
+                text: "2. Środki pieniężne w kasie na dzień 31 grudnia roku sprawozdawczego: –",
+                spacing: { after: 400 }
+            })
+        );
+
+        // Podpisy
+        sections.push(
+            new Paragraph({
+                text: "",
+                spacing: { before: 800 }
+            }),
+            new Paragraph({
+                text: "........................................          ........................................",
+                spacing: { after: 100 }
+            }),
+            new Paragraph({
+                text: "     miejscowość, data                              podpisy członków zarządu fundacji",
+                alignment: AlignmentType.CENTER
+            }),
+            new Paragraph({
+                text: "",
+                spacing: { before: 400 }
+            }),
+            new Paragraph({
+                text: `Sprawozdanie wygenerowane automatycznie: ${new Date().toLocaleDateString('pl-PL')}`,
+                italics: true,
+                alignment: AlignmentType.CENTER
+            })
+        );
+
+    } else {
+        // Sprawozdanie podsumowujące
+        sections = [
+            new Paragraph({
+                text: "Sprawozdanie z Działalności",
+                heading: HeadingLevel.HEADING_1,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 200 }
+            }),
+            new Paragraph({
+                text: foundationName,
+                bold: true,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 100 }
+            }),
+            new Paragraph({
+                text: `Rok ${year}`,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 400 }
+            }),
+            new Paragraph({
+                text: "1. Podsumowanie Działalności",
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 }
+            }),
+            new Paragraph({
+                children: [
+                    new TextRun({ text: "Liczba realizowanych projektów: ", bold: true }),
+                    new TextRun(`${stats.totalProjects}`)
+                ],
+                spacing: { after: 100 }
+            }),
+            new Paragraph({
+                children: [
+                    new TextRun({ text: "Liczba beneficjentów: ", bold: true }),
+                    new TextRun(`${stats.totalBeneficiaries}`)
+                ],
+                spacing: { after: 100 }
+            }),
+            new Paragraph({
+                children: [
+                    new TextRun({ text: "Całkowity budżet: ", bold: true }),
+                    new TextRun(`${formatMoney(stats.totalBudget)} PLN`)
+                ],
+                spacing: { after: 200 }
+            }),
+            new Paragraph({
+                text: `W roku ${year} ${foundationName} zrealizowała łącznie ${stats.totalProjects} ${getProjectWord(stats.totalProjects)}.`,
+                spacing: { after: 400 }
+            }),
+            new Paragraph({
+                text: "2. Realizowane Projekty",
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 }
+            })
+        ];
+
+        filteredProjects.forEach((project, index) => {
+            sections.push(
+                new Paragraph({
+                    children: [
+                        new TextRun({ text: `${index + 1}. ${project.title}`, bold: true })
+                    ],
+                    spacing: { before: 200, after: 100 }
+                })
+            );
+
+            if (project.description) {
+                sections.push(new Paragraph({ text: project.description, spacing: { after: 100 } }));
+            }
+
+            let details = [];
+            if (project.status) details.push(`Status: ${getStatusLabel(project.status)}`);
+            if (project.start_date) details.push(`Od: ${formatDate(project.start_date)}`);
+            if (project.end_date) details.push(`Do: ${formatDate(project.end_date)}`);
+            if (project.budget) details.push(`Budżet: ${formatMoney(project.budget)} PLN`);
+            if (project.beneficiaries_count) details.push(`Beneficjenci: ${project.beneficiaries_count}`);
+            if (project.coordinator) details.push(`Koordynator: ${project.coordinator}`);
+
+            sections.push(new Paragraph({ text: details.join(' | '), spacing: { after: 100 } }));
+
+            if (project.partners) {
+                sections.push(new Paragraph({
+                    children: [
+                        new TextRun({ text: "Partnerzy: ", bold: true }),
+                        new TextRun(project.partners)
+                    ],
+                    spacing: { after: 100 }
+                }));
+            }
+        });
+
+        sections.push(
+            new Paragraph({
+                text: "3. Wnioski i Perspektywy",
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 400, after: 200 }
+            }),
+            new Paragraph({
+                text: `Rok ${year} był okresem ${stats.totalProjects > 5 ? 'intensywnej' : 'systematycznej'} działalności ${foundationName}.`,
+                spacing: { after: 400 }
+            }),
+            new Paragraph({
+                text: "",
+                spacing: { before: 600 }
+            }),
+            new Paragraph({
+                text: `Sprawozdanie wygenerowane: ${new Date().toLocaleDateString('pl-PL')}`,
+                italics: true,
+                alignment: AlignmentType.CENTER
+            })
+        );
+    }
+
+    const doc = new Document({
+        sections: [{
+            properties: {},
+            children: sections
+        }]
+    });
+
+    const blob = await docx.Packer.toBlob(doc);
+    const fileName = `Sprawozdanie_${foundationName.replace(/\s+/g, '_')}_${year}.docx`;
+    saveAs(blob, fileName);
+}
     </script>
 </body>
 </html>
