@@ -1106,112 +1106,138 @@
 
         // Funkcja usuwania zaznaczonych notatek
         async function deleteSelectedNotes() {
-            if (selectedNotes.length === 0) return;
+    if (selectedNotes.length === 0) return;
 
-            const clientId = document.getElementById('clientId').value;
-            if (!clientId) {
-                showError('Wybierz klienta!');
-                return;
+    const clientId = document.getElementById('clientId').value;
+    if (!clientId) {
+        showError('Wybierz klienta!');
+        return;
+    }
+
+    console.log('🔍 DEBUG - Rozpoczynam usuwanie:', {
+        selectedNotes,
+        sessions: sessions.map(s => ({ id: s.id, group_id: s.group_id, starts_at: s.starts_at }))
+    });
+
+    const confirmDelete = confirm(`Czy na pewno chcesz usunąć ${selectedNotes.length} zaznaczonych sesji?`);
+    if (!confirmDelete) return;
+
+    const deleteBtn = document.getElementById('deleteBtn');
+    const originalText = deleteBtn.innerHTML;
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '⏳ Usuwanie...';
+
+    try {
+        const sortedIndices = [...selectedNotes].sort((a, b) => b - a);
+        let deletedCount = 0;
+        let errors = [];
+
+        for (const index of sortedIndices) {
+            const session = sessions[index];
+            if (!session) continue;
+
+            console.log('🗑️ DEBUG - Próba usunięcia sesji:', {
+                index,
+                sessionId: session.id,
+                groupId: session.group_id,
+                startsAt: session.starts_at
+            });
+
+            let deleteSuccess = false;
+
+            // Próba 1: Usuwanie przez group_id
+            if (session.group_id) {
+                try {
+                    console.log(`📡 DEBUG - Usuwanie przez group_id: ${session.group_id}`);
+                    const response = await fetch(`${API_BASE_URL}/api/schedule/group/${session.group_id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    console.log('📡 DEBUG - Response status:', response.status);
+                    
+                    if (response.ok) {
+                        deleteSuccess = true;
+                        console.log('✅ DEBUG - Usunięto przez group_id');
+                    } else {
+                        const errorText = await response.text();
+                        console.error('❌ DEBUG - Błąd usuwania przez group_id:', errorText);
+                        errors.push(`Sesja ${formatDateTime(session.starts_at)} - HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error('❌ DEBUG - Błąd fetch przez group_id:', error);
+                    errors.push(`Sesja ${formatDateTime(session.starts_at)} - ${error.message}`);
+                }
             }
 
-            const confirmDelete = confirm(`Czy na pewno chcesz usunąć ${selectedNotes.length} zaznaczonych sesji? Ta operacja jest nieodwracalna!`);
-            if (!confirmDelete) return;
-
-            const deleteBtn = document.getElementById('deleteBtn');
-            if (deleteBtn) {
-                deleteBtn.disabled = true;
-                deleteBtn.textContent = '⏳ Usuwanie...';
+            // Próba 2: Usuwanie przez session_id (jeśli group_id nie zadziałało)
+            if (!deleteSuccess && session.id) {
+                try {
+                    console.log(`📡 DEBUG - Usuwanie przez session_id: ${session.id}`);
+                    const response = await fetch(`${API_BASE_URL}/api/schedule/${session.id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    console.log('📡 DEBUG - Response status:', response.status);
+                    
+                    if (response.ok) {
+                        deleteSuccess = true;
+                        console.log('✅ DEBUG - Usunięto przez session_id');
+                    } else {
+                        const errorText = await response.text();
+                        console.error('❌ DEBUG - Błąd usuwania przez session_id:', errorText);
+                        if (!errors.some(e => e.includes(formatDateTime(session.starts_at)))) {
+                            errors.push(`Sesja ${formatDateTime(session.starts_at)} - HTTP ${response.status}`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ DEBUG - Błąd fetch przez session_id:', error);
+                    if (!errors.some(e => e.includes(formatDateTime(session.starts_at)))) {
+                        errors.push(`Sesja ${formatDateTime(session.starts_at)} - ${error.message}`);
+                    }
+                }
             }
 
-            try {
-                // Sortuj indeksy malejąco, aby uniknąć problemów z przesunięciami podczas usuwania
-                const sortedIndices = [...selectedNotes].sort((a, b) => b - a);
-                let deletedCount = 0;
-                let errors = [];
+            if (deleteSuccess) {
+                deletedCount++;
+                // Natychmiast usuń z lokalnej tablicy
+                sessions.splice(index, 1);
+            }
 
-                for (const index of sortedIndices) {
-                    const session = sessions[index];
-                    if (!session) continue;
-
-                    console.log(`🗑️ Próba usunięcia sesji:`, session);
-
-                    // Usuń sesję z bazy danych
-                    try {
-                        let deleteUrl = '';
-                        let deleteResponse;
-
-                        // Próba 1: Endpoint dla grup
-                        if (session.group_id) {
-                            deleteUrl = `${API_BASE_URL}/api/schedule/group/${session.group_id}`;
-                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
-                            deleteResponse = await fetch(deleteUrl, {
-                                method: 'DELETE'
-                            });
-                        }
-                        // Próba 2: Endpoint dla sesji
-                        else if (session.id) {
-                            deleteUrl = `${API_BASE_URL}/api/schedule/${session.id}`;
-                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
-                            deleteResponse = await fetch(deleteUrl, {
-                                method: 'DELETE'
-                            });
-                        } else {
-                            console.warn('⚠️ Brak ID sesji do usunięcia z bazy');
-                            errors.push(`Sesja z ${formatDateTime(session.starts_at)} - brak ID`);
-                            continue;
-                        }
-
-                        if (deleteResponse && !deleteResponse.ok) {
-                            const errorText = await deleteResponse.text();
-                            console.error(`❌ Błąd usuwania:`, errorText);
-                            errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${deleteResponse.status}`);
-                        } else {
-                            console.log(`✅ Usunięto sesję`);
-                            deletedCount++;
-                        }
-
-                    } catch (error) {
-                        console.error(`❌ Błąd podczas usuwania sesji:`, error);
-                        errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${error.message}`);
-                    }
-
-                    // Usuń notatki z client_notes jeśli istnieją
-                    if (session.note_id) {
-                        try {
-                            console.log(`🗑️ Usuwanie notatki ID: ${session.note_id}`);
-                            const noteResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes/${session.note_id}`, {
-                                method: 'DELETE'
-                            });
-
-                            if (!noteResponse.ok) {
-                                console.warn(`⚠️ Nie udało się usunąć notatki ${session.note_id}`);
-                            } else {
-                                console.log(`✅ Usunięto notatkę ${session.note_id}`);
-                            }
-                        } catch (noteError) {
-                            console.warn(`⚠️ Błąd usuwania notatki:`, noteError);
-                        }
-                    }
+            // Usuwanie notatek
+            if (session.note_id) {
+                try {
+                    console.log(`📝 DEBUG - Usuwanie notatki: ${session.note_id}`);
+                    await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes/${session.note_id}`, {
+                        method: 'DELETE'
+                    });
+                } catch (noteError) {
+                    console.warn('⚠️ DEBUG - Błąd usuwania notatki:', noteError);
                 }
-
-                // Odśwież listę sesji z serwera
-                await loadClientSessions();
-
-                // Pokaż komunikat z podsumowaniem
-                if (errors.length > 0) {
-                    showError(`Usunięto ${deletedCount} sesji, ale wystąpiły błędy: ${errors.join(', ')}`);
-                } else {
-                    showSuccess(`Pomyślnie usunięto ${deletedCount} sesji.`);
-                }
-
-            } catch (error) {
-                console.error('❌ Błąd podczas usuwania sesji:', error);
-                showError('Nie udało się usunąć sesji: ' + error.message);
-            } finally {
-                // Bezpieczna aktualizacja przycisku
-                safeUpdateDeleteButton();
             }
         }
+
+        // Wymuś ponowne ładowanie z serwera
+        console.log('🔄 DEBUG - Wymuszam ponowne ładowanie sesji');
+        await loadClientSessions();
+
+        // Podsumowanie
+        if (errors.length > 0) {
+            showError(`Usunięto ${deletedCount} sesji, ale wystąpiły błędy: ${errors.join(', ')}`);
+        } else {
+            showSuccess(`Pomyślnie usunięto ${deletedCount} sesji.`);
+        }
+
+    } catch (error) {
+        console.error('❌ DEBUG - Główny błąd usuwania:', error);
+        showError('Nie udało się usunąć sesji: ' + error.message);
+    } finally {
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = originalText;
+        selectedNotes = [];
+        safeUpdateDeleteButton();
+    }
+}
+        
 
         async function saveSession() {
             const btn = document.getElementById('saveBtn');
@@ -1532,6 +1558,75 @@
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') closeNoteModal();
         });
+
+        async function testDeleteEndpoints() {
+    const clientId = document.getElementById('clientId').value;
+    if (!clientId) {
+        alert('Najpierw wybierz klienta');
+        return;
+    }
+
+    console.log('🧪 TEST: Sprawdzanie endpointów usuwania...');
+    
+    // Pobierz pierwszą sesję do testów
+    if (sessions.length === 0) {
+        alert('Brak sesji do testowania');
+        return;
+    }
+
+    const testSession = sessions[0];
+    console.log('🧪 Sesja testowa:', testSession);
+
+    // Test 1: Endpoint group
+    if (testSession.group_id) {
+        try {
+            console.log(`🧪 TEST 1: DELETE /api/schedule/group/${testSession.group_id}`);
+            const response = await fetch(`${API_BASE_URL}/api/schedule/group/${testSession.group_id}`, {
+                method: 'DELETE'
+            });
+            console.log(`🧪 Status: ${response.status}, OK: ${response.ok}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.log('🧪 Błąd:', errorText);
+            }
+        } catch (error) {
+            console.error('🧪 Błąd fetch:', error);
+        }
+    }
+
+    // Test 2: Endpoint session
+    if (testSession.id) {
+        try {
+            console.log(`🧪 TEST 2: DELETE /api/schedule/${testSession.id}`);
+            const response = await fetch(`${API_BASE_URL}/api/schedule/${testSession.id}`, {
+                method: 'DELETE'
+            });
+            console.log(`🧪 Status: ${response.status}, OK: ${response.ok}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.log('🧪 Błąd:', errorText);
+            }
+        } catch (error) {
+            console.error('🧪 Błąd fetch:', error);
+        }
+    }
+
+    alert('Test zakończony - sprawdź konsolę (F12)');
+}
+
+// Dodaj przycisk testowy w HTML:
+// <button onclick="testDeleteEndpoints()" style="margin-top: 10px;">🧪 Testuj endpointy usuwania</button>
+
+        function forceRemoveFromView() {
+    const selectedSessionItems = document.querySelectorAll('.session-item.selected');
+    selectedSessionItems.forEach(item => {
+        item.style.display = 'none';
+    });
+    selectedNotes = [];
+    safeUpdateDeleteButton();
+    showSuccess('Sesje ukryte z widoku (tymczasowe rozwiązanie)');
+}
     </script>
 </body>
 </html>
+
