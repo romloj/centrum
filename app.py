@@ -6210,11 +6210,12 @@ def delete_client_note(client_id, note_id):
 
 @app.get("/api/clients/<int:client_id>/sessions")
 def get_client_sessions(client_id):
-    """Pobiera sesje terapii dla danego klienta - POPRAWIONE"""
+    """Pobiera sesje terapii dla danego klienta z opcjonalnym filtrem miesiąca"""
     month = request.args.get('month')
 
     try:
         with engine.begin() as conn:
+            # Sprawdź czy klient istnieje
             exists = conn.execute(
                 text('SELECT 1 FROM clients WHERE id = :cid'),
                 {"cid": client_id}
@@ -6223,7 +6224,7 @@ def get_client_sessions(client_id):
             if not exists:
                 return jsonify({'error': 'Klient nie istnieje'}), 404
 
-            # POPRAWIONE ZAPYTANIE
+            # Zapytanie z filtrem miesiąca
             if month:
                 sql = text('''
                     SELECT 
@@ -6234,11 +6235,14 @@ def get_client_sessions(client_id):
                         ss.place_to,
                         EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes,
                         th.full_name as therapist_name,
-                        NULL as notes,  -- Tymczasowo puste notatki
-                        NULL as note_id
+                        cn.content as notes,
+                        cn.id as note_id
                     FROM schedule_slots ss
                     LEFT JOIN event_groups eg ON eg.id = ss.group_id::uuid
                     LEFT JOIN therapists th ON th.id = ss.therapist_id
+                    LEFT JOIN client_notes cn ON cn.client_id = ss.client_id 
+                        AND DATE(cn.created_at) = DATE(ss.starts_at)
+                        AND cn.category = 'session'
                     WHERE ss.client_id = :cid
                         AND ss.kind = 'therapy'
                         AND ss.starts_at IS NOT NULL
@@ -6256,11 +6260,14 @@ def get_client_sessions(client_id):
                         ss.place_to,
                         EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes,
                         th.full_name as therapist_name,
-                        NULL as notes,
-                        NULL as note_id
+                        cn.content as notes,
+                        cn.id as note_id
                     FROM schedule_slots ss
                     LEFT JOIN event_groups eg ON eg.id = ss.group_id::uuid
                     LEFT JOIN therapists th ON th.id = ss.therapist_id
+                    LEFT JOIN client_notes cn ON cn.client_id = ss.client_id 
+                        AND DATE(cn.created_at) = DATE(ss.starts_at)
+                        AND cn.category = 'session'
                     WHERE ss.client_id = :cid
                         AND ss.kind = 'therapy'
                         AND ss.starts_at IS NOT NULL
@@ -6283,7 +6290,7 @@ def get_client_sessions(client_id):
             return jsonify(sessions), 200
 
     except Exception as e:
-        print(f"Błąd: {str(e)}")
+        print(f"Błąd w get_client_sessions: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
@@ -6661,6 +6668,7 @@ def get_waiting_stats():
     except Exception as e:
         print(f"Błąd w get_waiting_stats: {str(e)}")
         return jsonify({'error': 'Błąd pobierania statystyk'}), 500
+
 
 
 
