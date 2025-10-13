@@ -864,7 +864,7 @@
         async function loadClients() {
             try {
                 console.log('🔄 Ładowanie klientów...');
-                const response = await fetch(API_BASE_URL + '/clients');
+                const response = await fetch(API_BASE_URL + '/api/clients');
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -915,7 +915,7 @@
 
         async function loadTherapists() {
             try {
-                const response = await fetch(API_BASE_URL + '/therapists');
+                const response = await fetch(API_BASE_URL + '/api/therapists');
                 const therapists = await response.json();
 
                 const select = document.getElementById('therapistId');
@@ -1209,7 +1209,7 @@
                 const endMinute = totalMinutes % 60;
                 const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
 
-                const response = await fetch(API_BASE_URL + '/schedule/group', {
+                const response = await fetch(API_BASE_URL + '/api/schedule/group', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1504,3 +1504,4 @@
     </script>
 </body>
 </html>
+
