@@ -954,7 +954,7 @@
             safeUpdateDeleteButton();
 
             try {
-                const url = `${API_BASE_URL}/clients/${clientId}/sessions?month=${month}`;
+                const url = `${API_BASE_URL}/api/clients/${clientId}/sessions?month=${month}`;
                 console.log('📡 Pobieranie:', url);
 
                 const response = await fetch(url);
@@ -1208,7 +1208,7 @@
                 const endMinute = totalMinutes % 60;
                 const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
 
-                const response = await fetch(API_BASE_URL + '/schedule/group', {
+                const response = await fetch(API_BASE_URL + '/api/schedule/group', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1618,5 +1618,6 @@
 </body>
 
 </html>
+
 
 
