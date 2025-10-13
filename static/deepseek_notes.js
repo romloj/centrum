@@ -1,4 +1,3 @@
-<script>
     const API_BASE_URL = window.location.origin;
     let sessions = [];
     let selectedNotes = [];
@@ -582,4 +581,3 @@
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') closeNoteModal();
     });
-</script>
