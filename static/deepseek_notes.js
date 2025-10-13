@@ -1,10 +1,180 @@
+
     const API_BASE_URL = window.location.origin;
     let sessions = [];
     let selectedNotes = [];
     let currentSessionIndex = null;
     let editMode = false;
 
-    // PRZENIEŚ WSZYSTKIE FUNKCJE NA ZEWNĄTRZ window.onload
+    // WSZYSTKIE FUNKCJE NA ZEWNĄTRZ window.onload
+    function setDefaultMonth() {
+        const now = new Date();
+        const monthStr = now.toISOString().slice(0, 7);
+        document.getElementById('monthSelector').value = monthStr;
+    }
+
+    function setDefaultDateTime() {
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        const timeStr = now.toTimeString().slice(0, 5);
+        document.getElementById('sessionDate').value = dateStr;
+        document.getElementById('sessionTime').value = timeStr;
+    }
+
+    async function loadClients() {
+        try {
+            console.log('🔄 Ładowanie klientów...');
+            const response = await fetch(API_BASE_URL + '/api/clients');
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const clients = await response.json();
+            console.log('✅ Otrzymano klientów:', clients.length);
+
+            const select = document.getElementById('clientId');
+            select.innerHTML = '<option value="">Wybierz klienta</option>';
+
+            clients.forEach(client => {
+                const isActive = client.active === undefined || client.active === true;
+
+                if (isActive) {
+                    const clientId = client.client_id || client.id;
+                    const clientName = client.full_name || `${client.first_name} ${client.last_name}` || 'Bez nazwy';
+
+                    const option = document.createElement('option');
+                    option.value = clientId;
+                    option.textContent = clientName;
+                    option.dataset.fullName = clientName;
+                    select.appendChild(option);
+                }
+            });
+
+            // Event listener - automatyczne ładowanie sesji
+            select.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const clientName = selectedOption.dataset.fullName || selectedOption.text;
+
+                if (this.value) {
+                    document.getElementById('clientInfoBox').style.display = 'block';
+                    document.getElementById('selectedClientName').textContent = clientName;
+                    console.log('📡 Ładuję sesje dla:', clientName);
+                    loadClientSessions();
+                } else {
+                    document.getElementById('clientInfoBox').style.display = 'none';
+                    document.getElementById('sessionsList').innerHTML = '<div class="empty-state" style="padding: 80px 20px;"><div style="font-size: 48px; margin-bottom: 15px;">👈</div><div style="font-size: 16px; color: #666;">Wybierz klienta w formularzu po lewej stronie,<br>aby zobaczyć jego sesje i notatki.</div></div>';
+                }
+            });
+
+        } catch (error) {
+            console.error('❌ Błąd ładowania klientów:', error);
+            showError('Nie udało się załadować listy klientów');
+        }
+    }
+
+    async function loadTherapists() {
+        try {
+            const response = await fetch(API_BASE_URL + '/api/therapists');
+            const therapists = await response.json();
+
+            const select = document.getElementById('therapistId');
+            select.innerHTML = '<option value="">Wybierz terapeutę</option>';
+
+            therapists.forEach(therapist => {
+                const option = document.createElement('option');
+                option.value = therapist.id;
+                option.textContent = therapist.full_name + (therapist.specialization ? ' - ' + therapist.specialization : '');
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Błąd ładowania terapeutów:', error);
+            showError('Nie udało się załadować listy terapeutów');
+        }
+    }
+
+    async function loadClientSessions() {
+        const clientId = document.getElementById('clientId').value;
+        const month = document.getElementById('monthSelector').value;
+        const list = document.getElementById('sessionsList');
+        const loading = document.getElementById('loadingIndicator');
+
+        console.log('🔍 loadClientSessions - clientId:', clientId);
+
+        if (!clientId) {
+            list.innerHTML = '<div class="empty-state" style="padding: 80px 20px;"><div style="font-size: 48px; margin-bottom: 15px;">👈</div><div style="font-size: 16px; color: #666;">Wybierz klienta w formularzu po lewej stronie,<br>aby zobaczyć jego sesje i notatki.</div></div>';
+            return;
+        }
+
+        loading.style.display = 'block';
+        list.innerHTML = '';
+        sessions = [];
+        selectedNotes = [];
+
+        safeUpdateDeleteButton();
+
+        try {
+            const url = `${API_BASE_URL}/api/clients/${clientId}/sessions?month=${month}`;
+            console.log('📡 Pobieranie:', url);
+
+            const response = await fetch(url);
+            console.log('Status:', response.status);
+
+            if (response.status === 404) {
+                throw new Error('Backend nie ma endpointu /clients/{id}/sessions');
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || response.statusText);
+            }
+
+            const data = await response.json();
+            sessions = data;
+            console.log('✅ Pobrano sesji:', sessions.length);
+
+            renderSessions();
+
+        } catch (error) {
+            console.error('❌ Błąd:', error);
+            list.innerHTML = `<div class="empty-state">❌ ${error.message}<br><br><em>Sprawdź konsolę (F12)</em></div>`;
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+
+    function renderSessions() {
+        const list = document.getElementById('sessionsList');
+
+        if (sessions.length === 0) {
+            list.innerHTML = '<div class="empty-state">Brak sesji w wybranym miesiącu.</div>';
+            return;
+        }
+
+        list.innerHTML = sessions.map((session, index) => `
+            <div class="session-item" id="session-${index}">
+                <input type="checkbox" class="session-checkbox" onchange="toggleNoteSelection(${index})">
+                <div class="session-header">
+                    <div class="session-title">${session.label || 'Sesja terapeutyczna'}</div>
+                    <div class="session-date">${formatDateTime(session.starts_at)}</div>
+                </div>
+                <div class="session-info">
+                    <strong>Terapeuta:</strong> ${session.therapist_name || 'Nieznany'}
+                </div>
+                <div class="session-info">
+                    <strong>Czas trwania:</strong> ${session.duration_minutes || 60} min
+                </div>
+                ${session.place_to ? `<div class="session-info"><strong>Miejsce:</strong> ${session.place_to}</div>` : ''}
+                ${session.notes ? `
+                    <div class="session-notes">
+                        <strong>Notatki:</strong>
+                        <div class="notes-preview">${session.notes.substring(0, 100)}${session.notes.length > 100 ? '...' : ''}</div>
+                        <button class="expand-btn" onclick="viewNote(${index})">📋 Zobacz pełną notatkę</button>
+                    </div>
+                ` : '<div class="session-info" style="color: #999;">Brak notatek</div>'}
+            </div>
+        `).join('');
+    }
+
     function toggleNoteSelection(index) {
         const sessionItem = document.getElementById(`session-${index}`);
         const checkbox = sessionItem.querySelector('.session-checkbox');
@@ -105,6 +275,128 @@
         } finally {
             safeUpdateDeleteButton();
         }
+    }
+
+    async function saveSession() {
+        const btn = document.getElementById('saveBtn');
+        const clientId = document.getElementById('clientId').value;
+        const therapistId = document.getElementById('therapistId').value;
+        const sessionDate = document.getElementById('sessionDate').value;
+        const sessionTime = document.getElementById('sessionTime').value;
+        const duration = parseInt(document.getElementById('duration').value);
+        const place = document.getElementById('place').value;
+        const topic = document.getElementById('topic').value;
+        const notes = document.getElementById('notes').value;
+
+        if (!clientId || !therapistId || !sessionDate || !sessionTime || !place || !topic) {
+            showError('Proszę wypełnić wszystkie wymagane pola!');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = '⏳ Zapisywanie...';
+
+        try {
+            const startsAt = `${sessionDate}T${sessionTime}:00`;
+            const [startHour, startMinute] = sessionTime.split(':').map(Number);
+            const totalMinutes = startHour * 60 + startMinute + duration;
+            const endHour = Math.floor(totalMinutes / 60);
+            const endMinute = totalMinutes % 60;
+            const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
+
+            const response = await fetch(API_BASE_URL + '/api/schedule/group', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    client_id: parseInt(clientId),
+                    label: topic,
+                    notes: notes || undefined,
+                    therapy: {
+                        therapist_id: parseInt(therapistId),
+                        starts_at: startsAt,
+                        ends_at: endsAt,
+                        place: place,
+                        notes: notes || undefined
+                    },
+                    status: 'planned'
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    throw new Error('Konflikt czasowy - terapeuta ma już zajęty ten czas. Wybierz inną godzinę.');
+                }
+                throw new Error(result.error || result.message || 'Błąd zapisu sesji');
+            }
+
+            console.log('✅ Sesja zapisana');
+            showSuccess();
+            clearForm();
+
+            // Jeśli są notatki, zapisz je do client_notes
+            if (notes && notes.trim()) {
+                try {
+                    console.log('📝 Zapisuję notatki do client_notes...');
+                    const notesResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            content: notes.trim(),
+                            category: 'session',
+                            created_by_name: 'System',
+                            created_at: startsAt
+                        })
+                    });
+
+                    if (notesResponse.ok) {
+                        console.log('✅ Notatki zapisane do client_notes');
+                    } else {
+                        console.warn('⚠️ Nie udało się zapisać notatek do client_notes');
+                    }
+                } catch (noteError) {
+                    console.error('❌ Błąd zapisu notatek:', noteError);
+                }
+            }
+
+            await loadClientSessions();
+
+        } catch (error) {
+            console.error('❌ Błąd:', error);
+            showError(error.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '💾 Zapisz Sesję';
+        }
+    }
+
+    function clearForm() {
+        document.getElementById('topic').value = '';
+        document.getElementById('notes').value = '';
+        document.getElementById('duration').value = '60';
+        document.getElementById('place').value = 'Poradnia';
+        setDefaultDateTime();
+    }
+
+    function showSuccess(message = 'Sesja została pomyślnie zapisana!') {
+        const alert = document.getElementById('successAlert');
+        alert.textContent = `✅ ${message}`;
+        alert.classList.add('show');
+        setTimeout(() => alert.classList.remove('show'), 5000);
+    }
+
+    function showError(message) {
+        const alert = document.getElementById('errorAlert');
+        document.getElementById('errorMessage').textContent = message;
+        alert.classList.add('show');
+        setTimeout(() => alert.classList.remove('show'), 8000);
+    }
+
+    function formatDateTime(isoString) {
+        if (!isoString) return 'Brak daty';
+        const date = new Date(isoString);
+        return date.toLocaleDateString('pl-PL') + ' ' + date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
     }
 
     function viewNote(index) {
@@ -275,307 +567,12 @@
         window.print();
     }
 
-    function formatDateTime(isoString) {
-        if (!isoString) return 'Brak daty';
-        const date = new Date(isoString);
-        return date.toLocaleDateString('pl-PL') + ' ' + date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-    }
-
-    function showSuccess(message = 'Sesja została pomyślnie zapisana!') {
-        const alert = document.getElementById('successAlert');
-        alert.textContent = `✅ ${message}`;
-        alert.classList.add('show');
-        setTimeout(() => alert.classList.remove('show'), 5000);
-    }
-
-    function showError(message) {
-        const alert = document.getElementById('errorAlert');
-        document.getElementById('errorMessage').textContent = message;
-        alert.classList.add('show');
-        setTimeout(() => alert.classList.remove('show'), 8000);
-    }
-
-    // POZOSTAŁE FUNKCJE (loadClients, loadTherapists, loadClientSessions, renderSessions, saveSession, itp.)
-    // mogą pozostać wewnątrz window.onload lub też zostać przeniesione na zewnątrz
-
+    // Inicjalizacja po załadowaniu strony
     window.onload = function() {
         loadClients();
         loadTherapists();
         setDefaultDateTime();
         setDefaultMonth();
-
-        function setDefaultMonth() {
-            const now = new Date();
-            const monthStr = now.toISOString().slice(0, 7);
-            document.getElementById('monthSelector').value = monthStr;
-        }
-
-        function setDefaultDateTime() {
-            const now = new Date();
-            const dateStr = now.toISOString().split('T')[0];
-            const timeStr = now.toTimeString().slice(0, 5);
-            document.getElementById('sessionDate').value = dateStr;
-            document.getElementById('sessionTime').value = timeStr;
-        }
-
-        async function loadClients() {
-            try {
-                console.log('🔄 Ładowanie klientów...');
-                const response = await fetch(API_BASE_URL + '/api/clients');
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const clients = await response.json();
-                console.log('✅ Otrzymano klientów:', clients.length);
-
-                const select = document.getElementById('clientId');
-                select.innerHTML = '<option value="">Wybierz klienta</option>';
-
-                clients.forEach(client => {
-                    const isActive = client.active === undefined || client.active === true;
-
-                    if (isActive) {
-                        const clientId = client.client_id || client.id;
-                        const clientName = client.full_name || `${client.first_name} ${client.last_name}` || 'Bez nazwy';
-
-                        const option = document.createElement('option');
-                        option.value = clientId;
-                        option.textContent = clientName;
-                        option.dataset.fullName = clientName;
-                        select.appendChild(option);
-                    }
-                });
-
-                // Event listener - automatyczne ładowanie sesji
-                select.addEventListener('change', function() {
-                    const selectedOption = this.options[this.selectedIndex];
-                    const clientName = selectedOption.dataset.fullName || selectedOption.text;
-
-                    if (this.value) {
-                        document.getElementById('clientInfoBox').style.display = 'block';
-                        document.getElementById('selectedClientName').textContent = clientName;
-                        console.log('📡 Ładuję sesje dla:', clientName);
-                        loadClientSessions();
-                    } else {
-                        document.getElementById('clientInfoBox').style.display = 'none';
-                        document.getElementById('sessionsList').innerHTML = '<div class="empty-state" style="padding: 80px 20px;"><div style="font-size: 48px; margin-bottom: 15px;">👈</div><div style="font-size: 16px; color: #666;">Wybierz klienta w formularzu po lewej stronie,<br>aby zobaczyć jego sesje i notatki.</div></div>';
-                    }
-                });
-
-            } catch (error) {
-                console.error('❌ Błąd ładowania klientów:', error);
-                showError('Nie udało się załadować listy klientów');
-            }
-        }
-
-        async function loadTherapists() {
-            try {
-                const response = await fetch(API_BASE_URL + '/api/therapists');
-                const therapists = await response.json();
-
-                const select = document.getElementById('therapistId');
-                select.innerHTML = '<option value="">Wybierz terapeutę</option>';
-
-                therapists.forEach(therapist => {
-                    const option = document.createElement('option');
-                    option.value = therapist.id;
-                    option.textContent = therapist.full_name + (therapist.specialization ? ' - ' + therapist.specialization : '');
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Błąd ładowania terapeutów:', error);
-                showError('Nie udało się załadować listy terapeutów');
-            }
-        }
-
-        async function loadClientSessions() {
-            const clientId = document.getElementById('clientId').value;
-            const month = document.getElementById('monthSelector').value;
-            const list = document.getElementById('sessionsList');
-            const loading = document.getElementById('loadingIndicator');
-
-            console.log('🔍 loadClientSessions - clientId:', clientId);
-
-            if (!clientId) {
-                list.innerHTML = '<div class="empty-state" style="padding: 80px 20px;"><div style="font-size: 48px; margin-bottom: 15px;">👈</div><div style="font-size: 16px; color: #666;">Wybierz klienta w formularzu po lewej stronie,<br>aby zobaczyć jego sesje i notatki.</div></div>';
-                return;
-            }
-
-            loading.style.display = 'block';
-            list.innerHTML = '';
-            sessions = [];
-            selectedNotes = [];
-
-            // Bezpieczna aktualizacja przycisku
-            safeUpdateDeleteButton();
-
-            try {
-                const url = `${API_BASE_URL}/api/clients/${clientId}/sessions?month=${month}`;
-                console.log('📡 Pobieranie:', url);
-
-                const response = await fetch(url);
-                console.log('Status:', response.status);
-
-                if (response.status === 404) {
-                    throw new Error('Backend nie ma endpointu /clients/{id}/sessions');
-                }
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || response.statusText);
-                }
-
-                const data = await response.json();
-                sessions = data;
-                console.log('✅ Pobrano sesji:', sessions.length);
-
-                renderSessions();
-
-            } catch (error) {
-                console.error('❌ Błąd:', error);
-                list.innerHTML = `<div class="empty-state">❌ ${error.message}<br><br><em>Sprawdź konsolę (F12)</em></div>`;
-            } finally {
-                loading.style.display = 'none';
-            }
-        }
-
-        function renderSessions() {
-            const list = document.getElementById('sessionsList');
-
-            if (sessions.length === 0) {
-                list.innerHTML = '<div class="empty-state">Brak sesji w wybranym miesiącu.</div>';
-                return;
-            }
-
-            list.innerHTML = sessions.map((session, index) => `
-                <div class="session-item" id="session-${index}">
-                    <input type="checkbox" class="session-checkbox" onchange="toggleNoteSelection(${index})">
-                    <div class="session-header">
-                        <div class="session-title">${session.label || 'Sesja terapeutyczna'}</div>
-                        <div class="session-date">${formatDateTime(session.starts_at)}</div>
-                    </div>
-                    <div class="session-info">
-                        <strong>Terapeuta:</strong> ${session.therapist_name || 'Nieznany'}
-                    </div>
-                    <div class="session-info">
-                        <strong>Czas trwania:</strong> ${session.duration_minutes || 60} min
-                    </div>
-                    ${session.place_to ? `<div class="session-info"><strong>Miejsce:</strong> ${session.place_to}</div>` : ''}
-                    ${session.notes ? `
-                        <div class="session-notes">
-                            <strong>Notatki:</strong>
-                            <div class="notes-preview">${session.notes.substring(0, 100)}${session.notes.length > 100 ? '...' : ''}</div>
-                            <button class="expand-btn" onclick="viewNote(${index})">📋 Zobacz pełną notatkę</button>
-                        </div>
-                    ` : '<div class="session-info" style="color: #999;">Brak notatek</div>'}
-                </div>
-            `).join('');
-        }
-
-         async function saveSession() {
-                const btn = document.getElementById('saveBtn');
-                const clientId = document.getElementById('clientId').value;
-                const therapistId = document.getElementById('therapistId').value;
-                const sessionDate = document.getElementById('sessionDate').value;
-                const sessionTime = document.getElementById('sessionTime').value;
-                const duration = parseInt(document.getElementById('duration').value);
-                const place = document.getElementById('place').value;
-                const topic = document.getElementById('topic').value;
-                const notes = document.getElementById('notes').value;
-    
-                if (!clientId || !therapistId || !sessionDate || !sessionTime || !place || !topic) {
-                    showError('Proszę wypełnić wszystkie wymagane pola!');
-                    return;
-                }
-    
-                btn.disabled = true;
-                btn.textContent = '⏳ Zapisywanie...';
-    
-                try {
-                    const startsAt = `${sessionDate}T${sessionTime}:00`;
-                    const [startHour, startMinute] = sessionTime.split(':').map(Number);
-                    const totalMinutes = startHour * 60 + startMinute + duration;
-                    const endHour = Math.floor(totalMinutes / 60);
-                    const endMinute = totalMinutes % 60;
-                    const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
-    
-                    const response = await fetch(API_BASE_URL + '/api/schedule/group', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            client_id: parseInt(clientId),
-                            label: topic,
-                            notes: notes || undefined,
-                            therapy: {
-                                therapist_id: parseInt(therapistId),
-                                starts_at: startsAt,
-                                ends_at: endsAt,
-                                place: place,
-                                notes: notes || undefined
-                            },
-                            status: 'planned'
-                        })
-                    });
-    
-                    const result = await response.json();
-    
-                    if (!response.ok) {
-                        if (response.status === 409) {
-                            throw new Error('Konflikt czasowy - terapeuta ma już zajęty ten czas. Wybierz inną godzinę.');
-                        }
-                        throw new Error(result.error || result.message || 'Błąd zapisu sesji');
-                    }
-    
-                    console.log('✅ Sesja zapisana');
-                    showSuccess();
-                    clearForm();
-    
-                    // Jeśli są notatki, zapisz je do client_notes
-                    if (notes && notes.trim()) {
-                        try {
-                            console.log('📝 Zapisuję notatki do client_notes...');
-                            const notesResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    content: notes.trim(),
-                                    category: 'session',
-                                    created_by_name: 'System',
-                                    created_at: startsAt
-                                })
-                            });
-    
-                            if (notesResponse.ok) {
-                                console.log('✅ Notatki zapisane do client_notes');
-                            } else {
-                                console.warn('⚠️ Nie udało się zapisać notatek do client_notes');
-                            }
-                        } catch (noteError) {
-                            console.error('❌ Błąd zapisu notatek:', noteError);
-                        }
-                    }
-    
-                    await loadClientSessions();
-    
-                } catch (error) {
-                    console.error('❌ Błąd:', error);
-                    showError(error.message);
-                } finally {
-                    btn.disabled = false;
-                    btn.textContent = '💾 Zapisz Sesję';
-                }
-            }
-
-        function clearForm() {
-            document.getElementById('topic').value = '';
-            document.getElementById('notes').value = '';
-            document.getElementById('duration').value = '60';
-            document.getElementById('place').value = 'Poradnia';
-            setDefaultDateTime();
-        }
-		//tu koniec
     };
 
     document.addEventListener('keydown', function(event) {
