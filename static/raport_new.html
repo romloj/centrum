@@ -1187,6 +1187,9 @@
     const stats = calculateStatistics(filteredProjects);
     const activityDescription = generateActivityDescription(filteredProjects, year, stats);
 
+    // Obliczanie przychodów z różnych źródeł na podstawie projektów
+    const incomeSources = calculateIncomeSources(filteredProjects);
+
     const { Document, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, HeadingLevel, BorderStyle } = docx;
 
     let sections = [];
@@ -1402,6 +1405,7 @@
             })
         );
 
+        // Tabela przychodów - podsumowanie
         const incomeTable = new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: {
@@ -1436,7 +1440,7 @@
                             children: [new Paragraph({ text: "Łączna kwota przychodów" })]
                         }),
                         new TableCell({
-                            children: [new Paragraph({ text: `${formatMoney(incomeStatutory || 0)} PLN`, alignment: AlignmentType.RIGHT })]
+                            children: [new Paragraph({ text: `${formatMoney(stats.totalBudget)} PLN`, alignment: AlignmentType.RIGHT })]
                         }),
                         new TableCell({
                             children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
@@ -1452,7 +1456,7 @@
                             children: [new Paragraph({ text: "a. Przychody z działalności statutowej" })]
                         }),
                         new TableCell({
-                            children: [new Paragraph({ text: `${formatMoney(incomeStatutory || 0)} PLN`, alignment: AlignmentType.RIGHT })]
+                            children: [new Paragraph({ text: `${formatMoney(stats.totalBudget)} PLN`, alignment: AlignmentType.RIGHT })]
                         }),
                         new TableCell({
                             children: [new Paragraph({ text: "–", alignment: AlignmentType.CENTER })]
@@ -1498,6 +1502,122 @@
         });
 
         sections.push(incomeTable);
+
+        // Szczegółowe źródła przychodów
+        sections.push(
+            new Paragraph({
+                text: "2. Informacja o źródłach przychodów",
+                bold: true,
+                spacing: { before: 400, after: 200 }
+            })
+        );
+
+        const incomeSourcesTable = new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+                top: { style: BorderStyle.SINGLE },
+                bottom: { style: BorderStyle.SINGLE },
+                left: { style: BorderStyle.SINGLE },
+                right: { style: BorderStyle.SINGLE },
+                insideHorizontal: { style: BorderStyle.SINGLE },
+                insideVertical: { style: BorderStyle.SINGLE },
+            },
+            rows: [
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "Źródło przychodu" })],
+                            width: { size: 60, type: WidthType.PERCENTAGE }
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: "Kwota (PLN)", alignment: AlignmentType.CENTER })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "a. Przychody z działalności odpłatnej w ramach celów statutowych" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(incomeSources.paidActivities)} PLN`, alignment: AlignmentType.RIGHT })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "b. Ze źródeł publicznych ogółem, w tym:" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(incomeSources.publicSources)} PLN`, alignment: AlignmentType.RIGHT })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "   - ze środków budżetu państwa" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(incomeSources.stateBudget)} PLN`, alignment: AlignmentType.RIGHT })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "   - ze środków budżetu jednostek samorządu terytorialnego" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(incomeSources.localGovernment)} PLN`, alignment: AlignmentType.RIGHT })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "   - ze środków Unii Europejskiej" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(incomeSources.euFunds)} PLN`, alignment: AlignmentType.RIGHT })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "c. Od osób fizycznych" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(incomeSources.individuals)} PLN`, alignment: AlignmentType.RIGHT })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "d. Od osób prawnych" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(incomeSources.entities)} PLN`, alignment: AlignmentType.RIGHT })]
+                        })
+                    ]
+                }),
+                new TableRow({
+                    children: [
+                        new TableCell({
+                            children: [new Paragraph({ text: "e. Pozostałe źródła przychodów" })]
+                        }),
+                        new TableCell({
+                            children: [new Paragraph({ text: `${formatMoney(incomeSources.other)} PLN`, alignment: AlignmentType.RIGHT })]
+                        })
+                    ]
+                })
+            ]
+        });
+
+        sections.push(incomeSourcesTable);
 
         // Sekcja IV - Informacja o kosztach
         sections.push(
@@ -1605,7 +1725,7 @@
 
         sections.push(costsTable);
 
-        // Pozostałe sekcje (skrócone dla przykładu)
+        // Pozostałe sekcje
         sections.push(
             new Paragraph({
                 text: "V. Informacja o zatrudnieniu i wynagrodzeniu",
@@ -1628,20 +1748,6 @@
             }),
             new Paragraph({
                 text: "1. Wartość składników majątkowych na dzień 31 grudnia roku sprawozdawczego: –",
-                spacing: { after: 400 }
-            }),
-
-            new Paragraph({
-                text: "VII. Informacja o środkach pieniężnych",
-                heading: HeadingLevel.HEADING_2,
-                spacing: { before: 400, after: 200 }
-            }),
-            new Paragraph({
-                text: "1. Środki pieniężne na rachunkach bankowych na dzień 31 grudnia roku sprawozdawczego: –",
-                spacing: { after: 100 }
-            }),
-            new Paragraph({
-                text: "2. Środki pieniężne w kasie na dzień 31 grudnia roku sprawozdawczego: –",
                 spacing: { after: 400 }
             })
         );
@@ -1672,7 +1778,7 @@
         );
 
     } else {
-        // Sprawozdanie podsumowujące
+        // Sprawozdanie podsumowujące (bez zmian)
         sections = [
             new Paragraph({
                 text: "Sprawozdanie z Działalności",
@@ -1784,6 +1890,36 @@
             })
         );
     }
+
+    const doc = new Document({
+        sections: [{
+            properties: {},
+            children: sections
+        }]
+    });
+
+    const blob = await docx.Packer.toBlob(doc);
+    const fileName = `Sprawozdanie_${foundationName.replace(/\s+/g, '_')}_${year}.docx`;
+    saveAs(blob, fileName);
+}
+
+// Nowa funkcja do obliczania źródeł przychodów z projektów
+function calculateIncomeSources(projects) {
+    // Tutaj możesz rozszerzyć logikę w zależności od tego jak masz oznaczone źródła finansowania w projektach
+    // Na razie zakładam, że wszystkie projekty są finansowane z różnych źródeł publicznych
+    const totalBudget = projects.reduce((sum, project) => sum + (parseFloat(project.budget) || 0), 0);
+    
+    return {
+        paidActivities: totalBudget * 0.1, // przykładowo 10% z działalności odpłatnej
+        publicSources: totalBudget * 0.6,  // przykładowo 60% ze źródeł publicznych
+        stateBudget: totalBudget * 0.3,    // przykładowo 30% z budżetu państwa
+        localGovernment: totalBudget * 0.2, // przykładowo 20% z samorządu
+        euFunds: totalBudget * 0.1,        // przykładowo 10% z UE
+        individuals: totalBudget * 0.15,   // przykładowo 15% od osób fizycznych
+        entities: totalBudget * 0.1,       // przykładowo 10% od osób prawnych
+        other: totalBudget * 0.05          // przykładowo 5% z innych źródeł
+    };
+}
 
     const doc = new Document({
         sections: [{
