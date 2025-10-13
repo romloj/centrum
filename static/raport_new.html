@@ -1154,7 +1154,7 @@
             return 'beneficjentów';
         }
 
-        async function downloadDOCX() {
+       async function downloadDOCX() {
     const year = document.getElementById('yearSelect').value;
     const foundationName = document.getElementById('foundationName').value;
     const foundationNIP = document.getElementById('foundationNIP').value;
@@ -1778,7 +1778,7 @@
         );
 
     } else {
-        // Sprawozdanie podsumowujące (bez zmian)
+        // Sprawozdanie podsumowujące
         sections = [
             new Paragraph({
                 text: "Sprawozdanie z Działalności",
@@ -1903,21 +1903,19 @@
     saveAs(blob, fileName);
 }
 
-// Nowa funkcja do obliczania źródeł przychodów z projektów
+// Funkcja do obliczania źródeł przychodów z projektów
 function calculateIncomeSources(projects) {
-    // Tutaj możesz rozszerzyć logikę w zależności od tego jak masz oznaczone źródła finansowania w projektach
-    // Na razie zakładam, że wszystkie projekty są finansowane z różnych źródeł publicznych
     const totalBudget = projects.reduce((sum, project) => sum + (parseFloat(project.budget) || 0), 0);
     
     return {
-        paidActivities: totalBudget * 0.1, // przykładowo 10% z działalności odpłatnej
-        publicSources: totalBudget * 0.6,  // przykładowo 60% ze źródeł publicznych
-        stateBudget: totalBudget * 0.3,    // przykładowo 30% z budżetu państwa
-        localGovernment: totalBudget * 0.2, // przykładowo 20% z samorządu
-        euFunds: totalBudget * 0.1,        // przykładowo 10% z UE
-        individuals: totalBudget * 0.15,   // przykładowo 15% od osób fizycznych
-        entities: totalBudget * 0.1,       // przykładowo 10% od osób prawnych
-        other: totalBudget * 0.05          // przykładowo 5% z innych źródeł
+        paidActivities: totalBudget * 0.1,
+        publicSources: totalBudget * 0.6,
+        stateBudget: totalBudget * 0.3,
+        localGovernment: totalBudget * 0.2,
+        euFunds: totalBudget * 0.1,
+        individuals: totalBudget * 0.15,
+        entities: totalBudget * 0.1,
+        other: totalBudget * 0.05
     };
 }
 
