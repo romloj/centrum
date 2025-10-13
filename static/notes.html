@@ -941,64 +941,66 @@
         }
 
         async function loadClientSessions() {
-            const clientId = document.getElementById('clientId').value;
-            const month = document.getElementById('monthSelector').value;
-            const list = document.getElementById('sessionsList');
-            const loading = document.getElementById('loadingIndicator');
+    const clientId = document.getElementById('clientId').value;
+    const month = document.getElementById('monthSelector').value;
+    const list = document.getElementById('sessionsList');
+    const loading = document.getElementById('loadingIndicator');
 
-            console.log('🔍 loadClientSessions - clientId:', clientId, 'month:', month);
+    if (!clientId) {
+        list.innerHTML = '<div class="empty-state">Wybierz klienta w formularzu po lewej stronie...</div>';
+        return;
+    }
 
-            if (!clientId) {
-                list.innerHTML = '<div class="empty-state" style="padding: 80px 20px;"><div style="font-size: 48px; margin-bottom: 15px;">👈</div><div style="font-size: 16px; color: #666;">Wybierz klienta w formularzu po lewej stronie,<br>aby zobaczyć jego sesje i notatki.</div></div>';
-                return;
-            }
+    loading.style.display = 'block';
+    list.innerHTML = '';
+    sessions = [];
+    selectedNotes = [];
+    safeUpdateDeleteButton();
 
-            loading.style.display = 'block';
-            list.innerHTML = '';
-            sessions = [];
-            selectedNotes = [];
+    try {
+        const url = `${API_BASE_URL}/api/clients/${clientId}/sessions${month ? `?month=${month}` : ''}`;
+        console.log('📡 Pobieranie sesji:', url);
 
-            // Bezpieczna aktualizacja przycisku
-            safeUpdateDeleteButton();
-
-            try {
-                // POPRAWIONY URL - DODANO /api/
-                const url = `${API_BASE_URL}/api/clients/${clientId}/sessions${month ? `?month=${month}` : ''}`;
-                console.log('📡 Pobieranie sesji:', url);
-
-                const response = await fetch(url);
-                console.log('Status:', response.status);
-
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        throw new Error('Endpoint nie istnieje. Sprawdź czy backend ma /api/clients/{id}/sessions');
-                    }
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || response.statusText);
-                }
-
-                const data = await response.json();
-                sessions = data;
-                console.log('✅ Pobrano sesji:', sessions);
-
-                renderSessions();
-
-            } catch (error) {
-                console.error('❌ Błąd ładowania sesji:', error);
-                list.innerHTML = `
-                    <div class="empty-state">
-                        ❌ ${error.message}<br><br>
-                        <em>Sprawdź konsolę (F12) i upewnij się że backend działa.</em>
-                        <br><br>
-                        <button onclick="testBackendEndpoints()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                            🧪 Testuj endpointy
-                        </button>
-                    </div>
-                `;
-            } finally {
-                loading.style.display = 'none';
-            }
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+
+        let data = await response.json();
+        console.log('📥 Otrzymane dane:', data);
+
+        // ✅ DEDUPLIKACJA - usuń duplikaty na podstawie ID/grupy
+        data = data.filter((session, index, self) => {
+            // Usuń sesje bez ID
+            if (!session.id && !session.group_id) return false;
+            
+            // Znajdź pierwsze wystąpienie tego samego ID/grupy
+            const firstIndex = self.findIndex(s => 
+                (s.id && s.id === session.id) || 
+                (s.group_id && s.group_id === session.group_id)
+            );
+            
+            // Zachowaj tylko pierwsze wystąpienie
+            return index === firstIndex;
+        });
+
+        console.log('✅ Po deduplikacji:', data.length, 'sesji');
+        sessions = data;
+
+        renderSessions();
+
+    } catch (error) {
+        console.error('❌ Błąd ładowania sesji:', error);
+        list.innerHTML = `
+            <div class="empty-state">
+                ❌ ${error.message}
+            </div>
+        `;
+    } finally {
+        loading.style.display = 'none';
+    }
+}
 
         function renderSessions() {
             const list = document.getElementById('sessionsList');
@@ -1250,98 +1252,82 @@
         
 
         async function saveSession() {
-            const btn = document.getElementById('saveBtn');
-            const clientId = document.getElementById('clientId').value;
-            const therapistId = document.getElementById('therapistId').value;
-            const sessionDate = document.getElementById('sessionDate').value;
-            const sessionTime = document.getElementById('sessionTime').value;
-            const duration = parseInt(document.getElementById('duration').value);
-            const place = document.getElementById('place').value;
-            const topic = document.getElementById('topic').value;
-            const notes = document.getElementById('notes').value;
+    const btn = document.getElementById('saveBtn');
+    const clientId = document.getElementById('clientId').value;
+    const therapistId = document.getElementById('therapistId').value;
+    const sessionDate = document.getElementById('sessionDate').value;
+    const sessionTime = document.getElementById('sessionTime').value;
+    const duration = parseInt(document.getElementById('duration').value);
+    const place = document.getElementById('place').value;
+    const topic = document.getElementById('topic').value;
+    const notes = document.getElementById('notes').value;
 
-            if (!clientId || !therapistId || !sessionDate || !sessionTime || !place || !topic) {
-                showError('Proszę wypełnić wszystkie wymagane pola!');
-                return;
+    if (!clientId || !therapistId || !sessionDate || !sessionTime || !place || !topic) {
+        showError('Proszę wypełnić wszystkie wymagane pola!');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Zapisywanie...';
+
+    try {
+        const startsAt = `${sessionDate}T${sessionTime}:00`;
+        const [startHour, startMinute] = sessionTime.split(':').map(Number);
+        const totalMinutes = startHour * 60 + startMinute + duration;
+        const endHour = Math.floor(totalMinutes / 60);
+        const endMinute = totalMinutes % 60;
+        const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
+
+        console.log('💾 Zapisuję sesję:', {
+            clientId, therapistId, startsAt, endsAt, topic, notes: notes ? 'Tak' : 'Nie'
+        });
+
+        // ZAPISZ SESJĘ - TYLKO W JEDNYM MIEJSCU
+        const response = await fetch(API_BASE_URL + '/api/schedule/group', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_id: parseInt(clientId),
+                label: topic,
+                notes: notes || undefined, // Notatki zapisujemy TYLKO tutaj
+                therapy: {
+                    therapist_id: parseInt(therapistId),
+                    starts_at: startsAt,
+                    ends_at: endsAt,
+                    place: place,
+                    notes: notes || undefined // I tutaj dla spójności
+                },
+                status: 'planned'
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            if (response.status === 409) {
+                throw new Error('Konflikt czasowy - terapeuta ma już zajęty ten czas. Wybierz inną godzinę.');
             }
-
-            btn.disabled = true;
-            btn.textContent = '⏳ Zapisywanie...';
-
-            try {
-                const startsAt = `${sessionDate}T${sessionTime}:00`;
-                const [startHour, startMinute] = sessionTime.split(':').map(Number);
-                const totalMinutes = startHour * 60 + startMinute + duration;
-                const endHour = Math.floor(totalMinutes / 60);
-                const endMinute = totalMinutes % 60;
-                const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
-
-                const response = await fetch(API_BASE_URL + '/api/schedule/group', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        client_id: parseInt(clientId),
-                        label: topic,
-                        notes: notes || undefined,
-                        therapy: {
-                            therapist_id: parseInt(therapistId),
-                            starts_at: startsAt,
-                            ends_at: endsAt,
-                            place: place,
-                            notes: notes || undefined
-                        },
-                        status: 'planned'
-                    })
-                });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    if (response.status === 409) {
-                        throw new Error('Konflikt czasowy - terapeuta ma już zajęty ten czas. Wybierz inną godzinę.');
-                    }
-                    throw new Error(result.error || result.message || 'Błąd zapisu sesji');
-                }
-
-                console.log('✅ Sesja zapisana:', result);
-                showSuccess();
-                clearForm();
-
-                // Jeśli są notatki, zapisz je do client_notes
-                if (notes && notes.trim()) {
-                    try {
-                        console.log('📝 Zapisuję notatki do client_notes...');
-                        const notesResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                content: notes.trim(),
-                                category: 'session',
-                                created_by_name: 'System',
-                                created_at: startsAt
-                            })
-                        });
-
-                        if (notesResponse.ok) {
-                            console.log('✅ Notatki zapisane do client_notes');
-                        } else {
-                            console.warn('⚠️ Nie udało się zapisać notatek do client_notes');
-                        }
-                    } catch (noteError) {
-                        console.error('❌ Błąd zapisu notatek:', noteError);
-                    }
-                }
-
-                await loadClientSessions();
-
-            } catch (error) {
-                console.error('❌ Błąd:', error);
-                showError(error.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '💾 Zapisz Sesję';
-            }
+            throw new Error(result.error || result.message || 'Błąd zapisu sesji');
         }
+
+        console.log('✅ Sesja zapisana:', result);
+        showSuccess();
+        clearForm();
+
+        // ✅ NIE ZAPISUJ NOTATEK W client_notes - ZOSTAW TYLKO W SCHEDULE
+        // To zapobiega duplikacji
+        
+        // Odśwież listę sesji
+        await loadClientSessions();
+
+    } catch (error) {
+        console.error('❌ Błąd:', error);
+        showError(error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Zapisz Sesję';
+    }
+}
 
         function clearForm() {
             document.getElementById('topic').value = '';
@@ -1446,98 +1432,101 @@
         }
 
         async function saveNoteEdit() {
-            const session = sessions[currentSessionIndex];
-            if (!session) {
-                console.error('❌ Brak sesji!');
-                return;
-            }
-
-            const newContent = document.getElementById('editNoteContent').value.trim();
-            const clientId = document.getElementById('clientId').value;
-
-            console.log('💾 Zapisywanie notatki...');
-            console.log('  - Client ID:', clientId);
-            console.log('  - Session ID:', session.id);
-            console.log('  - Note ID:', session.note_id);
-            console.log('  - Treść:', newContent.substring(0, 50) + '...');
-
-            if (!newContent) {
-                alert('Notatka nie może być pusta!');
-                return;
-            }
-
-            const saveBtn = document.getElementById('btnSaveEdit');
-            saveBtn.disabled = true;
-            saveBtn.textContent = '⏳ Zapisywanie...';
-
-            try {
-                // Jeśli notatka już istnieje w client_notes - zaktualizuj
-                if (session.note_id) {
-                    console.log('📝 Aktualizacja istniejącej notatki:', session.note_id);
-
-                    const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes/${session.note_id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            content: newContent,
-                            category: 'session'
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'Błąd aktualizacji notatki');
-                    }
-
-                    console.log('✅ Notatka zaktualizowana');
-                } else {
-                    // Jeśli notatki nie ma w client_notes - utwórz nową
-                    console.log('📝 Tworzenie nowej notatki dla sesji');
-
-                    const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            content: newContent,
-                            category: 'session',
-                            created_by_name: 'System',
-                            created_at: session.starts_at
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'Błąd tworzenia notatki');
-                    }
-
-                    const result = await response.json();
-                    session.note_id = result.id;
-                    console.log('✅ Notatka utworzona, ID:', result.id);
+                const session = sessions[currentSessionIndex];
+                if (!session) {
+                    console.error('❌ Brak sesji!');
+                    return;
                 }
-
-                // Aktualizuj sesję w pamięci
-                session.notes = newContent;
-
-                // Odśwież widok podglądu
-                document.getElementById('modalNoteContent').textContent = newContent;
-
-                // Odśwież listę sesji
-                renderSessions();
-
-                // Wróć do trybu podglądu
-                cancelEdit();
-
-                // Pokaż komunikat sukcesu
-                alert('✅ Notatka została zapisana!');
-
-            } catch (error) {
-                console.error('❌ Błąd zapisu:', error);
-                alert('Nie udało się zapisać notatki:\n' + error.message);
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.textContent = '💾 Zapisz zmiany';
+            
+                const newContent = document.getElementById('editNoteContent').value.trim();
+                const clientId = document.getElementById('clientId').value;
+            
+                console.log('💾 Edycja notatki:', {
+                    sessionId: session.id,
+                    groupId: session.group_id,
+                    noteId: session.note_id,
+                    clientId: clientId
+                });
+            
+                if (!newContent) {
+                    alert('Notatka nie może być pusta!');
+                    return;
+                }
+            
+                const saveBtn = document.getElementById('btnSaveEdit');
+                saveBtn.disabled = true;
+                saveBtn.textContent = '⏳ Zapisywanie...';
+            
+                try {
+                    // ✅ ZAWSZE aktualizuj notatki TYLKO w schedule - NIE twórz w client_notes
+                    let updateSuccess = false;
+            
+                    // Próba 1: Aktualizacja przez group endpoint
+                    if (session.group_id) {
+                        try {
+                            console.log('📝 Aktualizacja notatki przez group:', session.group_id);
+                            const response = await fetch(`${API_BASE_URL}/api/schedule/group/${session.group_id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    notes: newContent
+                                })
+                            });
+            
+                            if (response.ok) {
+                                updateSuccess = true;
+                                console.log('✅ Notatka zaktualizowana przez group');
+                            }
+                        } catch (error) {
+                            console.error('❌ Błąd aktualizacji przez group:', error);
+                        }
+                    }
+            
+                    // Próba 2: Aktualizacja przez session endpoint
+                    if (!updateSuccess && session.id) {
+                        try {
+                            console.log('📝 Aktualizacja notatki przez session:', session.id);
+                            const response = await fetch(`${API_BASE_URL}/api/schedule/${session.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    notes: newContent
+                                })
+                            });
+            
+                            if (response.ok) {
+                                updateSuccess = true;
+                                console.log('✅ Notatka zaktualizowana przez session');
+                            }
+                        } catch (error) {
+                            console.error('❌ Błąd aktualizacji przez session:', error);
+                        }
+                    }
+            
+                    if (!updateSuccess) {
+                        throw new Error('Nie udało się zaktualizować notatki w żadnym z endpointów');
+                    }
+            
+                    // ✅ NIE TWÓRZ NOTATEK W client_notes - to powoduje duplikację
+            
+                    // Aktualizuj lokalnie
+                    session.notes = newContent;
+            
+                    // Odśwież widok
+                    document.getElementById('modalNoteContent').textContent = newContent;
+                    renderSessions();
+                    cancelEdit();
+            
+                    showSuccess('Notatka została zapisana!');
+            
+                } catch (error) {
+                    console.error('❌ Błąd zapisu:', error);
+                    alert('Nie udało się zapisać notatki:\n' + error.message);
+                } finally {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '💾 Zapisz zmiany';
+                }
             }
-        }
 
         function closeNoteModal() {
             const modal = document.getElementById('noteModal');
@@ -1636,10 +1625,32 @@
     safeUpdateDeleteButton();
     showSuccess('Sesje ukryte z widoku (tymczasowe rozwiązanie)');
 }
+
+        async function cleanupDuplicateNotes() {
+    const clientId = document.getElementById('clientId').value;
+    if (!clientId) {
+        alert('Wybierz klienta');
+        return;
+    }
+
+    if (!confirm('Czy chcesz wyczyścić zduplikowane notatki? Ta operacja usunie duplikaty z bazy.')) {
+        return;
+    }
+
+    try {
+        // Tutaj możesz dodać endpoint do czyszczenia duplikatów po stronie backendu
+        // Na razie pokażemy tylko informację
+        alert('Funkcja czyszczenia duplikatów wymaga implementacji po stronie backendu.\n\nSkontaktuj się z administratorem, aby wyczyścić zduplikowane notatki bezpośrednio w bazie danych.');
+    } catch (error) {
+        console.error('Błąd czyszczenia duplikatów:', error);
+        alert('Błąd: ' + error.message);
+    }
+}
         // Test 1: Sprawdź czy endpoint w ogóle istnieje
 fetch('/api/schedule/305')
   .then(r => console.log('GET Status:', r.status))
   .catch(e => console.error('GET Error:', e));
+        
 
 // Test 2: Sprawdź inne endpointy
 fetch('/api/clients')
@@ -1648,5 +1659,6 @@ fetch('/api/clients')
     </script>
 </body>
 </html>
+
 
 
