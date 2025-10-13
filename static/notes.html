@@ -511,47 +511,33 @@
             body * {
                 visibility: hidden;
             }
-            .modal, .modal * {
+            .modal-content, .modal-content * {
                 visibility: visible;
             }
-            .modal {
+            .modal-content {
                 position: fixed;
                 left: 0;
                 top: 0;
                 width: 100%;
-                height: 100%;
-                background: white;
-                z-index: 9999;
-                margin: 0;
-                padding: 0;
-                display: block !important;
-                overflow: visible;
-            }
-            .modal-content {
-                position: relative;
-                width: 100%;
                 max-width: 100%;
-                height: auto;
-                min-height: 100vh;
-                padding: 20px;
-                margin: 0;
+                padding: 30px;
                 box-shadow: none;
-                border: none;
+                background: white;
                 border-radius: 0;
+                margin: 0;
+                max-height: none;
                 overflow: visible;
             }
             .modal-header {
-                border-bottom: 2px solid #000;
-                margin-bottom: 20px;
-                padding-bottom: 10px;
+                border-bottom: 3px solid #000;
+                margin-bottom: 25px;
+                padding-bottom: 15px;
             }
             .modal-header h3 {
                 color: #000;
-                font-size: 22px;
-                margin: 0;
+                font-size: 24px;
             }
-            .modal-actions, .close-btn, #viewModeActions, #editModeActions,
-            .no-print, .print-header, .print-footer {
+            .modal-actions, .close-btn, #viewModeActions, #editModeActions {
                 display: none !important;
             }
             #editMode {
@@ -561,37 +547,53 @@
                 display: block !important;
             }
             .note-detail {
-                border-left: 3px solid #000;
+                border-left: 4px solid #000;
                 page-break-inside: avoid;
-                margin-bottom: 15px;
+                margin-bottom: 20px;
                 background: #f9f9f9;
-                break-inside: avoid-page;
             }
             .note-detail strong {
                 color: #000;
                 font-weight: 700;
-                font-size: 14px;
-            }
-            .note-detail div {
-                color: #000;
-                font-size: 13px;
-                line-height: 1.4;
             }
             .note-content {
-                font-size: 13px;
-                line-height: 1.5;
-                white-space: pre-wrap;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+
+            /* Nagłówek wydruku */
+            .print-header {
+                display: block !important;
+                text-align: center;
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 2px solid #000;
+            }
+            .print-header h1 {
+                font-size: 28px;
+                margin-bottom: 10px;
+                color: #000;
+            }
+            .print-header .print-date {
+                font-size: 14px;
+                color: #666;
+            }
+
+            /* Stopka wydruku */
+            .print-footer {
+                display: block !important;
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid #ccc;
+                font-size: 12px;
+                color: #666;
+                text-align: center;
             }
 
             /* Ukryj elementy niepotrzebne w druku */
-            .session-checkbox, .expand-btn {
+            .no-print {
                 display: none !important;
             }
-        }
-
-        /* Elementy dla wydruku - ukryte domyślnie */
-        .print-header, .print-footer {
-            display: none;
         }
 
         .client-info-box {
@@ -844,7 +846,6 @@
             loadTherapists();
             setDefaultDateTime();
             setDefaultMonth();
-        };
 
         function setDefaultMonth() {
             const now = new Date();
@@ -863,7 +864,7 @@
         async function loadClients() {
             try {
                 console.log('🔄 Ładowanie klientów...');
-                const response = await fetch('/api/clients');
+                const response = await fetch(API_BASE_URL + '/clients');
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -914,7 +915,7 @@
 
         async function loadTherapists() {
             try {
-                const response = await fetch(API_BASE_URL + '/api/therapists');
+                const response = await fetch(API_BASE_URL + '/therapists');
                 const therapists = await response.json();
 
                 const select = document.getElementById('therapistId');
@@ -954,7 +955,7 @@
             safeUpdateDeleteButton();
 
             try {
-                const url = `${API_BASE_URL}/api/clients/${clientId}/sessions?month=${month}`;
+                const url = `${API_BASE_URL}/clients/${clientId}/sessions?month=${month}`;
                 console.log('📡 Pobieranie:', url);
 
                 const response = await fetch(url);
@@ -985,42 +986,35 @@
 
         function renderSessions() {
             const list = document.getElementById('sessionsList');
-        
+
             if (sessions.length === 0) {
                 list.innerHTML = '<div class="empty-state">Brak sesji w wybranym miesiącu.</div>';
                 return;
             }
-        
-            list.innerHTML = sessions.map((session, index) => {
-                // Sprawdź, czy notatki istnieją i nie są pustym stringiem
-                const hasNotes = session.notes && session.notes.trim().length > 0;
-                const notesPreview = hasNotes ? 
-                    (session.notes.length > 100 ? session.notes.substring(0, 100) + '...' : session.notes) : 
-                    'Brak notatek';
-        
-                return `
-                    <div class="session-item" id="session-${index}">
-                        <input type="checkbox" class="session-checkbox" onchange="toggleNoteSelection(${index})">
-                        <div class="session-header">
-                            <div class="session-title">${session.label || 'Sesja terapeutyczna'}</div>
-                            <div class="session-date">${formatDateTime(session.starts_at)}</div>
-                        </div>
-                        <div class="session-info">
-                            <strong>Terapeuta:</strong> ${session.therapist_name || 'Nieznany'}
-                        </div>
-                        <div class="session-info">
-                            <strong>Czas trwania:</strong> ${session.duration_minutes || 60} min
-                        </div>
-                        ${session.place_to ? `<div class="session-info"><strong>Miejsce:</strong> ${session.place_to}</div>` : ''}
-                        
+
+            list.innerHTML = sessions.map((session, index) => `
+                <div class="session-item" id="session-${index}">
+                    <input type="checkbox" class="session-checkbox" onchange="toggleNoteSelection(${index})">
+                    <div class="session-header">
+                        <div class="session-title">${session.label || 'Sesja terapeutyczna'}</div>
+                        <div class="session-date">${formatDateTime(session.starts_at)}</div>
+                    </div>
+                    <div class="session-info">
+                        <strong>Terapeuta:</strong> ${session.therapist_name || 'Nieznany'}
+                    </div>
+                    <div class="session-info">
+                        <strong>Czas trwania:</strong> ${session.duration_minutes || 60} min
+                    </div>
+                    ${session.place_to ? `<div class="session-info"><strong>Miejsce:</strong> ${session.place_to}</div>` : ''}
+                    ${session.notes ? `
                         <div class="session-notes">
                             <strong>Notatki:</strong>
-                            <div class="notes-preview">${notesPreview}</div>
-                            ${hasNotes ? `<button class="expand-btn" onclick="viewNote(${index})">📋 Zobacz pełną notatkę</button>` : ''}
+                            <div class="notes-preview">${session.notes.substring(0, 100)}${session.notes.length > 100 ? '...' : ''}</div>
+                            <button class="expand-btn" onclick="viewNote(${index})">📋 Zobacz pełną notatkę</button>
                         </div>
-                    </div>
-                `;
-            }).join('');
+                    ` : '<div class="session-info" style="color: #999;">Brak notatek</div>'}
+                </div>
+            `).join('');
         }
 
         // Funkcja do zaznaczania/odznaczania notatek
@@ -1069,97 +1063,122 @@
         }
 
         // Funkcja usuwania zaznaczonych notatek
-       async function deleteSelectedNotes() {
-        if (selectedNotes.length === 0) return;
-    
-        const clientId = document.getElementById('clientId').value;
-        if (!clientId) {
-            showError('Wybierz klienta!');
-            return;
-        }
-    
-        const confirmDelete = confirm(`Czy na pewno chcesz usunąć ${selectedNotes.length} zaznaczonych sesji? Ta operacja jest nieodwracalna!`);
-        if (!confirmDelete) return;
-    
-        const deleteBtn = document.getElementById('deleteBtn');
-        const originalText = deleteBtn.innerHTML;
-        deleteBtn.disabled = true;
-        deleteBtn.innerHTML = '⏳ Usuwanie...';
-    
-        try {
-            // Sortuj indeksy malejąco, aby uniknąć problemów z przesunięciami podczas usuwania
-            const sortedIndices = [...selectedNotes].sort((a, b) => b - a);
-            let deletedCount = 0;
-            let errors = [];
-    
-            for (const index of sortedIndices) {
-                const session = sessions[index];
-                if (!session) continue;
-    
-                console.log(`🗑️ Próba usunięcia sesji:`, session);
-    
-                let deleteSuccess = false;
-    
-                // Próba usunięcia przez różne endpointy
-                const endpointsToTry = [];
-                
-                if (session.id) {
-                    endpointsToTry.push(`${API_BASE_URL}/api/schedule/${session.id}`);
-                }
-                if (session.group_id) {
-                    endpointsToTry.push(`${API_BASE_URL}/api/schedule/group/${session.group_id}`);
-                }
-                if (session.therapy_id) {
-                    endpointsToTry.push(`${API_BASE_URL}/api/therapy/${session.therapy_id}`);
-                }
-    
-                // Spróbuj każdy dostępny endpoint
-                for (const endpoint of endpointsToTry) {
+        async function deleteSelectedNotes() {
+            if (selectedNotes.length === 0) return;
+
+            const clientId = document.getElementById('clientId').value;
+            if (!clientId) {
+                showError('Wybierz klienta!');
+                return;
+            }
+
+            const confirmDelete = confirm(`Czy na pewno chcesz usunąć ${selectedNotes.length} zaznaczonych sesji? Ta operacja jest nieodwracalna!`);
+            if (!confirmDelete) return;
+
+            const deleteBtn = document.getElementById('deleteBtn');
+            if (deleteBtn) {
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = '⏳ Usuwanie...';
+            }
+
+            try {
+                // Sortuj indeksy malejąco, aby uniknąć problemów z przesunięciami podczas usuwania
+                const sortedIndices = [...selectedNotes].sort((a, b) => b - a);
+                let deletedCount = 0;
+                let errors = [];
+
+                for (const index of sortedIndices) {
+                    const session = sessions[index];
+                    if (!session) continue;
+
+                    console.log(`🗑️ Próba usunięcia sesji ID: ${session.id}`, session);
+
+                    // Usuń sesję z bazy danych
                     try {
-                        console.log(`📡 Próba usunięcia przez: ${endpoint}`);
-                        const deleteResponse = await fetch(endpoint, {
-                            method: 'DELETE'
-                        });
-    
-                        if (deleteResponse.ok) {
-                            console.log(`✅ Usunięto sesję przez ${endpoint}`);
-                            deletedCount++;
-                            deleteSuccess = true;
-                            break; // Jeśli się udało, przejdź do następnej sesji
-                        } else {
-                            console.warn(`⚠️ Endpoint ${endpoint} zwrócił status: ${deleteResponse.status}`);
+                        // Sprawdź dostępne endpointy - próbujemy różnych możliwości
+                        let deleteUrl = '';
+                        let deleteResponse;
+
+                        // Próba 1: Endpoint dla sesji
+                        if (session.id) {
+                            deleteUrl = `${API_BASE_URL}/schedule/${session.id}`;
+                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
+                            deleteResponse = await fetch(deleteUrl, {
+                                method: 'DELETE'
+                            });
                         }
-                    } catch (endpointError) {
-                        console.warn(`⚠️ Błąd endpointu ${endpoint}:`, endpointError);
+                        // Próba 2: Endpoint dla grup
+                        else if (session.group_id) {
+                            deleteUrl = `${API_BASE_URL}/schedule/group/${session.group_id}`;
+                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
+                            deleteResponse = await fetch(deleteUrl, {
+                                method: 'DELETE'
+                            });
+                        }
+                        // Próba 3: Endpoint dla terapii
+                        else if (session.therapy_id) {
+                            deleteUrl = `${API_BASE_URL}/therapy/${session.therapy_id}`;
+                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
+                            deleteResponse = await fetch(deleteUrl, {
+                                method: 'DELETE'
+                            });
+                        } else {
+                            console.warn('⚠️ Brak ID sesji do usunięcia z bazy');
+                            errors.push(`Sesja z ${formatDateTime(session.starts_at)} - brak ID`);
+                            continue;
+                        }
+
+                        if (deleteResponse && !deleteResponse.ok) {
+                            const errorText = await deleteResponse.text();
+                            console.error(`❌ Błąd usuwania sesji ${session.id}:`, errorText);
+                            errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${deleteResponse.status}`);
+                        } else {
+                            console.log(`✅ Usunięto sesję ${session.id}`);
+                            deletedCount++;
+                        }
+
+                    } catch (error) {
+                        console.error(`❌ Błąd podczas usuwania sesji ${session.id}:`, error);
+                        errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${error.message}`);
+                    }
+
+                    // Usuń notatki z client_notes jeśli istnieją
+                    if (session.note_id) {
+                        try {
+                            console.log(`🗑️ Usuwanie notatki ID: ${session.note_id}`);
+                            const noteResponse = await fetch(`${API_BASE_URL}/clients/${clientId}/notes/${session.note_id}`, {
+                                method: 'DELETE'
+                            });
+
+                            if (!noteResponse.ok) {
+                                console.warn(`⚠️ Nie udało się usunąć notatki ${session.note_id}`);
+                            } else {
+                                console.log(`✅ Usunięto notatkę ${session.note_id}`);
+                            }
+                        } catch (noteError) {
+                            console.warn(`⚠️ Błąd usuwania notatki:`, noteError);
+                        }
                     }
                 }
-    
-                if (!deleteSuccess) {
-                    errors.push(`Sesja z ${formatDateTime(session.starts_at)}`);
+
+                // Odśwież listę sesji z serwera
+                await loadClientSessions();
+
+                // Pokaż komunikat z podsumowaniem
+                if (errors.length > 0) {
+                    showError(`Usunięto ${deletedCount} sesji, ale wystąpiły błędy: ${errors.join(', ')}`);
+                } else {
+                    showSuccess(`Pomyślnie usunięto ${deletedCount} sesji.`);
                 }
+
+            } catch (error) {
+                console.error('❌ Błąd podczas usuwania sesji:', error);
+                showError('Nie udało się usunąć sesji: ' + error.message);
+            } finally {
+                // Bezpieczna aktualizacja przycisku
+                safeUpdateDeleteButton();
             }
-    
-            // Odśwież listę sesji
-            await loadClientSessions();
-    
-            // Pokaż komunikat z podsumowaniem
-            if (errors.length > 0) {
-                showError(`Usunięto ${deletedCount} sesji, ale nie udało się usunąć: ${errors.join(', ')}`);
-            } else {
-                showSuccess(`Pomyślnie usunięto ${deletedCount} sesji.`);
-            }
-    
-        } catch (error) {
-            console.error('❌ Błąd podczas usuwania sesji:', error);
-            showError('Nie udało się usunąć sesji: ' + error.message);
-        } finally {
-            // Resetuj stan
-            selectedNotes = [];
-            safeUpdateDeleteButton();
-            deleteBtn.disabled = false;
-            deleteBtn.innerHTML = originalText;
         }
-    }
 
         // ... (reszta funkcji pozostaje bez zmian: saveSession, clearForm, showSuccess, showError, formatDateTime, viewNote, enableEditMode, cancelEdit, saveNoteEdit, closeNoteModal, printNote) ...
 
@@ -1190,7 +1209,7 @@
                 const endMinute = totalMinutes % 60;
                 const endsAt = `${sessionDate}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00`;
 
-                const response = await fetch(API_BASE_URL + '/api/schedule/group', {
+                const response = await fetch(API_BASE_URL + '/schedule/group', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1290,46 +1309,35 @@
 
         function viewNote(index) {
             const session = sessions[index];
-            if (!session) {
-                console.error('Nie znaleziono sesji dla indeksu:', index);
-                return;
-            }
-        
-            // --- KLUCZOWY KROK DIAGNOSTYCZNY ---
-            // Sprawdź w konsoli (F12), czy obiekt 'session' zawiera pole 'notes' z tekstem.
-            console.log('Otwieram notatkę dla sesji:', session);
-        
+            if (!session) return;
+
             currentSessionIndex = index;
             editMode = false;
-        
+
             const clientSelect = document.getElementById('clientId');
             const selectedOption = clientSelect.options[clientSelect.selectedIndex];
             const clientName = selectedOption.dataset.fullName || selectedOption.text;
-        
-            // --- POCZĄTEK POPRAWKI ---
-            
-            // Używamy .innerHTML, aby poprawnie renderować znaki nowej linii (enter)
-            // Dodajemy też czytelniejszy komunikat, jeśli notatki są puste.
-            document.getElementById('modalNoteContent').innerHTML = (session.notes || 'Brak zapisanych notatek dla tej sesji.').replace(/\n/g, '<br>');
-        
-            // --- KONIEC POPRAWKI ---
-            
+
+            // Wypełnij dane w trybie podglądu
             document.getElementById('modalClientName').textContent = clientName;
             document.getElementById('modalSessionDate').textContent = formatDateTime(session.starts_at);
             document.getElementById('modalTherapist').textContent = session.therapist_name || 'Nieznany';
             document.getElementById('modalPlace').textContent = session.place_to || 'Nie podano';
             document.getElementById('modalTopic').textContent = session.label || 'Bez tematu';
-            
+            document.getElementById('modalNoteContent').textContent = session.notes || 'Brak notatek';
+
+            // Ustaw datę dla wydruku
             document.getElementById('printDate').textContent = new Date().toLocaleDateString('pl-PL');
-        
+
+            // Pokaż widok podglądu, ukryj edycję
             document.getElementById('viewMode').style.display = 'block';
             document.getElementById('editMode').style.display = 'none';
             document.getElementById('viewModeActions').style.display = 'flex';
             document.getElementById('editModeActions').style.display = 'none';
-        
+
             const modal = document.getElementById('noteModal');
             modal.classList.add('show');
-        
+
             modal.onclick = function(event) {
                 if (event.target === modal) closeNoteModal();
             };
@@ -1376,111 +1384,91 @@
                 console.error('❌ Brak sesji!');
                 return;
             }
-        
+
             const newContent = document.getElementById('editNoteContent').value.trim();
             const clientId = document.getElementById('clientId').value;
-        
+
             console.log('💾 Zapisywanie notatki...');
             console.log('  - Client ID:', clientId);
             console.log('  - Session ID:', session.id);
+            console.log('  - Note ID:', session.note_id);
             console.log('  - Treść:', newContent.substring(0, 50) + '...');
-        
+
             if (!newContent) {
                 alert('Notatka nie może być pusta!');
                 return;
             }
-        
+
             const saveBtn = document.getElementById('btnSaveEdit');
-            const originalText = saveBtn.textContent;
             saveBtn.disabled = true;
             saveBtn.textContent = '⏳ Zapisywanie...';
-        
+
             try {
-                // Aktualizacja notatki w sesji
-                const updateData = {
-                    notes: newContent
-                };
-        
-                console.log('📝 Aktualizacja sesji z notatkami...');
-                
-                // Użyj właściwego endpointu dla aktualizacji sesji
-                let updateResponse;
-                if (session.id) {
-                    // Endpoint dla pojedynczej sesji
-                    updateResponse = await fetch(`${API_BASE_URL}/api/schedule/${session.id}`, {
+                // Jeśli notatka już istnieje w client_notes - zaktualizuj
+                if (session.note_id) {
+                    console.log('📝 Aktualizacja istniejącej notatki:', session.note_id);
+
+                    const response = await fetch(`${API_BASE_URL}/clients/${clientId}/notes/${session.note_id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updateData)
+                        body: JSON.stringify({
+                            content: newContent,
+                            category: 'session'
+                        })
                     });
-                } else if (session.group_id) {
-                    // Endpoint dla grupy sesji
-                    updateResponse = await fetch(`${API_BASE_URL}/api/schedule/group/${session.group_id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updateData)
-                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Błąd aktualizacji notatki');
+                    }
+
+                    console.log('✅ Notatka zaktualizowana');
                 } else {
-                    throw new Error('Brak identyfikatora sesji do aktualizacji');
-                }
-        
-                if (!updateResponse.ok) {
-                    const errorText = await updateResponse.text();
-                    throw new Error(`Błąd aktualizacji: ${updateResponse.status} - ${errorText}`);
-                }
-        
-                const result = await updateResponse.json();
-                console.log('✅ Sesja zaktualizowana:', result);
-        
-                // Aktualizuj sesję w pamięci
-                session.notes = newContent;
-        
-                // Odśwież widok podglądu
-                document.getElementById('modalNoteContent').innerHTML = newContent.replace(/\n/g, '<br>');
-        
-                // Odśwież listę sesji
-                await loadClientSessions();
-        
-                // Wróć do trybu podglądu
-                cancelEdit();
-        
-                // Pokaż komunikat sukcesu
-                showSuccess('Notatka została zapisana!');
-        
-            } catch (error) {
-                console.error('❌ Błąd zapisu:', error);
-                
-                // Spróbuj zapisać przez alternatywną metodę (client_notes)
-                try {
-                    console.log('🔄 Próba zapisu przez client_notes...');
-                    
-                    const notesResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
+                    // Jeśli notatki nie ma w client_notes - utwórz nową
+                    console.log('📝 Tworzenie nowej notatki dla sesji');
+
+                    const response = await fetch(`${API_BASE_URL}/clients/${clientId}/notes`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             content: newContent,
                             category: 'session',
-                            session_date: session.starts_at,
-                            created_by_name: 'System'
+                            created_by_name: 'System',
+                            created_at: session.starts_at
                         })
                     });
-        
-                    if (notesResponse.ok) {
-                        console.log('✅ Notatka zapisana przez client_notes');
-                        session.notes = newContent;
-                        document.getElementById('modalNoteContent').innerHTML = newContent.replace(/\n/g, '<br>');
-                        await loadClientSessions();
-                        cancelEdit();
-                        showSuccess('Notatka została zapisana!');
-                        return;
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Błąd tworzenia notatki');
                     }
-                } catch (fallbackError) {
-                    console.error('❌ Błąd zapisu przez client_notes:', fallbackError);
+
+                    const result = await response.json();
+                    session.note_id = result.id;
+                    console.log('✅ Notatka utworzona, ID:', result.id);
                 }
-        
-                showError('Nie udało się zapisać notatki: ' + error.message);
+
+                // Aktualizuj sesję w pamięci
+                session.notes = newContent;
+
+                // Odśwież widok podglądu
+                document.getElementById('modalNoteContent').textContent = newContent;
+
+                // Odśwież listę sesji
+                renderSessions();
+
+                // Wróć do trybu podglądu
+                cancelEdit();
+
+                // Pokaż komunikat sukcesu
+                alert('✅ Notatka została zapisana!');
+
+            } catch (error) {
+                console.error('❌ Błąd zapisu:', error);
+                alert('Nie udało się zapisać notatki:\n' + error.message);
             } finally {
                 saveBtn.disabled = false;
-                saveBtn.textContent = originalText;
+                saveBtn.textContent = '💾 Zapisz zmiany';
             }
         }
 
@@ -1507,152 +1495,12 @@
             }
 
             console.log('🖨️ Drukowanie notatki...');
-
-            // Utwórz tymczasowy element do druku z czystym HTML
-            const printContent = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Notatka z sesji terapeutycznej</title>
-                    <style>
-                        body {
-                            font-family: Arial, sans-serif;
-                            margin: 20px;
-                            color: #000;
-                        }
-                        .header {
-                            text-align: center;
-                            margin-bottom: 30px;
-                            border-bottom: 2px solid #000;
-                            padding-bottom: 15px;
-                        }
-                        .header h1 {
-                            font-size: 24px;
-                            margin: 0 0 10px 0;
-                            color: #000;
-                        }
-                        .header .date {
-                            font-size: 14px;
-                            color: #666;
-                        }
-                        .note-section {
-                            margin-bottom: 20px;
-                            page-break-inside: avoid;
-                        }
-                        .note-section strong {
-                            display: block;
-                            font-weight: bold;
-                            margin-bottom: 5px;
-                            color: #000;
-                            font-size: 14px;
-                        }
-                        .note-content {
-                            background: #f9f9f9;
-                            padding: 15px;
-                            border-left: 3px solid #000;
-                            margin-top: 10px;
-                            white-space: pre-wrap;
-                            line-height: 1.5;
-                            font-size: 13px;
-                        }
-                        .footer {
-                            margin-top: 40px;
-                            padding-top: 15px;
-                            border-top: 1px solid #ccc;
-                            font-size: 12px;
-                            color: #666;
-                            text-align: center;
-                        }
-                        @media print {
-                            body { margin: 0; }
-                            .note-section { break-inside: avoid; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h1>Notatka z sesji terapeutycznej</h1>
-                        <div class="date">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')}</div>
-                    </div>
-
-                    <div class="note-section">
-                        <strong>Klient:</strong>
-                        <div>${document.getElementById('modalClientName').textContent}</div>
-                    </div>
-
-                    <div class="note-section">
-                        <strong>Data sesji:</strong>
-                        <div>${document.getElementById('modalSessionDate').textContent}</div>
-                    </div>
-
-                    <div class="note-section">
-                        <strong>Terapeuta:</strong>
-                        <div>${document.getElementById('modalTherapist').textContent}</div>
-                    </div>
-
-                    <div class="note-section">
-                        <strong>Miejsce:</strong>
-                        <div>${document.getElementById('modalPlace').textContent}</div>
-                    </div>
-
-                    <div class="note-section">
-                        <strong>Temat:</strong>
-                        <div>${document.getElementById('modalTopic').textContent}</div>
-                    </div>
-
-                    <div class="note-section">
-                        <strong>Notatki z przebiegu spotkania:</strong>
-                        <div class="note-content">${document.getElementById('modalNoteContent').textContent}</div>
-                    </div>
-
-                    <div class="footer">
-                        Dokument wygenerowany przez System Zarządzania Sesjami Terapeutycznymi
-                    </div>
-                </body>
-                </html>
-            `;
-
-            // Otwórz nowe okno do druku
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(printContent);
-            printWindow.document.close();
-
-            // Daj czas na załadowanie i wydrukuj
-            setTimeout(() => {
-                printWindow.print();
-                printWindow.close();
-            }, 250);
+            window.print();
         }
 
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') closeNoteModal();
         });
-
-        // Funkcja do testowania dostępności endpointów
-async function testEndpoint(endpoint) {
-    try {
-        const response = await fetch(endpoint);
-        return {
-            endpoint: endpoint,
-            status: response.status,
-            ok: response.ok
-        };
-    } catch (error) {
-        return {
-            endpoint: endpoint,
-            status: 'ERROR',
-            ok: false,
-            error: error.message
-        };
-    }
-}
     </script>
 </body>
-
 </html>
-
-
-
-
-
-
