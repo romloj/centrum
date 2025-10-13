@@ -489,6 +489,7 @@
 
     <script>
         let projectsData = [];
+        const { Document, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, HeadingLevel, BorderStyle } = docx;
 
         // Załaduj dane przy starcie
         document.addEventListener('DOMContentLoaded', () => {
@@ -1190,7 +1191,7 @@
     // Obliczanie przychodów z różnych źródeł na podstawie projektów
     const incomeSources = calculateIncomeSources(filteredProjects);
 
-    const { Document, Paragraph, TextRun, Table, TableCell, TableRow, WidthType, AlignmentType, HeadingLevel, BorderStyle } = docx;
+    
 
     let sections = [];
 
