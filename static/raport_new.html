@@ -1919,17 +1919,7 @@ function calculateIncomeSources(projects) {
     };
 }
 
-    const doc = new Document({
-        sections: [{
-            properties: {},
-            children: sections
-        }]
-    });
-
-    const blob = await docx.Packer.toBlob(doc);
-    const fileName = `Sprawozdanie_${foundationName.replace(/\s+/g, '_')}_${year}.docx`;
-    saveAs(blob, fileName);
-}
+   
     </script>
 </body>
 </html>
