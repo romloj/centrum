@@ -984,37 +984,50 @@
         }
 
         function renderSessions() {
-            const list = document.getElementById('sessionsList');
+    const list = document.getElementById('sessionsList');
 
-            if (sessions.length === 0) {
-                list.innerHTML = '<div class="empty-state">Brak sesji w wybranym miesiącu.</div>';
-                return;
-            }
+    if (sessions.length === 0) {
+        list.innerHTML = '<div class="empty-state">Brak sesji w wybranym miesiącu.</div>';
+        return;
+    }
 
-            list.innerHTML = sessions.map((session, index) => `
-                <div class="session-item" id="session-${index}">
-                    <input type="checkbox" class="session-checkbox" onchange="toggleNoteSelection(${index})">
-                    <div class="session-header">
-                        <div class="session-title">${session.label || 'Sesja terapeutyczna'}</div>
-                        <div class="session-date">${formatDateTime(session.starts_at)}</div>
-                    </div>
-                    <div class="session-info">
-                        <strong>Terapeuta:</strong> ${session.therapist_name || 'Nieznany'}
-                    </div>
-                    <div class="session-info">
-                        <strong>Czas trwania:</strong> ${session.duration_minutes || 60} min
-                    </div>
-                    ${session.place_to ? `<div class="session-info"><strong>Miejsce:</strong> ${session.place_to}</div>` : ''}
-                    ${session.notes ? `
-                        <div class="session-notes">
-                            <strong>Notatki:</strong>
-                            <div class="notes-preview">${session.notes.substring(0, 100)}${session.notes.length > 100 ? '...' : ''}</div>
-                            <button class="expand-btn" onclick="viewNote(${index})">📋 Zobacz pełną notatkę</button>
-                        </div>
-                    ` : '<div class="session-info" style="color: #999;">Brak notatek</div>'}
+    list.innerHTML = sessions.map((session, index) => {
+        // --- POCZĄTEK POPRAWIONEGO BLOKU ---
+        
+        // Sprawdź, czy notatki istnieją i nie są pustym stringiem
+        const hasNotes = session.notes && session.notes.trim().length > 0;
+
+        // Dynamicznie generuj HTML dla sekcji notatek
+        const notesHtml = hasNotes ? `
+            <div class="session-notes">
+                <strong>Notatki:</strong>
+                <div class="notes-preview">${session.notes.substring(0, 100)}${session.notes.length > 100 ? '...' : ''}</div>
+                <button class="expand-btn" onclick="viewNote(${index})">📋 Zobacz pełną notatkę</button>
+            </div>
+        ` : ''; // Jeśli nie ma notatek, wstaw pusty string
+
+        // --- KONIEC POPRAWIONEGO BLOKU ---
+
+        return `
+            <div class="session-item" id="session-${index}">
+                <input type="checkbox" class="session-checkbox" onchange="toggleNoteSelection(${index})">
+                <div class="session-header">
+                    <div class="session-title">${session.label || 'Sesja terapeutyczna'}</div>
+                    <div class="session-date">${formatDateTime(session.starts_at)}</div>
                 </div>
-            `).join('');
-        }
+                <div class="session-info">
+                    <strong>Terapeuta:</strong> ${session.therapist_name || 'Nieznany'}
+                </div>
+                <div class="session-info">
+                    <strong>Czas trwania:</strong> ${session.duration_minutes || 60} min
+                </div>
+                ${session.place_to ? `<div class="session-info"><strong>Miejsce:</strong> ${session.place_to}</div>` : ''}
+                
+                ${notesHtml}
+            </div>
+        `;
+    }).join('');
+}
 
         // Funkcja do zaznaczania/odznaczania notatek
         function toggleNoteSelection(index) {
@@ -1618,6 +1631,7 @@
 </body>
 
 </html>
+
 
 
 
