@@ -5625,159 +5625,85 @@ def update_schedule(slot_id):
             conn.close()
 
 
+# DODAJ TE ENDPOINTY DO BACKENDU:
+
 @app.route('/api/schedule/<int:slot_id>', methods=['DELETE'])
-def delete_schedule(slot_id):
-    """Usuń wizytę z grafiku"""
-    conn = None
-    cur = None
-
+def delete_schedule_slot(slot_id):
+    """Usuwa pojedynczą sesję (slot)"""
     try:
-        database_url = os.environ.get('DATABASE_URL')
-        
-        if database_url:
-            conn = psycopg2.connect(database_url)
-        else:
-            conn = psycopg2.connect(
-                host='localhost',
-                port='5432',
-                database='suo',
-                user='postgres',
-                password='EDUQ'
+        with engine.begin() as conn:
+            # Sprawdź czy slot istnieje
+            slot = conn.execute(
+                text('SELECT id FROM schedule_slots WHERE id = :id'),
+                {"id": slot_id}
+            ).scalar()
+            
+            if not slot:
+                return jsonify({'error': 'Sesja nie znaleziona'}), 404
+            
+            # Usuń slot
+            conn.execute(
+                text('DELETE FROM schedule_slots WHERE id = :id'),
+                {"id": slot_id}
             )
-        
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        # Tutaj DELETE logic
-        cur.execute("DELETE FROM schedule WHERE id = %s", (schedule_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        
+            
+            return jsonify({'message': 'Sesja usunięta pomyślnie'}), 200
+            
     except Exception as e:
-        print(f"Błąd: {e}")
-        
-    except Exception as e:
-        print(f"Błąd połączenia z bazą: {e}")
-
-        # Sprawdź czy slot istnieje
-        cur.execute("SELECT id FROM schedule_slots WHERE id = %s", (slot_id,))
-        if not cur.fetchone():
-            return jsonify({'error': 'Wizyta nie znaleziona'}), 404
-
-        # Usuń slot
-        cur.execute("DELETE FROM schedule_slots WHERE id = %s", (slot_id,))
-        conn.commit()
-
-        return jsonify({
-            'success': True,
-            'message': 'Wizyta usunięta',
-            'slot_id': slot_id
-        }), 200
-
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        print(f"BŁĄD w delete_schedule: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"Błąd usuwania sesji: {e}")
         return jsonify({'error': str(e)}), 500
 
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-
-
-@app.route('/api/schedule', methods=['POST'])
-def create_schedule():
-    """Utwórz nową wizytę w grafiku"""
+@app.route('/api/schedule/<int:slot_id>', methods=['PUT'])
+def update_schedule_slot(slot_id):
+    """Aktualizuje sesję"""
     data = request.get_json()
-
-    print("=== CREATE SCHEDULE ===")
-    print("Otrzymane dane:", data)
-
-    conn = None
-    cur = None
-
+    
     try:
-        conn = psycopg2.connect(
-            host='localhost',
-            port='5432',
-            database='suo',
-            user='postgres',
-            password='EDUQ'
-        )
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-
-        # Walidacja wymaganych pól
-        required_fields = ['therapist_id', 'client_id', 'starts_at', 'ends_at']
-        for field in required_fields:
-            if field not in data:
-                print(f"❌ Brak pola: {field}")
-                return jsonify({'error': f'Brak wymaganego pola: {field}'}), 400
-            if data[field] is None:
-                print(f"❌ Pole {field} jest None")
-                return jsonify({'error': f'Pole {field} nie może być puste'}), 400
-
-        # Wygeneruj UUID dla group_id
-        import uuid
-        group_id = str(uuid.uuid4())
-
-        # Przygotuj dane
-        therapist_id = int(data['therapist_id'])
-        client_id = int(data['client_id'])
-        starts_at = data['starts_at']
-        ends_at = data['ends_at']
-        place_to = data.get('place_to')
-        kind = data.get('kind', 'therapy')
-        status = data.get('status', 'planned')
-
-        print(f"therapist_id: {therapist_id}")
-        print(f"client_id: {client_id}")
-        print(f"group_id: {group_id}")
-
-        # KROK 1: Najpierw utwórz event_group
-        cur.execute("""
-            INSERT INTO event_groups (id, client_id, created_at)
-            VALUES (%s::uuid, %s, NOW())
-        """, (group_id, client_id))
-
-        print(f"✅ Created event_group with id: {group_id}")
-
-        # KROK 2: Teraz utwórz schedule_slot
-        cur.execute("""
-            INSERT INTO schedule_slots 
-            (group_id, therapist_id, client_id, starts_at, ends_at, place_to, kind, status)
-            VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, group_id::text
-        """, (group_id, therapist_id, client_id, starts_at, ends_at, place_to, kind, status))
-
-        result = cur.fetchone()
-        conn.commit()
-
-        print(f"✅ Created schedule_slot with id: {result['id']}")
-
-        return jsonify({
-            'success': True,
-            'message': 'Wizyta została utworzona',
-            'slot_id': result['id'],
-            'group_id': result['group_id']
-        }), 201
-
+        with engine.begin() as conn:
+            # Sprawdź czy slot istnieje
+            slot = conn.execute(
+                text('SELECT id FROM schedule_slots WHERE id = :id'),
+                {"id": slot_id}
+            ).scalar()
+            
+            if not slot:
+                return jsonify({'error': 'Sesja nie znaleziona'}), 404
+            
+            # Przygotuj update
+            update_fields = []
+            params = {"id": slot_id}
+            
+            if 'label' in data:
+                update_fields.append("label = :label")
+                params["label"] = data['label']
+            
+            if 'starts_at' in data:
+                update_fields.append("starts_at = :starts_at")
+                params["starts_at"] = data['starts_at']
+            
+            if 'ends_at' in data:
+                update_fields.append("ends_at = :ends_at")
+                params["ends_at"] = data['ends_at']
+            
+            if 'place_to' in data:
+                update_fields.append("place_to = :place_to")
+                params["place_to"] = data['place_to']
+            
+            if not update_fields:
+                return jsonify({'error': 'Brak danych do aktualizacji'}), 400
+            
+            # Wykonaj update
+            set_clause = ", ".join(update_fields)
+            conn.execute(
+                text(f'UPDATE schedule_slots SET {set_clause} WHERE id = :id'),
+                params
+            )
+            
+            return jsonify({'message': 'Sesja zaktualizowana'}), 200
+            
     except Exception as e:
-        if conn:
-            conn.rollback()
-        print(f"❌ BŁĄD w create_schedule: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"Błąd aktualizacji sesji: {e}")
         return jsonify({'error': str(e)}), 500
-
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
 
 @app.route('/api/drivers/<int:driver_id>/schedule', methods=['GET'])
 def get_driver_schedule(driver_id):
@@ -6735,6 +6661,7 @@ def get_waiting_stats():
     except Exception as e:
         print(f"Błąd w get_waiting_stats: {str(e)}")
         return jsonify({'error': 'Błąd pobierania statystyk'}), 500
+
 
 
 
