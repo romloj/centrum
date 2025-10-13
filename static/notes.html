@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Zarządzania Sesjami Terapeutycznymi</title>
     <style>
+        /* STYLE POZOSTAJĄ BEZ ZMIAN */
         * {
             margin: 0;
             padding: 0;
@@ -846,6 +847,7 @@
             loadTherapists();
             setDefaultDateTime();
             setDefaultMonth();
+        }; // ← BRAKUJĄCY NAWIAS ZAMYKAJĄCY!
 
         function setDefaultMonth() {
             const now = new Date();
@@ -871,7 +873,7 @@
                 }
 
                 const clients = await response.json();
-                console.log('✅ Otrzymano klientów:', clients.length);
+                console.log('✅ Otrzymano klientów:', clients);
 
                 const select = document.getElementById('clientId');
                 select.innerHTML = '<option value="">Wybierz klienta</option>';
@@ -909,14 +911,19 @@
 
             } catch (error) {
                 console.error('❌ Błąd ładowania klientów:', error);
-                showError('Nie udało się załadować listy klientów');
+                showError('Nie udało się załadować listy klientów: ' + error.message);
             }
         }
 
         async function loadTherapists() {
             try {
                 const response = await fetch(API_BASE_URL + '/api/therapists');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
                 const therapists = await response.json();
+                console.log('✅ Otrzymano terapeutów:', therapists);
 
                 const select = document.getElementById('therapistId');
                 select.innerHTML = '<option value="">Wybierz terapeutę</option>';
@@ -929,7 +936,7 @@
                 });
             } catch (error) {
                 console.error('Błąd ładowania terapeutów:', error);
-                showError('Nie udało się załadować listy terapeutów');
+                showError('Nie udało się załadować listy terapeutów: ' + error.message);
             }
         }
 
@@ -939,7 +946,7 @@
             const list = document.getElementById('sessionsList');
             const loading = document.getElementById('loadingIndicator');
 
-            console.log('🔍 loadClientSessions - clientId:', clientId);
+            console.log('🔍 loadClientSessions - clientId:', clientId, 'month:', month);
 
             if (!clientId) {
                 list.innerHTML = '<div class="empty-state" style="padding: 80px 20px;"><div style="font-size: 48px; margin-bottom: 15px;">👈</div><div style="font-size: 16px; color: #666;">Wybierz klienta w formularzu po lewej stronie,<br>aby zobaczyć jego sesje i notatki.</div></div>';
@@ -955,30 +962,39 @@
             safeUpdateDeleteButton();
 
             try {
-                const url = `${API_BASE_URL}/clients/${clientId}/sessions?month=${month}`;
-                console.log('📡 Pobieranie:', url);
+                // POPRAWIONY URL - DODANO /api/
+                const url = `${API_BASE_URL}/api/clients/${clientId}/sessions${month ? `?month=${month}` : ''}`;
+                console.log('📡 Pobieranie sesji:', url);
 
                 const response = await fetch(url);
                 console.log('Status:', response.status);
 
-                if (response.status === 404) {
-                    throw new Error('Backend nie ma endpointu /clients/{id}/sessions');
-                }
-
                 if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error('Endpoint nie istnieje. Sprawdź czy backend ma /api/clients/{id}/sessions');
+                    }
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || response.statusText);
                 }
 
                 const data = await response.json();
                 sessions = data;
-                console.log('✅ Pobrano sesji:', sessions.length);
+                console.log('✅ Pobrano sesji:', sessions);
 
                 renderSessions();
 
             } catch (error) {
-                console.error('❌ Błąd:', error);
-                list.innerHTML = `<div class="empty-state">❌ ${error.message}<br><br><em>Sprawdź konsolę (F12)</em></div>`;
+                console.error('❌ Błąd ładowania sesji:', error);
+                list.innerHTML = `
+                    <div class="empty-state">
+                        ❌ ${error.message}<br><br>
+                        <em>Sprawdź konsolę (F12) i upewnij się że backend działa.</em>
+                        <br><br>
+                        <button onclick="testBackendEndpoints()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            🧪 Testuj endpointy
+                        </button>
+                    </div>
+                `;
             } finally {
                 loading.style.display = 'none';
             }
@@ -992,29 +1008,67 @@
                 return;
             }
 
-            list.innerHTML = sessions.map((session, index) => `
-                <div class="session-item" id="session-${index}">
-                    <input type="checkbox" class="session-checkbox" onchange="toggleNoteSelection(${index})">
-                    <div class="session-header">
-                        <div class="session-title">${session.label || 'Sesja terapeutyczna'}</div>
-                        <div class="session-date">${formatDateTime(session.starts_at)}</div>
-                    </div>
-                    <div class="session-info">
-                        <strong>Terapeuta:</strong> ${session.therapist_name || 'Nieznany'}
-                    </div>
-                    <div class="session-info">
-                        <strong>Czas trwania:</strong> ${session.duration_minutes || 60} min
-                    </div>
-                    ${session.place_to ? `<div class="session-info"><strong>Miejsce:</strong> ${session.place_to}</div>` : ''}
-                    ${session.notes ? `
+            list.innerHTML = sessions.map((session, index) => {
+                const hasNotes = session.notes && session.notes.trim().length > 0;
+                
+                return `
+                    <div class="session-item" id="session-${index}">
+                        <input type="checkbox" class="session-checkbox" onchange="toggleNoteSelection(${index})">
+                        <div class="session-header">
+                            <div class="session-title">${session.label || 'Sesja terapeutyczna'}</div>
+                            <div class="session-date">${formatDateTime(session.starts_at)}</div>
+                        </div>
+                        <div class="session-info">
+                            <strong>Terapeuta:</strong> ${session.therapist_name || 'Nieznany'}
+                        </div>
+                        <div class="session-info">
+                            <strong>Czas trwania:</strong> ${session.duration_minutes || 60} min
+                        </div>
+                        ${session.place_to ? `<div class="session-info"><strong>Miejsce:</strong> ${session.place_to}</div>` : ''}
+                        
                         <div class="session-notes">
                             <strong>Notatki:</strong>
-                            <div class="notes-preview">${session.notes.substring(0, 100)}${session.notes.length > 100 ? '...' : ''}</div>
-                            <button class="expand-btn" onclick="viewNote(${index})">📋 Zobacz pełną notatkę</button>
+                            <div class="notes-preview">
+                                ${hasNotes ? 
+                                    (session.notes.length > 100 ? 
+                                        session.notes.substring(0, 100) + '...' : 
+                                        session.notes
+                                    ) : 
+                                    'Brak notatek'
+                                }
+                            </div>
+                            ${hasNotes ? `<button class="expand-btn" onclick="viewNote(${index})">📋 Zobacz pełną notatkę</button>` : ''}
                         </div>
-                    ` : '<div class="session-info" style="color: #999;">Brak notatek</div>'}
-                </div>
-            `).join('');
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Funkcja do testowania endpointów
+        async function testBackendEndpoints() {
+            console.log('🧪 Testowanie endpointów...');
+            
+            try {
+                // Test klientów
+                const clientsResponse = await fetch(API_BASE_URL + '/api/clients');
+                console.log('Clients endpoint:', clientsResponse.status, clientsResponse.ok);
+                
+                // Test terapeutów
+                const therapistsResponse = await fetch(API_BASE_URL + '/api/therapists');
+                console.log('Therapists endpoint:', therapistsResponse.status, therapistsResponse.ok);
+                
+                // Test sesji dla pierwszego klienta
+                const clientId = document.getElementById('clientId').value;
+                if (clientId) {
+                    const sessionsResponse = await fetch(API_BASE_URL + `/api/clients/${clientId}/sessions`);
+                    console.log('Sessions endpoint:', sessionsResponse.status, sessionsResponse.ok);
+                }
+                
+                alert('Test zakończony. Sprawdź konsolę (F12) dla wyników.');
+            } catch (error) {
+                console.error('Błąd testowania:', error);
+                alert('Błąd testowania: ' + error.message);
+            }
         }
 
         // Funkcja do zaznaczania/odznaczania notatek
@@ -1040,26 +1094,14 @@
             const deleteBtn = document.getElementById('deleteBtn');
             const selectedCount = document.getElementById('selectedCount');
 
-            // Sprawdź czy elementy istnieją przed próbą ich modyfikacji
             if (selectedCount) {
                 selectedCount.textContent = selectedNotes.length;
             }
 
             if (deleteBtn) {
                 deleteBtn.disabled = selectedNotes.length === 0;
-
-                // Aktualizuj tekst przycisku
-                if (selectedNotes.length > 0) {
-                    deleteBtn.innerHTML = `🗑️ Usuń zaznaczone sesji (${selectedNotes.length})`;
-                } else {
-                    deleteBtn.innerHTML = `🗑️ Usuń zaznaczone sesji (0)`;
-                }
+                deleteBtn.innerHTML = `🗑️ Usuń zaznaczone sesji (${selectedNotes.length})`;
             }
-        }
-
-        // Aktualizacja stanu przycisku usuwania (stara wersja dla kompatybilności)
-        function updateDeleteButton() {
-            safeUpdateDeleteButton();
         }
 
         // Funkcja usuwania zaznaczonych notatek
@@ -1091,33 +1133,24 @@
                     const session = sessions[index];
                     if (!session) continue;
 
-                    console.log(`🗑️ Próba usunięcia sesji ID: ${session.id}`, session);
+                    console.log(`🗑️ Próba usunięcia sesji:`, session);
 
                     // Usuń sesję z bazy danych
                     try {
-                        // Sprawdź dostępne endpointy - próbujemy różnych możliwości
                         let deleteUrl = '';
                         let deleteResponse;
 
-                        // Próba 1: Endpoint dla sesji
-                        if (session.id) {
-                            deleteUrl = `${API_BASE_URL}/schedule/${session.id}`;
+                        // Próba 1: Endpoint dla grup
+                        if (session.group_id) {
+                            deleteUrl = `${API_BASE_URL}/api/schedule/group/${session.group_id}`;
                             console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
                             deleteResponse = await fetch(deleteUrl, {
                                 method: 'DELETE'
                             });
                         }
-                        // Próba 2: Endpoint dla grup
-                        else if (session.group_id) {
-                            deleteUrl = `${API_BASE_URL}/schedule/group/${session.group_id}`;
-                            console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
-                            deleteResponse = await fetch(deleteUrl, {
-                                method: 'DELETE'
-                            });
-                        }
-                        // Próba 3: Endpoint dla terapii
-                        else if (session.therapy_id) {
-                            deleteUrl = `${API_BASE_URL}/therapy/${session.therapy_id}`;
+                        // Próba 2: Endpoint dla sesji
+                        else if (session.id) {
+                            deleteUrl = `${API_BASE_URL}/api/schedule/${session.id}`;
                             console.log(`📡 Próba usunięcia przez: ${deleteUrl}`);
                             deleteResponse = await fetch(deleteUrl, {
                                 method: 'DELETE'
@@ -1130,15 +1163,15 @@
 
                         if (deleteResponse && !deleteResponse.ok) {
                             const errorText = await deleteResponse.text();
-                            console.error(`❌ Błąd usuwania sesji ${session.id}:`, errorText);
+                            console.error(`❌ Błąd usuwania:`, errorText);
                             errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${deleteResponse.status}`);
                         } else {
-                            console.log(`✅ Usunięto sesję ${session.id}`);
+                            console.log(`✅ Usunięto sesję`);
                             deletedCount++;
                         }
 
                     } catch (error) {
-                        console.error(`❌ Błąd podczas usuwania sesji ${session.id}:`, error);
+                        console.error(`❌ Błąd podczas usuwania sesji:`, error);
                         errors.push(`Sesja z ${formatDateTime(session.starts_at)} - ${error.message}`);
                     }
 
@@ -1146,7 +1179,7 @@
                     if (session.note_id) {
                         try {
                             console.log(`🗑️ Usuwanie notatki ID: ${session.note_id}`);
-                            const noteResponse = await fetch(`${API_BASE_URL}/clients/${clientId}/notes/${session.note_id}`, {
+                            const noteResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes/${session.note_id}`, {
                                 method: 'DELETE'
                             });
 
@@ -1179,8 +1212,6 @@
                 safeUpdateDeleteButton();
             }
         }
-
-        // ... (reszta funkcji pozostaje bez zmian: saveSession, clearForm, showSuccess, showError, formatDateTime, viewNote, enableEditMode, cancelEdit, saveNoteEdit, closeNoteModal, printNote) ...
 
         async function saveSession() {
             const btn = document.getElementById('saveBtn');
@@ -1236,7 +1267,7 @@
                     throw new Error(result.error || result.message || 'Błąd zapisu sesji');
                 }
 
-                console.log('✅ Sesja zapisana');
+                console.log('✅ Sesja zapisana:', result);
                 showSuccess();
                 clearForm();
 
@@ -1244,7 +1275,7 @@
                 if (notes && notes.trim()) {
                     try {
                         console.log('📝 Zapisuję notatki do client_notes...');
-                        const notesResponse = await fetch(`${API_BASE_URL}/clients/${clientId}/notes`, {
+                        const notesResponse = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1408,7 +1439,7 @@
                 if (session.note_id) {
                     console.log('📝 Aktualizacja istniejącej notatki:', session.note_id);
 
-                    const response = await fetch(`${API_BASE_URL}/clients/${clientId}/notes/${session.note_id}`, {
+                    const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes/${session.note_id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1427,7 +1458,7 @@
                     // Jeśli notatki nie ma w client_notes - utwórz nową
                     console.log('📝 Tworzenie nowej notatki dla sesji');
 
-                    const response = await fetch(`${API_BASE_URL}/clients/${clientId}/notes`, {
+                    const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1504,4 +1535,3 @@
     </script>
 </body>
 </html>
-
