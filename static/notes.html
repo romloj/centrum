@@ -1105,7 +1105,7 @@
         }
 
         // Funkcja usuwania zaznaczonych notatek
-        async function deleteSelectedNotes() {
+       async function deleteSelectedNotes() {
     if (selectedNotes.length === 0) return;
 
     const clientId = document.getElementById('clientId').value;
@@ -1113,11 +1113,6 @@
         showError('Wybierz klienta!');
         return;
     }
-
-    console.log('🔍 DEBUG - Rozpoczynam usuwanie:', {
-        selectedNotes,
-        sessions: sessions.map(s => ({ id: s.id, group_id: s.group_id, starts_at: s.starts_at }))
-    });
 
     const confirmDelete = confirm(`Czy na pewno chcesz usunąć ${selectedNotes.length} zaznaczonych sesji?`);
     if (!confirmDelete) return;
@@ -1131,104 +1126,119 @@
         const sortedIndices = [...selectedNotes].sort((a, b) => b - a);
         let deletedCount = 0;
         let errors = [];
+        let backendErrors = [];
 
         for (const index of sortedIndices) {
             const session = sessions[index];
             if (!session) continue;
 
-            console.log('🗑️ DEBUG - Próba usunięcia sesji:', {
-                index,
-                sessionId: session.id,
-                groupId: session.group_id,
-                startsAt: session.starts_at
-            });
+            console.log('🗑️ Próba usunięcia sesji:', session);
 
             let deleteSuccess = false;
+            let lastError = '';
 
-            // Próba 1: Usuwanie przez group_id
+            // Próba 1: Usuwanie przez group_id (pierwszeństwo)
             if (session.group_id) {
                 try {
-                    console.log(`📡 DEBUG - Usuwanie przez group_id: ${session.group_id}`);
+                    console.log(`📡 DELETE /api/schedule/group/${session.group_id}`);
                     const response = await fetch(`${API_BASE_URL}/api/schedule/group/${session.group_id}`, {
                         method: 'DELETE'
                     });
                     
-                    console.log('📡 DEBUG - Response status:', response.status);
+                    console.log('📡 Response status:', response.status);
                     
                     if (response.ok) {
                         deleteSuccess = true;
-                        console.log('✅ DEBUG - Usunięto przez group_id');
+                        console.log('✅ Usunięto przez group_id');
                     } else {
                         const errorText = await response.text();
-                        console.error('❌ DEBUG - Błąd usuwania przez group_id:', errorText);
-                        errors.push(`Sesja ${formatDateTime(session.starts_at)} - HTTP ${response.status}`);
+                        lastError = `HTTP ${response.status}: ${errorText}`;
+                        console.error('❌ Błąd usuwania przez group_id:', lastError);
                     }
                 } catch (error) {
-                    console.error('❌ DEBUG - Błąd fetch przez group_id:', error);
-                    errors.push(`Sesja ${formatDateTime(session.starts_at)} - ${error.message}`);
+                    lastError = `Fetch error: ${error.message}`;
+                    console.error('❌ Błąd fetch przez group_id:', error);
                 }
             }
 
             // Próba 2: Usuwanie przez session_id (jeśli group_id nie zadziałało)
             if (!deleteSuccess && session.id) {
                 try {
-                    console.log(`📡 DEBUG - Usuwanie przez session_id: ${session.id}`);
+                    console.log(`📡 DELETE /api/schedule/${session.id}`);
                     const response = await fetch(`${API_BASE_URL}/api/schedule/${session.id}`, {
                         method: 'DELETE'
                     });
                     
-                    console.log('📡 DEBUG - Response status:', response.status);
+                    console.log('📡 Response status:', response.status);
                     
                     if (response.ok) {
                         deleteSuccess = true;
-                        console.log('✅ DEBUG - Usunięto przez session_id');
+                        console.log('✅ Usunięto przez session_id');
                     } else {
                         const errorText = await response.text();
-                        console.error('❌ DEBUG - Błąd usuwania przez session_id:', errorText);
-                        if (!errors.some(e => e.includes(formatDateTime(session.starts_at)))) {
-                            errors.push(`Sesja ${formatDateTime(session.starts_at)} - HTTP ${response.status}`);
+                        lastError = `HTTP ${response.status}: ${errorText.substring(0, 100)}`;
+                        console.error('❌ Błąd usuwania przez session_id:', lastError);
+                        
+                        // Specjalna obsługa błędu 500
+                        if (response.status === 500) {
+                            backendErrors.push(`Sesja ${formatDateTime(session.starts_at)} - Błąd serwera (sprawdź logi backend)`);
                         }
                     }
                 } catch (error) {
-                    console.error('❌ DEBUG - Błąd fetch przez session_id:', error);
-                    if (!errors.some(e => e.includes(formatDateTime(session.starts_at)))) {
-                        errors.push(`Sesja ${formatDateTime(session.starts_at)} - ${error.message}`);
-                    }
+                    lastError = `Fetch error: ${error.message}`;
+                    console.error('❌ Błąd fetch przez session_id:', error);
                 }
             }
 
-            if (deleteSuccess) {
+            // Jeśli żadna metoda nie zadziałała
+            if (!deleteSuccess) {
+                if (lastError.includes('500')) {
+                    errors.push(`Sesja ${formatDateTime(session.starts_at)} - Błąd serwera`);
+                } else {
+                    errors.push(`Sesja ${formatDateTime(session.starts_at)} - ${lastError}`);
+                }
+            } else {
                 deletedCount++;
                 // Natychmiast usuń z lokalnej tablicy
-                sessions.splice(index, 1);
+                sessions.splice(sessions.indexOf(session), 1);
             }
 
-            // Usuwanie notatek
+            // Usuwanie notatek (równolegle, nie blokuje)
             if (session.note_id) {
                 try {
-                    console.log(`📝 DEBUG - Usuwanie notatki: ${session.note_id}`);
-                    await fetch(`${API_BASE_URL}/api/clients/${clientId}/notes/${session.note_id}`, {
+                    console.log(`📝 Usuwanie notatki: ${session.note_id}`);
+                    fetch(`${API_BASE_URL}/api/clients/${clientId}/notes/${session.note_id}`, {
                         method: 'DELETE'
+                    }).catch(noteError => {
+                        console.warn('⚠️ Błąd usuwania notatki:', noteError);
                     });
                 } catch (noteError) {
-                    console.warn('⚠️ DEBUG - Błąd usuwania notatki:', noteError);
+                    console.warn('⚠️ Błąd usuwania notatki:', noteError);
                 }
             }
         }
 
-        // Wymuś ponowne ładowanie z serwera
-        console.log('🔄 DEBUG - Wymuszam ponowne ładowanie sesji');
+        // WAŻNE: Odśwież listę niezależnie od wyników
+        console.log('🔄 Wymuszam ponowne ładowanie sesji...');
         await loadClientSessions();
 
-        // Podsumowanie
+        // Podsumowanie z szczegółami
         if (errors.length > 0) {
-            showError(`Usunięto ${deletedCount} sesji, ale wystąpiły błędy: ${errors.join(', ')}`);
+            let errorMessage = `Usunięto ${deletedCount} sesji, ale wystąpiły błędy: ${errors.join(', ')}`;
+            
+            if (backendErrors.length > 0) {
+                errorMessage += "\n\n🚨 PROBLEM Z BACKENDEM:";
+                errorMessage += "\n- Błędy 500 oznaczają problem po stronie serwera";
+                errorMessage += "\n- Sprawdź logi backendu lub skontaktuj się z administratorem";
+            }
+            
+            showError(errorMessage);
         } else {
             showSuccess(`Pomyślnie usunięto ${deletedCount} sesji.`);
         }
 
     } catch (error) {
-        console.error('❌ DEBUG - Główny błąd usuwania:', error);
+        console.error('❌ Główny błąd usuwania:', error);
         showError('Nie udało się usunąć sesji: ' + error.message);
     } finally {
         deleteBtn.disabled = false;
@@ -1626,7 +1636,17 @@
     safeUpdateDeleteButton();
     showSuccess('Sesje ukryte z widoku (tymczasowe rozwiązanie)');
 }
+        // Test 1: Sprawdź czy endpoint w ogóle istnieje
+fetch('/api/schedule/305')
+  .then(r => console.log('GET Status:', r.status))
+  .catch(e => console.error('GET Error:', e));
+
+// Test 2: Sprawdź inne endpointy
+fetch('/api/clients')
+  .then(r => console.log('Clients Status:', r.status))
+  .catch(e => console.error('Clients Error:', e));
     </script>
 </body>
 </html>
+
 
