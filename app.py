@@ -1919,64 +1919,59 @@ def update_tus_group(group_id):
 @app.post("/api/tus/sessions")
 def create_tus_session():
     data = request.get_json(silent=True) or {}
-    print(f"=== ROZPOCZĘCIE TWORZENIA SESJI ===")
-    print(f"Pełne dane: {data}")
+    print(f"=== ROZPOCZĘCIE TWORZENIA SESJI (NOWA LOGIKA TEMATU) ===")
+    print(f"Otrzymane dane: {data}")
 
     try:
         group_id = int(data["group_id"])
-        topic_id = int(data["topic_id"])
-        session_date_str = data["session_date"]  # Format: "YYYY-MM-DDTHH:MM:SS"
 
-        print(f"ID grupy: {group_id}, ID tematu: {topic_id}")
-        print(f"Data sesji: '{session_date_str}'")
+        # ZMIANA: Pobieramy tytuł tematu zamiast ID
+        topic_title = (data.get("topic_title") or "").strip()
+        if not topic_title:
+            return jsonify({"error": "Pole 'topic_title' jest wymagane."}), 400
 
-        # PROSTE I BEZPIECZNE PARSOWANIE
+        session_date_str = data["session_date"]  # Oczekiwany format: "YYYY-MM-DDTHH:MM:SS"
+
+        # Bezpieczne parsowanie daty i czasu
         try:
-            # Podziel datę i czas
-            if 'T' in session_date_str:
-                date_part, time_part = session_date_str.split('T', 1)
-            else:
-                date_part = session_date_str
-                time_part = "00:00:00"
-
-            # Parsuj datę
-            sess_date = datetime.fromisoformat(date_part).date()
-
-            # Parsuj czas (usuń milisekundy jeśli istnieją)
-            time_part = time_part.split('.')[0]  # Usuń milisekundy
-            time_parts = time_part.split(':')
-
-            hour = int(time_parts[0])
-            minute = int(time_parts[1]) if len(time_parts) > 1 else 0
-            second = int(time_parts[2]) if len(time_parts) > 2 else 0
-
-            sess_time = time(hour, minute, second)
-
-        except ValueError as e:
-            print(f"Błąd parsowania daty/czasu: {e}")
-            return jsonify({"error": f"Nieprawidłowy format daty lub godziny: {session_date_str}"}), 400
-
-        print(f"SPARSOWANO - Data: {sess_date}, Czas: {sess_time}")
+            dt_obj = datetime.fromisoformat(session_date_str)
+            sess_date = dt_obj.date()
+            sess_time = dt_obj.time()
+        except (ValueError, TypeError):
+            return jsonify({"error": f"Nieprawidłowy format daty/godziny: {session_date_str}"}), 400
 
         behavior_ids = [int(bid) for bid in data.get("behavior_ids", []) if bid]
         if len(behavior_ids) > 4:
             return jsonify({"error": "Można wybrać maksymalnie 4 zachowania."}), 400
 
         with session_scope() as db_session:
-            if not db_session.get(TUSGroup, group_id):
-                return jsonify({"error": f"Grupa o ID {group_id} nie istnieje."}), 404
+            # ZMIANA: Logika znajdowania lub tworzenia tematu
+            # Sprawdzamy temat bez względu na wielkość liter, aby uniknąć duplikatów
+            topic = db_session.query(TUSTopic).filter(func.lower(TUSTopic.title) == func.lower(topic_title)).first()
 
-            # Tworzymy główny obiekt sesji
+            if not topic:
+                # Jeśli temat nie istnieje, tworzymy nowy
+                print(f"Temat '{topic_title}' nie istnieje. Tworzę nowy wpis.")
+                topic = TUSTopic(title=topic_title)
+                db_session.add(topic)
+                db_session.flush()  # Ważne, aby uzyskać ID nowego tematu od razu
+            else:
+                print(f"Znaleziono istniejący temat: ID={topic.id}, Tytuł='{topic.title}'")
+
+            # Pobieramy ID tematu (istniejącego lub nowo utworzonego)
+            topic_id_for_session = topic.id
+
+            # Tworzymy główny obiekt sesji z poprawnym topic_id
             new_session = TUSSession(
                 group_id=group_id,
-                topic_id=topic_id,
+                topic_id=topic_id_for_session,  # Używamy znalezionego/utworzonego ID
                 session_date=sess_date,
                 session_time=sess_time,
             )
             db_session.add(new_session)
             db_session.flush()
 
-            # Zapisz powiązane zachowania
+            # Zapisz powiązane zachowania (bez zmian)
             if behavior_ids:
                 behaviors_map = {b.id: b.default_max_points for b in
                                  db_session.query(TUSBehavior).filter(TUSBehavior.id.in_(behavior_ids)).all()}
@@ -1990,21 +1985,18 @@ def create_tus_session():
                     db_session.add(session_behavior)
 
             print(
-                f"UTWORZONO SESJĘ: ID={new_session.id}, Data={new_session.session_date}, Czas={new_session.session_time}")
-
+                f"UTWORZONO SESJĘ: ID={new_session.id}, Data={new_session.session_date}, Czas={new_session.session_time}, TopicID={topic_id_for_session}")
             return jsonify({"id": new_session.id}), 201
 
-    except (TypeError, ValueError, KeyError) as e:
-        print(f"=== BŁĄD KRYTYCZNY ===")
-        print(f"Typ: {type(e)}, Komunikat: {str(e)}")
+    except (KeyError, ValueError, TypeError) as e:
+        print(f"BŁĄD: Nieprawidłowe lub brakujące dane w zapytaniu. Szczegóły: {str(e)}")
         import traceback
-        print(f"Traceback: {traceback.format_exc()}")
+        traceback.print_exc()
         return jsonify({"error": "Nieprawidłowe lub brakujące dane w zapytaniu.", "details": str(e)}), 400
     except Exception as e:
-        print(f"=== NIESPODZIEWANY BŁĄD ===")
-        print(f"Typ: {type(e)}, Komunikat: {str(e)}")
+        print(f"BŁĄD KRYTYCZNY: {str(e)}")
         import traceback
-        print(f"Traceback: {traceback.format_exc()}")
+        traceback.print_exc()
         return jsonify({"error": "Wewnętrzny błąd serwera."}), 500
 
 
@@ -6668,6 +6660,7 @@ def get_waiting_stats():
     except Exception as e:
         print(f"Błąd w get_waiting_stats: {str(e)}")
         return jsonify({'error': 'Błąd pobierania statystyk'}), 500
+
 
 
 
