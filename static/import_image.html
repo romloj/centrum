@@ -852,6 +852,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initializeSelectors();
 });
+
+    analyzeBtn.addEventListener('click', async () => {
+    const file = imageUpload.files[0];
+    if (!file) return showAlert('Proszę wybrać plik z obrazem.');
+
+    const spinner = document.getElementById('analyzeSpinner');
+    spinner.classList.remove('d-none');
+    analyzeBtn.disabled = true;
+
+    const formData = new FormData();
+    const scope = document.querySelector('input[name="importScope"]:checked').value;
+    formData.append('schedule_image', file);
+    formData.append('scope', scope);
+    formData.append('therapist_name', importTherapist.value);
+
+    if (scope === 'day') {
+        formData.append('date', importDate.value);
+    } else {
+        formData.append('month', importMonth.value);
+    }
+
+    try {
+        console.log('Wysyłanie żądania do:', `${API_URL}/parse-schedule-image`);
+        
+        const response = await fetch(`${API_URL}/parse-schedule-image`, {
+            method: 'POST',
+            body: formData
+        });
+
+        // DEBUG: Sprawdź odpowiedź
+        const responseText = await response.text();
+        console.log('Odpowiedź serwera:', responseText);
+        console.log('Status:', response.status);
+        console.log('Nagłówki:', response.headers);
+
+        // Spróbuj sparsować jako JSON
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('Błąd parsowania JSON:', parseError);
+            throw new Error(`Serwer zwrócił HTML zamiast JSON. Status: ${response.status}`);
+        }
+
+        if (!response.ok) {
+            throw new Error(result.error || `Błąd serwera: ${response.status}`);
+        }
+
+        if (result.success) {
+            currentScheduleData = result.data || [];
+            originalScheduleData = JSON.parse(JSON.stringify(currentScheduleData));
+            detectDuplicates();
+            renderResults(currentScheduleData);
+            resultsCard.classList.remove('d-none');
+            updateCounters();
+
+            const duplicates = currentScheduleData.filter(item => item.is_duplicate).length;
+            const warningMsg = duplicates > 0 ? ` ⚠️ Wykryto ${duplicates} duplikatów!` : '';
+
+            showAlert(
+                `✅ Pomyślnie przetworzono ${result.total_count} wpisów. Dopasowano ${result.matched_count} nazw.${warningMsg}`,
+                duplicates > 0 ? 'warning' : 'success'
+            );
+        } else {
+            throw new Error(result.error || 'Nieznany błąd przetwarzania');
+        }
+    } catch (error) {
+        console.error('Błąd analizy:', error);
+        showAlert(`Analiza nie powiodła się: ${error.message}`);
+    } finally {
+        spinner.classList.add('d-none');
+        analyzeBtn.disabled = false;
+    }
+});
 </script>
 </body>
+
 </html>
