@@ -353,7 +353,7 @@
   <script src="fab-menu.js"></script>
   <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE_URL = window.location.origin;
+    const API_URL ="";
     const importDate = document.getElementById('importDate');
     const importMonth = document.getElementById('importMonth');
     const importTherapist = document.getElementById('importTherapist');
@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function initializeSelectors() {
         try {
-            const response = await fetch(`${API_URL}/therapists`);
+            const response = await fetch(`${API_URL}/api/therapists`);
             const therapists = await response.json();
             importTherapist.innerHTML = '<option value="">-- Wybierz terapeutę --</option>';
             therapists.filter(t => t.active).forEach(therapist => {
@@ -468,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch(`${API_URL}/parse-schedule-image`, {
+            const response = await fetch(`${API_URL}/api/parse-schedule-image`, {
                 method: 'POST',
                 body: formData
             });
@@ -803,7 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             console.log('Wysyłanie danych do zapisu:', currentScheduleData);
 
-            const response = await fetch(`${API_URL}/save-parsed-schedule`, {
+            const response = await fetch(`${API_URL}/api/save-parsed-schedule`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(currentScheduleData)
@@ -874,9 +874,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-        console.log('Wysyłanie żądania do:', `${API_URL}/parse-schedule-image`);
+        console.log('Wysyłanie żądania do:', `${API_URL}/api/parse-schedule-image`);
         
-        const response = await fetch(`${API_URL}/parse-schedule-image`, {
+        const response = await fetch(`${API_URL}/api/parse-schedule-image`, {
             method: 'POST',
             body: formData
         });
@@ -930,5 +930,6 @@ document.addEventListener('DOMContentLoaded', () => {
 </body>
 
 </html>
+
 
 
