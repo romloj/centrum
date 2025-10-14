@@ -34,7 +34,11 @@ requests
 geopy
 python-dotenv==1.0.0
 psutil
-PILLOW
+Pillow
+pytesseract==0.3.10
+opencv-python==4.8.1.78
+python-multipart==0.0.6
+
 
 
 
