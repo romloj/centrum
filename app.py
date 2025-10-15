@@ -6661,6 +6661,56 @@ def get_waiting_stats():
         print(f"Błąd w get_waiting_stats: {str(e)}")
         return jsonify({'error': 'Błąd pobierania statystyk'}), 500
 
+# DODAJ PONIŻSZE FUNKCJE PRZED BLOKIEM app.run(...)
+# LUB W DOWOLNYM MIEJSCU Z DEFINICJAMI ENDPOINTÓW
+
+@app.post("/api/schedule")
+@app.post("/api/sessions")
+@app.post("/api/appointments")
+@app.post("/api/slots")
+def post_schedule_alias():
+    """
+    Alias dla POST /api/schedule/group.
+    Obsługuje żądania POST wysyłane do /api/schedule, /api/sessions, /api/appointments, /api/slots.
+    Wymaga, aby body JSON zawierało strukturę oczekiwaną przez create_group_with_slots (tj. 'client_id' i 'therapy').
+    """
+    print("--- ALIAS POST WYWOŁANY ---")
+    data = request.get_json(silent=True) or {}
+    
+    # 1. Prosta walidacja (przekierowujemy błąd 400 jeśli brakuje kluczowych danych)
+    if not data.get("client_id") or not data.get("therapy"):
+        return jsonify({
+            "error": "Brak wymaganych pól: 'client_id' i 'therapy' (z 'starts_at', 'ends_at' i 'therapist_id').",
+            "details": f"Żądanie do: {request.path}",
+            "expected_endpoint": "/api/schedule/group"
+        }), 400
+
+    # 2. Jeśli brakuje "pickup" lub "dropoff", dodaj je jako null (wymagane w logice create_group_with_slots, jeśli nie podane)
+    # Ta część zapewnia, że JSON przejdzie przez funkcję bez wyjątku KeyError, jeśli te klucze nie są w ogóle zdefiniowane
+    if "pickup" not in data:
+        data["pickup"] = None
+    if "dropoff" not in data:
+        data["dropoff"] = None
+
+    # Zastąp oryginalne ciało żądania
+    request._cached_json = data
+    
+    # 3. Wywołaj logikę głównego endpointa tworzenia pakietu
+    try:
+        # Flask nie pozwala na bezpośrednie wywołanie innej funkcji view z tym samym Request context
+        # W celu obejścia, używamy "app.test_client" (zwróci to problem z transakcją ORM, ale jest tu tylko testem)
+        # Lepszym sposobem jest wywołanie funkcji bezpośrednio i stworzenie obiektu request:
+        return create_group_with_slots()
+
+    except Exception as e:
+        # Ponowne zgłoszenie błędu z kontekstem
+        import traceback
+        return jsonify({
+            "error": f"Błąd wewnętrzny podczas wywoływania /api/schedule/group: {str(e)}",
+            "traceback": traceback.format_exc().splitlines()[-2]
+        }), 500
+
+
 
 
 
