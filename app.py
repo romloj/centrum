@@ -9,6 +9,7 @@ import psutil
 from PIL import Image
 from psycopg2.extras import RealDictCursor
 from werkzeug.utils import secure_filename
+from requests.exceptions import ReadTimeout
 
 print("--- SERWER ZALADOWAL NAJNOWSZA WERSJE PLIKU ---")
 # Wersja po refaktoryzacji, poprawkach błędów i ujednoliceniu dostępu do bazy danych.
@@ -27,14 +28,14 @@ import psycopg2
 import requests
 
 from flask_cors import CORS
-from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory,send_file
+from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory, send_file
 from contextlib import contextmanager
 from psycopg2 import errorcodes
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy import (Column, DateTime, ForeignKey, Integer, String, Table,
                         Boolean, Float, Time, create_engine, func, text, bindparam, TIMESTAMP, Date, desc,
-                        UniqueConstraint, select, ARRAY, Enum)
+                        UniqueConstraint, select, ARRAY, Enum, TEXT)
 from sqlalchemy.orm import declarative_base, selectinload
 from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base, relationship, joinedload, aliased
 from sqlalchemy.exc import IntegrityError
@@ -99,6 +100,7 @@ DB_CONFIG = {
     'password': 'hr5g2iWpbfxi8Z5ZKBT0PUVQqhuvPAnd'   # <-- ZMIEŃ
 }
 
+
 # Funkcja pomocnicza do walidacji daty
 def validate_date(date_string, field_name):
     """Waliduje format daty"""
@@ -108,6 +110,7 @@ def validate_date(date_string, field_name):
     except (ValueError, TypeError):
         return f'Nieprawidłowy format daty w polu {field_name}'
 
+
 # Funkcja pomocnicza do walidacji długości
 def validate_length(value, field_name, max_length):
     """Waliduje długość tekstu"""
@@ -115,10 +118,12 @@ def validate_length(value, field_name, max_length):
         return f'{field_name} zbyt długie (max {max_length} znaków)'
     return None
 
+
 def calculate_distance(lat1, lon1, lat2, lon2):
     if lat1 and lon1 and lat2 and lon2:
         return geodesic((lat1, lon1), (lat2, lon2)).kilometers
     return 0
+
 
 def get_db_connection():
     """Tworzy połączenie z bazą PostgreSQL"""
@@ -143,32 +148,48 @@ def get_db_connection():
         print(f"Błąd połączenia z bazą: {e}")
         raise
 
+def init_journal_table():
+    """Inicjalizacja tabeli dziennik"""
+    with engine.begin() as conn:
+        conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS dziennik (
+                    id SERIAL PRIMARY KEY,
+                    data DATE NOT NULL,
+                    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
+                    therapist_id INTEGER NOT NULL REFERENCES therapists(id) ON DELETE RESTRICT,
+                    temat VARCHAR(255),
+                    cele TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            '''))
+    print("✓ Tabela dziennik zainicjalizowana")
 
 def init_client_notes_table():
     """Inicjalizacja tabeli notatek klientów"""
     with engine.begin() as conn:
         conn.execute(text('''
-            CREATE TABLE IF NOT EXISTS client_notes (
-                id SERIAL PRIMARY KEY,
-                client_id INTEGER NOT NULL,
-                content TEXT NOT NULL,
-                category VARCHAR(50) NOT NULL DEFAULT 'general',
-                created_by_name VARCHAR(255) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
-            )
-        '''))
+                CREATE TABLE IF NOT EXISTS client_notes (
+                    id SERIAL PRIMARY KEY,
+                    client_id INTEGER NOT NULL,
+                    content TEXT NOT NULL,
+                    category VARCHAR(50) NOT NULL DEFAULT 'general',
+                    created_by_name VARCHAR(255) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+                )
+            '''))
 
         conn.execute(text('''
-            CREATE INDEX IF NOT EXISTS idx_client_notes_client_id 
-            ON client_notes(client_id)
-        '''))
+                CREATE INDEX IF NOT EXISTS idx_client_notes_client_id 
+                ON client_notes(client_id)
+            '''))
 
         conn.execute(text('''
-            CREATE INDEX IF NOT EXISTS idx_client_notes_category 
-            ON client_notes(category)
-        '''))
+                CREATE INDEX IF NOT EXISTS idx_client_notes_category 
+                ON client_notes(category)
+            '''))
 
     print("✓ Tabela client_notes zainicjalizowana")
 
@@ -178,29 +199,29 @@ def init_waiting_clients_table():
     """Inicjalizacja tabeli klientów oczekujących"""
     with engine.begin() as conn:
         conn.execute(text('''
-            CREATE TABLE IF NOT EXISTS waiting_clients (
-                id SERIAL PRIMARY KEY,
-                first_name VARCHAR(100) NOT NULL,
-                last_name VARCHAR(100) NOT NULL,
-                birth_date DATE NOT NULL,
-                diagnosis TEXT,
-                registration_date DATE NOT NULL DEFAULT CURRENT_DATE,
-                notes TEXT,
-                status VARCHAR(50) DEFAULT 'oczekujący',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        '''))
+                CREATE TABLE IF NOT EXISTS waiting_clients (
+                    id SERIAL PRIMARY KEY,
+                    first_name VARCHAR(100) NOT NULL,
+                    last_name VARCHAR(100) NOT NULL,
+                    birth_date DATE NOT NULL,
+                    diagnosis TEXT,
+                    registration_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                    notes TEXT,
+                    status VARCHAR(50) DEFAULT 'oczekujący',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            '''))
 
         conn.execute(text('''
-            CREATE INDEX IF NOT EXISTS idx_waiting_clients_status 
-            ON waiting_clients(status)
-        '''))
+                CREATE INDEX IF NOT EXISTS idx_waiting_clients_status 
+                ON waiting_clients(status)
+            '''))
 
         conn.execute(text('''
-            CREATE INDEX IF NOT EXISTS idx_waiting_clients_registration 
-            ON waiting_clients(registration_date)
-        '''))
+                CREATE INDEX IF NOT EXISTS idx_waiting_clients_registration 
+                ON waiting_clients(registration_date)
+            '''))
 
     print("✓ Tabela waiting_clients zainicjalizowana")
 
@@ -215,9 +236,9 @@ def serve_upload(filename):
 
 def find_best_match(name_to_find, name_list):
     """
-    Znajduje najlepsze dopasowanie dla skróconej nazwy na liście pełnych nazw.
-    Obsługuje przypadki typu 'Jan M.' -> 'Jan Kowalski'
-    """
+        Znajduje najlepsze dopasowanie dla skróconej nazwy na liście pełnych nazw.
+        Obsługuje przypadki typu 'Jan M.' -> 'Jan Kowalski'
+        """
     if not name_to_find or not name_list:
         return None
 
@@ -305,8 +326,10 @@ def find_best_match(name_to_find, name_list):
     # Jeśli nie znaleziono dobrego dopasowania, zwróć None
     return None
 
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def get_safe_filepath(client_id, filename):
     client_folder = os.path.join(UPLOAD_FOLDER, str(client_id))
@@ -319,6 +342,7 @@ def get_safe_filepath(client_id, filename):
 
     return os.path.join(client_folder, unique_filename)
 
+
 class TUSSessionAttendance(Base):
     __tablename__ = 'tus_session_attendance'
     id = Column(Integer, primary_key=True)
@@ -328,11 +352,13 @@ class TUSSessionAttendance(Base):
 
     __table_args__ = (UniqueConstraint('session_id', 'client_id'),)
 
+
 class IndividualSessionAttendance(Base):
     __tablename__ = 'individual_session_attendance'
     id = Column(Integer, primary_key=True)
     slot_id = Column(Integer, ForeignKey('schedule_slots.id', ondelete="CASCADE"), nullable=False, unique=True)
     status = Column(String, nullable=False, default='obecny')
+
 
 class Client(Base):
     __tablename__ = 'clients'
@@ -385,6 +411,7 @@ class ScheduleSlot(Base):
     run_id = Column(UUID(as_uuid=True), nullable=True)
     attendance = relationship("IndividualSessionAttendance", uselist=False, cascade="all, delete-orphan")
 
+
 class TUSGroupMember(Base):
     __tablename__ = "tus_group_members"
     group_id = Column(Integer, ForeignKey("tus_groups.id", ondelete="CASCADE"), primary_key=True)
@@ -398,6 +425,7 @@ class TUSGroupMember(Base):
 
 def _create_member_association(client):
     return TUSGroupMember(client=client)
+
 
 class TUSGroup(Base):
     __tablename__ = "tus_groups"
@@ -450,6 +478,8 @@ class TUSSession(Base):
     member_bonuses = relationship("TUSMemberBonus", back_populates="session", cascade="all, delete-orphan")
     attendance = relationship("TUSSessionAttendance", cascade="all, delete-orphan")
     # --- KONIEC ---
+
+
 ####
 
 class TUSMemberBonus(Base):
@@ -463,7 +493,6 @@ class TUSMemberBonus(Base):
     client = relationship("Client")
 
 
-
 class TUSBehavior(Base):
     __tablename__ = 'tus_behaviors'
     id = Column(Integer, primary_key=True)
@@ -471,6 +500,7 @@ class TUSBehavior(Base):
     description = Column(String)
     default_max_points = Column(Integer, nullable=False, default=3)
     active = Column(Boolean, nullable=False, default=True)
+
 
 class TUSGeneralBonus(Base):
     __tablename__ = 'tus_general_bonuses'
@@ -515,16 +545,18 @@ class TUSSessionPartialReward(Base):
     awarded_at = Column(DateTime(timezone=True))
     __table_args__ = (UniqueConstraint('session_id', 'client_id'),)
 
+
 class TUSGroupTarget(Base):
     __tablename__ = 'tus_group_targets'
     id = Column(Integer, primary_key=True)
     group_id = Column(Integer, ForeignKey('tus_groups.id', ondelete="CASCADE"), nullable=False)
-    school_year_start = Column(Integer, nullable=False) # Np. 2025 dla roku 2025/2026
-    semester = Column(Integer, nullable=False) # 1 lub 2
+    school_year_start = Column(Integer, nullable=False)  # Np. 2025 dla roku 2025/2026
+    semester = Column(Integer, nullable=False)  # 1 lub 2
     target_points = Column(Integer, nullable=False, default=0)
     reward = Column(String)
 
     __table_args__ = (UniqueConstraint('group_id', 'school_year_start', 'semester'),)
+
 
 class Project(Base):
     __tablename__ = 'projects'
@@ -542,12 +574,31 @@ class Project(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+
 class EventGroup(Base):
     __tablename__ = 'event_groups'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     client_id = Column(Integer, ForeignKey('clients.id'))
     label = Column(String)
     slots = relationship("ScheduleSlot", cascade="all, delete-orphan")
+
+
+# === MODELE DZIENNIKA ===
+class JournalEntry(Base):
+    __tablename__ = 'dziennik'
+    id = Column(Integer, primary_key=True)
+    data = Column(Date, nullable=False)
+    client_id = Column(Integer, ForeignKey('clients.id', ondelete="RESTRICT"), nullable=False)
+    therapist_id = Column(Integer, ForeignKey('therapists.id', ondelete="RESTRICT"), nullable=False)
+    temat = Column(String(255))
+    cele = Column(TEXT)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relacje ułatwiające pobieranie pełnych nazw
+    client = relationship("Client", foreign_keys=[client_id], lazy="joined")
+    therapist = relationship("Therapist", foreign_keys=[therapist_id], lazy="joined")
+
 
 # === WCZYTANIE MODELI AI ===
 CT_MODEL_PATH = "models/ct_recommender.pkl"
@@ -568,6 +619,7 @@ try:
 except Exception as e:
     print(f"BŁĄD: Nie można wczytać modelu kierowców: {e}")
 
+
 # === FUNKCJE POMOCNICZE ===
 @contextmanager
 def session_scope():
@@ -582,13 +634,14 @@ def session_scope():
     finally:
         session.close()
 
+
 Session = sessionmaker(bind=engine)
 with session_scope() as db_session:
     # Pobieramy pierwszego terapeutę z bazy
     pierwszy_terapeuta = db_session.query(Therapist).first()
 
-    #if pierwszy_terapeuta:
-       # print(f"Znaleziono terapeutę: {pierwszy_terapeuta.full_name}")
+    # if pierwszy_terapeuta:
+    # print(f"Znaleziono terapeutę: {pierwszy_terapeuta.full_name}")
 
 
 def get_route_distance(origin, destination):
@@ -659,16 +712,17 @@ def get_route_distance(origin, destination):
         return None
 
 
-
 def _time_bucket(hhmm: str) -> str:
     """Zaokrągla czas do najbliższych 30 minut w dół (np. 09:10 -> 09:00)."""
     h, m = map(int, hhmm.split(":"))
     m = 0 if m < 30 else 30
     return f"{h:02d}:{m:02d}"
 
+
 def _date_str(dt):
     """Konwertuje obiekt daty na string w formacie YYYY-MM-DD."""
     return dt.strftime("%Y-%m-%d")
+
 
 def _score(freq, maxfreq, recency_days):
     """Oblicza wynik na podstawie częstości i świeżości interakcji."""
@@ -679,16 +733,19 @@ def _score(freq, maxfreq, recency_days):
     rec_bonus = 0.3 * exp(-recency_days / 30.0) if recency_days is not None else 0.0
     return min(1.0, base + rec_bonus)
 
+
 def _parse_time(s: str):
     """Parsuje string HH:MM na krotkę (godzina, minuta)."""
     h, m = map(int, s.split(":"))
     return h, m
+
 
 def _to_tstz(date_yyyy_mm_dd: str, hhmm: str, tz=TZ):
     """Tworzy obiekt datetime ze strefą czasową na podstawie daty i czasu."""
     h, m = _parse_time(hhmm)
     d = datetime.fromisoformat(date_yyyy_mm_dd)
     return d.replace(hour=h, minute=m, second=0, microsecond=0, tzinfo=tz)
+
 
 def _availability_conflicts(conn, therapist_id=None, driver_id=None, starts_at=None, ends_at=None):
     """Sprawdza konflikty w harmonogramie dla danej osoby i czasu."""
@@ -697,13 +754,13 @@ def _availability_conflicts(conn, therapist_id=None, driver_id=None, starts_at=N
                          driver_id=driver_id,
                          starts_at=starts_at, ends_at=ends_at)
 
+
 def _softmax(x):
     """Funkcja softmax do normalizacji wyników."""
     m = max(x) if x else 0.0
     exps = [math.exp(v - m) for v in x]
     s = sum(exps) or 1.0
-    return [v/s for v in exps]
-
+    return [v / s for v in exps]
 
 
 def _score_cd_row(r):
@@ -712,14 +769,14 @@ def _score_cd_row(r):
     mins = r.get("minutes_sum", 0) or 0
     done = r.get("done_ratio", 0.0) or 0.0
     rec = r.get("recency_weight", 0.0) or 0.0
-    return 0.5*rec + 0.3*done + 0.2*min(1.0, n/10.0) + 0.1*min(1.0, mins/600.0)
+    return 0.5 * rec + 0.3 * done + 0.2 * min(1.0, n / 10.0) + 0.1 * min(1.0, mins / 600.0)
 
 
 def find_overlaps(conn, *, driver_id=None, therapist_id=None, starts_at=None, ends_at=None):
     """
-    Zwraca listę kolidujących slotów dla driver_id/therapist_id i podanego zakresu czasu,
-    sprawdzając ZARÓWNO kalendarz indywidualny, jak i grupowy TUS.
-    """
+        Zwraca listę kolidujących slotów dla driver_id/therapist_id i podanego zakresu czasu,
+        sprawdzając ZARÓWNO kalendarz indywidualny, jak i grupowy TUS.
+        """
     if starts_at is None or ends_at is None:
         return []
 
@@ -727,48 +784,48 @@ def find_overlaps(conn, *, driver_id=None, therapist_id=None, starts_at=None, en
     # Jeśli sprawdzamy terapeutę, musimy przeszukać oba kalendarze.
     if therapist_id is not None:
         sql = text("""
-            -- 1. Konflikty z kalendarza indywidualnego
-            SELECT
-              ss.id, 'individual' as schedule_type, ss.kind, ss.starts_at, ss.ends_at, ss.status,
-              t.full_name AS therapist_name, c.full_name AS client_name
-            FROM schedule_slots ss
-            JOIN therapists t ON t.id = ss.therapist_id
-            LEFT JOIN clients c ON c.id = ss.client_id
-            WHERE ss.therapist_id = :person_id
-              AND tstzrange(ss.starts_at, ss.ends_at, '[)') && tstzrange(:s, :e, '[)')
+                -- 1. Konflikty z kalendarza indywidualnego
+                SELECT
+                  ss.id, 'individual' as schedule_type, ss.kind, ss.starts_at, ss.ends_at, ss.status,
+                  t.full_name AS therapist_name, c.full_name AS client_name
+                FROM schedule_slots ss
+                JOIN therapists t ON t.id = ss.therapist_id
+                LEFT JOIN clients c ON c.id = ss.client_id
+                WHERE ss.therapist_id = :person_id
+                  AND tstzrange(ss.starts_at, ss.ends_at, '[)') && tstzrange(:s, :e, '[)')
 
-            UNION ALL
+                UNION ALL
 
-            -- 2. Konflikty z kalendarza grupowego TUS
-            SELECT
-              s.id, 'tus_group' as schedule_type, 'therapy' as kind,
-              (s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
-              (s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
-              'planned' as status, t.full_name AS therapist_name, g.name AS client_name
-            FROM tus_sessions s
-            JOIN tus_groups g ON s.group_id = g.id
-            JOIN therapists t ON t.id = :person_id
-            WHERE (g.therapist_id = :person_id OR g.assistant_therapist_id = :person_id)
-              AND tstzrange(
-                  (s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw',
-                  (s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw',
-                  '[)'
-              ) && tstzrange(:s, :e, '[)')
-        """)
+                -- 2. Konflikty z kalendarza grupowego TUS
+                SELECT
+                  s.id, 'tus_group' as schedule_type, 'therapy' as kind,
+                  (s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
+                  (s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
+                  'planned' as status, t.full_name AS therapist_name, g.name AS client_name
+                FROM tus_sessions s
+                JOIN tus_groups g ON s.group_id = g.id
+                JOIN therapists t ON t.id = :person_id
+                WHERE (g.therapist_id = :person_id OR g.assistant_therapist_id = :person_id)
+                  AND tstzrange(
+                      (s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw',
+                      (s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw',
+                      '[)'
+                  ) && tstzrange(:s, :e, '[)')
+            """)
         params = {"person_id": therapist_id, "s": starts_at, "e": ends_at}
 
     # Dla kierowców logika pozostaje bez zmian (sprawdzamy tylko schedule_slots)
     elif driver_id is not None:
         sql = text("""
-            SELECT
-              ss.id, 'individual' as schedule_type, ss.kind, ss.starts_at, ss.ends_at, ss.status,
-              d.full_name AS driver_name, c.full_name AS client_name
-            FROM schedule_slots ss
-            JOIN drivers d ON d.id = ss.driver_id
-            LEFT JOIN clients c ON c.id = ss.client_id
-            WHERE ss.driver_id = :person_id
-              AND tstzrange(ss.starts_at, ss.ends_at, '[)') && tstzrange(:s, :e, '[)')
-        """)
+                SELECT
+                  ss.id, 'individual' as schedule_type, ss.kind, ss.starts_at, ss.ends_at, ss.status,
+                  d.full_name AS driver_name, c.full_name AS client_name
+                FROM schedule_slots ss
+                JOIN drivers d ON d.id = ss.driver_id
+                LEFT JOIN clients c ON c.id = ss.client_id
+                WHERE ss.driver_id = :person_id
+                  AND tstzrange(ss.starts_at, ss.ends_at, '[)') && tstzrange(:s, :e, '[)')
+            """)
         params = {"person_id": driver_id, "s": starts_at, "e": ends_at}
     else:
         return []
@@ -776,16 +833,17 @@ def find_overlaps(conn, *, driver_id=None, therapist_id=None, starts_at=None, en
     stmt = sql.bindparams(
         bindparam("s", type_=TIMESTAMP(timezone=True)),
         bindparam("e", type_=TIMESTAMP(timezone=True)),
-        )
+    )
     return [dict(r) for r in conn.execute(stmt, params).mappings().all()]
+
 
 def ensure_shared_run_id_for_driver(conn, driver_id, starts_at, ends_at):
     """Znajduje lub tworzy wspólne ID dla kursów odbywających się w tym samym czasie."""
     q = text("""
-      SELECT id, run_id FROM schedule_slots
-      WHERE driver_id = :did AND starts_at = :s AND ends_at = :e
-      LIMIT 1
-    """)
+          SELECT id, run_id FROM schedule_slots
+          WHERE driver_id = :did AND starts_at = :s AND ends_at = :e
+          LIMIT 1
+        """)
     row = conn.execute(q, {"did": driver_id, "s": starts_at, "e": ends_at}).mappings().first()
     if not row:
         return None
@@ -799,13 +857,14 @@ def ensure_shared_run_id_for_driver(conn, driver_id, starts_at, ends_at):
         return new_run
     return row["run_id"]
 
+
 def ensure_shared_session_id_for_therapist(conn, therapist_id, starts_at, ends_at):
     """Znajduje lub tworzy wspólne ID dla sesji terapeutycznych w tym samym czasie."""
     q = text("""
-      SELECT id, session_id FROM schedule_slots
-      WHERE therapist_id = :tid AND starts_at = :s AND ends_at = :e
-      LIMIT 1
-    """)
+          SELECT id, session_id FROM schedule_slots
+          WHERE therapist_id = :tid AND starts_at = :s AND ends_at = :e
+          LIMIT 1
+        """)
     row = conn.execute(q, {"tid": therapist_id, "s": starts_at, "e": ends_at}).mappings().first()
     if not row:
         return None
@@ -819,9 +878,6 @@ def ensure_shared_session_id_for_therapist(conn, therapist_id, starts_at, ends_a
     return row["session_id"]
 
 
-
-
-
 # === DEKORATORY I HOOKI FLASK ===
 @app.before_request
 def parse_json_only_when_needed():
@@ -829,6 +885,7 @@ def parse_json_only_when_needed():
         g.json = request.get_json(silent=True) or {}
     else:
         g.json = None
+
 
 # === GŁÓWNE ENDPOINTY APLIKACJI ===
 
@@ -840,19 +897,19 @@ def index():
 @app.get("/api/ai/gaps")
 def ai_gaps():
     """
-    ?month=YYYY-MM
-    Zwraca listy:
-      - clients_without_therapy_days: [ {client_id, full_name, date}, ... ]
-      - therapists_idle_days: [ {therapist_id, full_name, date}, ... ]
-      - drivers_idle_days: [ {driver_id, full_name, date}, ... ]
-    """
+        ?month=YYYY-MM
+        Zwraca listy:
+          - clients_without_therapy_days: [ {client_id, full_name, date}, ... ]
+          - therapists_idle_days: [ {therapist_id, full_name, date}, ... ]
+          - drivers_idle_days: [ {driver_id, full_name, date}, ... ]
+        """
     mk = request.args.get("month") or datetime.now(TZ).strftime("%Y-%m")
     first = datetime.fromisoformat(mk + "-01").date()
     # prosty zakres – do końca miesiąca
     if first.month == 12:
-        nxt = first.replace(year=first.year+1, month=1, day=1)
+        nxt = first.replace(year=first.year + 1, month=1, day=1)
     else:
-        nxt = first.replace(month=first.month+1, day=1)
+        nxt = first.replace(month=first.month + 1, day=1)
     days = []
     d = first
     while d < nxt:
@@ -863,21 +920,21 @@ def ai_gaps():
         # Klienci aktywni
         clients = conn.execute(text("SELECT id, full_name FROM clients WHERE active=true")).mappings().all()
         therapists = conn.execute(text("SELECT id, full_name FROM therapists WHERE active=true")).mappings().all()
-        drivers    = conn.execute(text("SELECT id, full_name FROM drivers WHERE active=true")).mappings().all()
+        drivers = conn.execute(text("SELECT id, full_name FROM drivers WHERE active=true")).mappings().all()
 
         # sloty w miesiącu
         q = text("""
-          SELECT kind, client_id, therapist_id, driver_id,
-                 (starts_at AT TIME ZONE 'Europe/Warsaw')::date AS d
-          FROM schedule_slots
-          WHERE to_char(starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk
-        """)
+              SELECT kind, client_id, therapist_id, driver_id,
+                     (starts_at AT TIME ZONE 'Europe/Warsaw')::date AS d
+              FROM schedule_slots
+              WHERE to_char(starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk
+            """)
         rows = conn.execute(q, {"mk": mk}).mappings().all()
 
     # indeksy
     had_therapy = {(r["client_id"], r["d"]) for r in rows if r["kind"] == "therapy"}
-    th_worked   = {(r["therapist_id"], r["d"]) for r in rows if r["therapist_id"] and r["kind"]=='therapy'}
-    dr_worked   = {(r["driver_id"], r["d"]) for r in rows if r["driver_id"] and r["kind"] in ('pickup','dropoff')}
+    th_worked = {(r["therapist_id"], r["d"]) for r in rows if r["therapist_id"] and r["kind"] == 'therapy'}
+    dr_worked = {(r["driver_id"], r["d"]) for r in rows if r["driver_id"] and r["kind"] in ('pickup', 'dropoff')}
 
     clients_without = []
     for c in clients:
@@ -907,30 +964,30 @@ def ai_gaps():
 @app.post("/api/ai/suggest")
 def ai_suggest():
     """
-    JSON:
-    {
-      "client_id": 123,
-      "date": "2025-08-22",          # dzień planowania
-      "therapy_window": ["08:00","16:00"],   # opcjonalnie
-      "pickup_offset_min": 30,       # ile przed terapią
-      "dropoff_offset_min": 30       # ile po terapii
-    }
-    Zwraca:
-    {
-      "therapy": [ {therapist_id, full_name, score, suggested_start, suggested_end}, ... ],
-      "drivers_pickup": [ {driver_id, full_name, score, suggested_start, suggested_end}, ... ],
-      "drivers_dropoff": [ ... ]
-    }
-    """
+        JSON:
+        {
+          "client_id": 123,
+          "date": "2025-08-22",          # dzień planowania
+          "therapy_window": ["08:00","16:00"],   # opcjonalnie
+          "pickup_offset_min": 30,       # ile przed terapią
+          "dropoff_offset_min": 30       # ile po terapii
+        }
+        Zwraca:
+        {
+          "therapy": [ {therapist_id, full_name, score, suggested_start, suggested_end}, ... ],
+          "drivers_pickup": [ {driver_id, full_name, score, suggested_start, suggested_end}, ... ],
+          "drivers_dropoff": [ ... ]
+        }
+        """
     data = request.get_json(silent=True) or {}
     cid = int(data["client_id"])
     date_str = data["date"]  # YYYY-MM-DD
-    window = data.get("therapy_window") or ["08:00","16:00"]
+    window = data.get("therapy_window") or ["08:00", "16:00"]
     pk_off = int(data.get("pickup_offset_min", 30))
     dp_off = int(data.get("dropoff_offset_min", 30))
 
     start_bucket = _time_bucket(window[0])
-    end_bucket   = _time_bucket(window[1])
+    end_bucket = _time_bucket(window[1])
 
     # przygotuj wiadra półgodzinne w zakresie okna
     all_buckets = []
@@ -939,18 +996,20 @@ def ai_suggest():
     cur_h, cur_m = sh, sm
     while (cur_h, cur_m) <= (eh, em):
         all_buckets.append(f"{cur_h:02d}:{cur_m:02d}")
-        if cur_m == 0: cur_h, cur_m = cur_h, 30
-        else: cur_h, cur_m = cur_h+1, 0
+        if cur_m == 0:
+            cur_h, cur_m = cur_h, 30
+        else:
+            cur_h, cur_m = cur_h + 1, 0
 
     with engine.begin() as conn:
         # --- TERAPEUCI: kto z tym klientem i o jakich godzinach pracuje
         q1 = text("""
-            SELECT t.id, t.full_name, COALESCE(v.n,0) AS n, v.last_dt
-            FROM therapists t
-            LEFT JOIN v_hist_client_therapist v
-              ON v.therapist_id = t.id AND v.client_id = :cid
-            WHERE t.active = true
-        """)
+                SELECT t.id, t.full_name, COALESCE(v.n,0) AS n, v.last_dt
+                FROM therapists t
+                LEFT JOIN v_hist_client_therapist v
+                  ON v.therapist_id = t.id AND v.client_id = :cid
+                WHERE t.active = true
+            """)
         th_rows = conn.execute(q1, {"cid": cid}).mappings().all()
         if not th_rows:
             return jsonify({"therapy": [], "drivers_pickup": [], "drivers_dropoff": []}), 200
@@ -960,9 +1019,9 @@ def ai_suggest():
 
         # preferencje godzinowe terapeuty
         q_thh = text("""
-          SELECT therapist_id, hhmm, n FROM v_hist_therapist_hour
-          WHERE hhmm = ANY(:buckets)
-        """)
+              SELECT therapist_id, hhmm, n FROM v_hist_therapist_hour
+              WHERE hhmm = ANY(:buckets)
+            """)
         thh = conn.execute(q_thh, {"buckets": all_buckets}).mappings().all()
         pref_map = {}  # (therapist_id -> {hhmm: n})
         for r in thh:
@@ -979,11 +1038,12 @@ def ai_suggest():
             # znajdź bucket z największą „zgodnością” godzinową
             hours_pref = pref_map.get(r["id"], {})
             # fallback: środek okna, jeśli brak historii godzinowej
-            best_bucket = max(all_buckets, key=lambda b: hours_pref.get(b, 0)) if hours_pref else all_buckets[len(all_buckets)//2]
+            best_bucket = max(all_buckets, key=lambda b: hours_pref.get(b, 0)) if hours_pref else all_buckets[
+                len(all_buckets) // 2]
 
             # sugerowany 60-min slot terapii (możesz zmienić)
             th_start = _to_tstz(date_str, best_bucket)
-            th_end   = th_start + timedelta(minutes=60)
+            th_end = th_start + timedelta(minutes=60)
 
             # sprawdź kolizje terapeuty
             col = _availability_conflicts(conn, therapist_id=r["id"], starts_at=th_start, ends_at=th_end)
@@ -993,7 +1053,8 @@ def ai_suggest():
                 ok = False
                 for b in all_buckets:
                     if b in tried: continue
-                    s2 = _to_tstz(date_str, b); e2 = s2 + timedelta(minutes=60)
+                    s2 = _to_tstz(date_str, b);
+                    e2 = s2 + timedelta(minutes=60)
                     if not _availability_conflicts(conn, therapist_id=r["id"], starts_at=s2, ends_at=e2):
                         best_bucket, th_start, th_end = b, s2, e2
                         ok = True
@@ -1031,22 +1092,22 @@ def ai_suggest():
             dp_end = dp_start + timedelta(minutes=dp_off)
 
             q2 = text("""
-                SELECT d.id, d.full_name, COALESCE(v.n,0) AS n, v.last_dt
-                FROM drivers d
-                LEFT JOIN v_hist_client_driver v
-                  ON v.driver_id = d.id AND v.client_id = :cid
-                WHERE d.active = true
-            """)
+                    SELECT d.id, d.full_name, COALESCE(v.n,0) AS n, v.last_dt
+                    FROM drivers d
+                    LEFT JOIN v_hist_client_driver v
+                      ON v.driver_id = d.id AND v.client_id = :cid
+                    WHERE d.active = true
+                """)
             dr_rows = conn.execute(q2, {"cid": cid}).mappings().all()
             max_n_dr = max((r["n"] for r in dr_rows), default=0)
 
             # godzinowe preferencje kierowców
-            buckets_needed = list({ _time_bucket(pk_start.strftime("%H:%M")),
-                                    _time_bucket(dp_start.strftime("%H:%M")) })
+            buckets_needed = list({_time_bucket(pk_start.strftime("%H:%M")),
+                                   _time_bucket(dp_start.strftime("%H:%M"))})
             q_drh = text("""
-              SELECT driver_id, hhmm, n FROM v_hist_driver_hour
-              WHERE hhmm = ANY(:buckets)
-            """)
+                  SELECT driver_id, hhmm, n FROM v_hist_driver_hour
+                  WHERE hhmm = ANY(:buckets)
+                """)
             drh = conn.execute(q_drh, {"buckets": buckets_needed}).mappings().all()
             dr_pref = {}
             for r in drh:
@@ -1057,32 +1118,32 @@ def ai_suggest():
                 rec_days = (today - r["last_dt"].date()).days if r["last_dt"] else None
                 base = _score(r["n"], max_n_dr, rec_days)
                 bpk = _time_bucket(pk_start.strftime("%H:%M"))
-                base_pk = base + (0.05 if dr_pref.get(r["id"],{}).get(bpk,0) > 0 else 0.0)
+                base_pk = base + (0.05 if dr_pref.get(r["id"], {}).get(bpk, 0) > 0 else 0.0)
 
                 col = _availability_conflicts(conn, driver_id=r["id"], starts_at=pk_start, ends_at=pk_end)
                 if not col:
                     drivers_pickup.append({
                         "driver_id": r["id"], "full_name": r["full_name"],
-                        "score": round(base_pk,3),
+                        "score": round(base_pk, 3),
                         "suggested_start": pk_start.isoformat(),
                         "suggested_end": pk_end.isoformat()
                     })
 
                 # dropoff
                 bdp = _time_bucket(dp_start.strftime("%H:%M"))
-                base_dp = base + (0.05 if dr_pref.get(r["id"],{}).get(bdp,0) > 0 else 0.0)
+                base_dp = base + (0.05 if dr_pref.get(r["id"], {}).get(bdp, 0) > 0 else 0.0)
                 col2 = _availability_conflicts(conn, driver_id=r["id"], starts_at=dp_start, ends_at=dp_end)
                 if not col2:
                     drivers_dropoff.append({
                         "driver_id": r["id"], "full_name": r["full_name"],
-                        "score": round(base_dp,3),
+                        "score": round(base_dp, 3),
                         "suggested_start": dp_start.isoformat(),
                         "suggested_end": dp_end.isoformat()
                     })
 
             drivers_pickup.sort(key=lambda x: x["score"], reverse=True)
             drivers_dropoff.sort(key=lambda x: x["score"], reverse=True)
-            drivers_pickup  = drivers_pickup[:5]
+            drivers_pickup = drivers_pickup[:5]
             drivers_dropoff = drivers_dropoff[:5]
 
     return jsonify({
@@ -1091,11 +1152,13 @@ def ai_suggest():
         "drivers_dropoff": drivers_dropoff
     }), 200
 
+
 def _softmax(x):
     m = max(x) if x else 0.0
     exps = [math.exp(v - m) for v in x]
     s = sum(exps) or 1.0
-    return [v/s for v in exps]
+    return [v / s for v in exps]
+
 
 def _score_ct_row(r):
     # prosta, działająca od ręki heurystyka
@@ -1104,16 +1167,15 @@ def _score_ct_row(r):
     mins = r.get("minutes_sum", 0) or 0
     done = r.get("done_ratio", 0.0) or 0.0
     rec = r.get("recency_weight", 0.0) or 0.0
-    return 0.5*rec + 0.3*done + 0.2*min(1.0, n/10.0) + 0.1*min(1.0, mins/600.0)
-
+    return 0.5 * rec + 0.3 * done + 0.2 * min(1.0, n / 10.0) + 0.1 * min(1.0, mins / 600.0)
 
 
 @app.get("/api/ai/recommend")
 def ai_recommend():
     """
-    Zwraca TOP propozycje terapeuty i kierowcy dla klienta + preferowane godziny.
-    Używa wytrenowanych modeli AI, jeśli są dostępne.
-    """
+        Zwraca TOP propozycje terapeuty i kierowcy dla klienta + preferowane godziny.
+        Używa wytrenowanych modeli AI, jeśli są dostępne.
+        """
     cid = request.args.get("client_id", type=int)
     if not cid:
         return jsonify({"error": "client_id is required"}), 400
@@ -1121,22 +1183,22 @@ def ai_recommend():
     with engine.begin() as conn:
         # TERAPEUCI
         q_ct = text("""
-          SELECT f.therapist_id, t.full_name,
-                 f.n_sessions, f.minutes_sum, f.done_ratio, f.days_since_last, f.recency_weight
-          FROM v_ct_features f
-          JOIN therapists t ON t.id=f.therapist_id AND t.active=true
-          WHERE f.client_id=:cid
-        """)
+              SELECT f.therapist_id, t.full_name,
+                     f.n_sessions, f.minutes_sum, f.done_ratio, f.days_since_last, f.recency_weight
+              FROM v_ct_features f
+              JOIN therapists t ON t.id=f.therapist_id AND t.active=true
+              WHERE f.client_id=:cid
+            """)
         ct_rows = [dict(r) for r in conn.execute(q_ct, {"cid": cid}).mappings().all()]
 
         # KIEROWCY
         q_cd = text("""
-          SELECT f.driver_id, d.full_name,
-                 f.n_runs, f.minutes_sum, f.done_ratio, f.days_since_last, f.recency_weight
-          FROM v_cd_features f
-          JOIN drivers d ON d.id=f.driver_id AND d.active=true
-          WHERE f.client_id=:cid
-        """)
+              SELECT f.driver_id, d.full_name,
+                     f.n_runs, f.minutes_sum, f.done_ratio, f.days_since_last, f.recency_weight
+              FROM v_cd_features f
+              JOIN drivers d ON d.id=f.driver_id AND d.active=true
+              WHERE f.client_id=:cid
+            """)
         cd_rows = [dict(r) for r in conn.execute(q_cd, {"cid": cid}).mappings().all()]
 
         # Preferencje czasu (bez zmian)
@@ -1151,7 +1213,7 @@ def ai_recommend():
         scores = ct_model.predict_proba(X_ct)[:, 1]
         for r, score in zip(ct_rows, scores):
             r["score"] = round(score, 4)
-    else: # Fallback do starej logiki, jeśli model nie jest dostępny
+    else:  # Fallback do starej logiki, jeśli model nie jest dostępny
         for r in ct_rows:
             r["score"] = round(_score_ct_row(r), 4)
 
@@ -1162,7 +1224,7 @@ def ai_recommend():
         scores = cd_model.predict_proba(X_cd)[:, 1]
         for r, score in zip(cd_rows, scores):
             r["score"] = round(score, 4)
-    else: # Fallback
+    else:  # Fallback
         for r in cd_rows:
             r["score"] = round(_score_cd_row(r), 4)
 
@@ -1171,17 +1233,18 @@ def ai_recommend():
     cd_rows.sort(key=lambda x: x["score"], reverse=True)
 
     return jsonify({
-      "therapists": ct_rows[:5],
-      "drivers": cd_rows[:5],
-      "time_prefs": time_prefs
+        "therapists": ct_rows[:5],
+        "drivers": cd_rows[:5],
+        "time_prefs": time_prefs
     }), 200
+
 
 @app.get("/api/clients")
 def list_clients_with_suo():
     mk = request.args.get("month") or datetime.now(TZ).strftime("%Y-%m")
     q = (request.args.get("q") or "").strip()
     therapist_id = request.args.get("therapist_id", type=int)
-    include_inactive = request.args.get("include_inactive") in ("1","true","yes")
+    include_inactive = request.args.get("include_inactive") in ("1", "true", "yes")
 
     where = []
     params = {"mk": mk}
@@ -1193,44 +1256,41 @@ def list_clients_with_suo():
         params["q"] = f"%{q}%"
     if therapist_id:
         where.append("""
-            EXISTS (
-              SELECT 1 FROM schedule_slots s
-              WHERE s.client_id = c.id AND s.therapist_id = :tid AND s.kind = 'therapy'
-                AND to_char(s.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk
-            )
-        """)
+                EXISTS (
+                  SELECT 1 FROM schedule_slots s
+                  WHERE s.client_id = c.id AND s.therapist_id = :tid AND s.kind = 'therapy'
+                    AND to_char(s.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk
+                )
+            """)
         params["tid"] = therapist_id
 
     where_sql = "WHERE " + " AND ".join(where) if where else ""
 
     sql = f"""
-    WITH used AS (
-      SELECT client_id, minutes_used
-      FROM suo_usage
-      WHERE month_key = :mk
-    )
-    SELECT
-      c.id AS client_id, c.full_name, c.phone, c.address, c.active,
-      c.photo_url,  -- DODAJ TĘ LINIĘ
-      EXISTS (SELECT 1 FROM client_unavailability cu WHERE cu.client_id = c.id) AS has_unavailability_plan,
-      :mk AS month_key, a.minutes_quota,
-      COALESCE(u.minutes_used, 0) AS minutes_used,
-      CASE WHEN a.minutes_quota IS NULL THEN NULL
-           ELSE a.minutes_quota - COALESCE(u.minutes_used, 0)
-      END AS minutes_left,
-      (a.minutes_quota IS NULL) AS needs_allocation
-    FROM clients c
-    LEFT JOIN used u ON u.client_id = c.id
-    LEFT JOIN suo_allocations a ON a.client_id = c.id AND a.month_key = :mk
-    {where_sql}
-    ORDER BY c.full_name;
-    """
+        WITH used AS (
+          SELECT client_id, minutes_used
+          FROM suo_usage
+          WHERE month_key = :mk
+        )
+        SELECT
+          c.id AS client_id, c.full_name, c.phone, c.address, c.active,
+          c.photo_url,  -- DODAJ TĘ LINIĘ
+          EXISTS (SELECT 1 FROM client_unavailability cu WHERE cu.client_id = c.id) AS has_unavailability_plan,
+          :mk AS month_key, a.minutes_quota,
+          COALESCE(u.minutes_used, 0) AS minutes_used,
+          CASE WHEN a.minutes_quota IS NULL THEN NULL
+               ELSE a.minutes_quota - COALESCE(u.minutes_used, 0)
+          END AS minutes_left,
+          (a.minutes_quota IS NULL) AS needs_allocation
+        FROM clients c
+        LEFT JOIN used u ON u.client_id = c.id
+        LEFT JOIN suo_allocations a ON a.client_id = c.id AND a.month_key = :mk
+        {where_sql}
+        ORDER BY c.full_name;
+        """
     with engine.begin() as conn:
         rows = conn.execute(text(sql), params).mappings().all()
         return jsonify([dict(r) for r in rows]), 200
-
-
-
 
 
 @app.delete("/api/clients/<int:cid>")
@@ -1246,6 +1306,7 @@ def delete_client(cid):
     # 204 No Content to standardowa, pusta odpowiedź po pomyślnym usunięciu
     return "", 204
 
+
 @app.post("/api/clients")
 def create_client():
     data = request.get_json(silent=True) or {}
@@ -1254,10 +1315,10 @@ def create_client():
         return jsonify({"error": "Pole 'full_name' jest wymagane."}), 400
 
     sql = """
-    INSERT INTO clients (full_name, phone, address,active)
-    VALUES (:full_name, :phone, :address, COALESCE(:active,true))
-    RETURNING id, full_name, phone, address, active;
-    """
+        INSERT INTO clients (full_name, phone, address,active)
+        VALUES (:full_name, :phone, :address, COALESCE(:active,true))
+        RETURNING id, full_name, phone, address, active;
+        """
     try:
         with engine.begin() as conn:
             row = conn.execute(text(sql), {
@@ -1281,15 +1342,15 @@ def update_client(cid):
         return jsonify({"error": "Pole 'full_name' jest wymagane."}), 400
 
     sql = """
-    UPDATE clients
-       SET full_name = :full_name,
-           phone     = :phone,
-           address   = :address,
-           active    = COALESCE(:active, true),
-           photo_url = :photo_url
-     WHERE id = :id
-    RETURNING id, full_name, phone, address, active, photo_url;
-    """
+        UPDATE clients
+           SET full_name = :full_name,
+               phone     = :phone,
+               address   = :address,
+               active    = COALESCE(:active, true),
+               photo_url = :photo_url
+         WHERE id = :id
+        RETURNING id, full_name, phone, address, active, photo_url;
+        """
     try:
         with engine.begin() as conn:
             row = conn.execute(text(sql), {
@@ -1318,7 +1379,7 @@ def get_package_group(group_id):
     try:
         conn = psycopg2.connect(
             host='localhost',
-            port ='5432',
+            port='5432',
             database='suo',  # ZMIEŃ
             user='postgres',  # ZMIEŃ
             password='EDUQ'  # ZMIEŃ
@@ -1327,30 +1388,30 @@ def get_package_group(group_id):
 
         # Pobierz wszystkie sloty należące do grupy (UUID)
         cur.execute("""
-            SELECT 
-                id as slot_id,
-                group_id::text as group_id,
-                client_id,
-                kind,
-                therapist_id,
-                driver_id,
-                vehicle_id,
-                starts_at,
-                ends_at,
-                place_from,
-                place_to,
-                status,
-                distance_km
-            FROM schedule_slots
-            WHERE group_id = %s::uuid
-            ORDER BY 
-                CASE kind 
-                    WHEN 'pickup' THEN 1
-                    WHEN 'therapy' THEN 2
-                    WHEN 'dropoff' THEN 3
-                    ELSE 4
-                END
-        """, (group_id,))
+                SELECT 
+                    id as slot_id,
+                    group_id::text as group_id,
+                    client_id,
+                    kind,
+                    therapist_id,
+                    driver_id,
+                    vehicle_id,
+                    starts_at,
+                    ends_at,
+                    place_from,
+                    place_to,
+                    status,
+                    distance_km
+                FROM schedule_slots
+                WHERE group_id = %s::uuid
+                ORDER BY 
+                    CASE kind 
+                        WHEN 'pickup' THEN 1
+                        WHEN 'therapy' THEN 2
+                        WHEN 'dropoff' THEN 3
+                        ELSE 4
+                    END
+            """, (group_id,))
 
         slots = cur.fetchall()
 
@@ -1413,15 +1474,17 @@ def get_package_group(group_id):
             cur.close()
         if conn:
             conn.close()
+
+
 # === THERAPISTS ===
 @app.get("/api/therapists")
 def list_therapists():
     with SessionLocal() as s:
         therapists = (
             s.query(Therapist)
-             .filter(Therapist.active == True)
-             .order_by(Therapist.full_name)
-             .all()
+            .filter(Therapist.active == True)
+            .order_by(Therapist.full_name)
+            .all()
         )
         return jsonify([{
             "id": t.id,
@@ -1431,6 +1494,7 @@ def list_therapists():
             "active": bool(t.active),
         } for t in therapists])
 
+
 @app.post("/api/therapists")
 def create_therapist():
     data = request.get_json(force=True)
@@ -1439,10 +1503,10 @@ def create_therapist():
         return jsonify({"error": "Pole 'full_name' jest wymagane."}), 400
 
     sql = text("""
-        INSERT INTO therapists (full_name, specialization, phone, active)
-        VALUES (:full_name, :specialization, :phone, COALESCE(:active,true))
-        RETURNING id, full_name, specialization, phone, active;
-    """)
+            INSERT INTO therapists (full_name, specialization, phone, active)
+            VALUES (:full_name, :specialization, :phone, COALESCE(:active,true))
+            RETURNING id, full_name, specialization, phone, active;
+        """)
     try:
         with engine.begin() as conn:
             row = conn.execute(sql, {
@@ -1489,6 +1553,7 @@ def delete_therapist(tid):
         db_session.delete(therapist)
         db_session.commit()
         return "", 204
+
 
 # === DRIVERS ===
 # --- LISTA KIEROWCÓW (odporna na brak pola phone itd.) ---
@@ -1574,17 +1639,18 @@ def delete_driver(did):
         db_session.commit()
         return "", 204
 
+
 # === CLIENT UNAVAILABILITY ===
 
 @app.get("/api/clients/<int:client_id>/unavailability")
 def get_client_unavailability(client_id):
     """Pobiera wszystkie wpisy o niedostępności dla danego klienta."""
     sql = text("""
-        SELECT id, day_of_week, start_time, end_time, notes 
-        FROM client_unavailability 
-        WHERE client_id = :cid 
-        ORDER BY day_of_week, start_time
-    """)
+            SELECT id, day_of_week, start_time, end_time, notes 
+            FROM client_unavailability 
+            WHERE client_id = :cid 
+            ORDER BY day_of_week, start_time
+        """)
     with engine.begin() as conn:
         rows = conn.execute(sql, {"cid": client_id}).mappings().all()
         # Konwertuj obiekty czasu na stringi dla łatwiejszej obsługi w JSON
@@ -1604,10 +1670,10 @@ def add_client_unavailability(client_id):
         return jsonify({"error": "Brak wymaganych pól (dzień, start, koniec)."}), 400
 
     sql = text("""
-        INSERT INTO client_unavailability (client_id, day_of_week, start_time, end_time, notes)
-        VALUES (:cid, :dow, :start, :end, :notes)
-        RETURNING id
-    """)
+            INSERT INTO client_unavailability (client_id, day_of_week, start_time, end_time, notes)
+            VALUES (:cid, :dow, :start, :end, :notes)
+            RETURNING id
+        """)
     with engine.begin() as conn:
         new_id = conn.execute(sql, {
             "cid": client_id,
@@ -1629,21 +1695,22 @@ def delete_unavailability(entry_id):
         return jsonify({"error": "Nie znaleziono wpisu."}), 404
     return "", 204
 
+
 @app.post("/api/ai/plan-day")
 def ai_plan_day():
     """
-    Body:
-    {
-      "date": "2025-08-21",
-      "clients": [1,2,3],
-      "slot_template": {"start":"09:00","end":"10:00"}  # opcjonalnie
-    }
-    """
+        Body:
+        {
+          "date": "2025-08-21",
+          "clients": [1,2,3],
+          "slot_template": {"start":"09:00","end":"10:00"}  # opcjonalnie
+        }
+        """
     data = request.get_json(silent=True) or {}
     date = data.get("date")
     clients = data.get("clients") or []
     if not date or not clients:
-        return jsonify({"error":"date and clients[] required"}), 400
+        return jsonify({"error": "date and clients[] required"}), 400
 
     # dla każdego klienta: TOP1 terapeuta i TOP1 kierowca z /api/ai/recommend
     # + szybka kontrola kolizji godzinowej (tu: ta sama godzina)
@@ -1654,14 +1721,14 @@ def ai_plan_day():
         th = (rec.get("therapists") or [{}])[0]
         dr = (rec.get("drivers") or [{}])[0]
         start = f"{date}T{str(hour_start).zfill(2)}:00:00"
-        end   = f"{date}T{str(hour_start+1).zfill(2)}:00:00"
+        end = f"{date}T{str(hour_start + 1).zfill(2)}:00:00"
         plans.append({
-          "client_id": cid,
-          "therapist_id": th.get("therapist_id"),
-          "driver_id_pickup": dr.get("driver_id"),
-          "driver_id_dropoff": dr.get("driver_id"),
-          "starts_at": start, "ends_at": end,
-          "score_therapist": th.get("score"), "score_driver": dr.get("score")
+            "client_id": cid,
+            "therapist_id": th.get("therapist_id"),
+            "driver_id_pickup": dr.get("driver_id"),
+            "driver_id_dropoff": dr.get("driver_id"),
+            "starts_at": start, "ends_at": end,
+            "score_therapist": th.get("score"), "score_driver": dr.get("score")
         })
         hour_start += 1  # prosta sekwencja – zamienisz na CP-SAT
     return jsonify({"date": date, "proposals": plans}), 200
@@ -1674,14 +1741,14 @@ def get_group(gid):
     # --- POCZĄTEK POPRAWKI ---
     # Używamy standardowej funkcji CAST() zamiast składni ::uuid przy parametrze
     sql = text("""
-        SELECT
-            eg.client_id, eg.label, ss.kind, ss.therapist_id, ss.driver_id,
-            ss.vehicle_id, ss.starts_at, ss.ends_at, ss.place_from,
-            ss.place_to, ss.status
-        FROM event_groups eg
-        JOIN schedule_slots ss ON eg.id = ss.group_id::uuid
-        WHERE ss.id = %(slot_id)s
-    """)
+            SELECT
+                eg.client_id, eg.label, ss.kind, ss.therapist_id, ss.driver_id,
+                ss.vehicle_id, ss.starts_at, ss.ends_at, ss.place_from,
+                ss.place_to, ss.status
+            FROM event_groups eg
+            JOIN schedule_slots ss ON eg.id = ss.group_id::uuid
+            WHERE ss.id = %(slot_id)s
+        """)
     # --- KONIEC POPRAWKI ---
 
     with engine.begin() as conn:
@@ -1756,15 +1823,15 @@ def update_group(gid):
                               {"gid": gid}).mappings().first()
             if ex:
                 conn.execute(text("""
-                    UPDATE schedule_slots SET therapist_id=:tid, starts_at=:s, ends_at=:e, place_to=:place, status=:status, session_id=:sid WHERE id=:id
-                """), {"tid": therapy["therapist_id"], "s": ts, "e": te, "place": therapy.get("place"),
-                       "status": status, "sid": session_id, "id": ex["id"]})
+                        UPDATE schedule_slots SET therapist_id=:tid, starts_at=:s, ends_at=:e, place_to=:place, status=:status, session_id=:sid WHERE id=:id
+                    """), {"tid": therapy["therapist_id"], "s": ts, "e": te, "place": therapy.get("place"),
+                           "status": status, "sid": session_id, "id": ex["id"]})
             else:
                 conn.execute(text("""
-                    INSERT INTO schedule_slots (group_id, client_id, therapist_id, kind, starts_at, ends_at, place_to, status, session_id)
-                    SELECT :gid, client_id, :tid, 'therapy', :s, :e, :place, :status, :sid FROM schedule_slots WHERE group_id=:gid LIMIT 1
-                """), {"gid": gid, "tid": therapy["therapist_id"], "s": ts, "e": te, "place": therapy.get("place"),
-                       "status": status, "sid": session_id})
+                        INSERT INTO schedule_slots (group_id, client_id, therapist_id, kind, starts_at, ends_at, place_to, status, session_id)
+                        SELECT :gid, client_id, :tid, 'therapy', :s, :e, :place, :status, :sid FROM schedule_slots WHERE group_id=:gid LIMIT 1
+                    """), {"gid": gid, "tid": therapy["therapist_id"], "s": ts, "e": te, "place": therapy.get("place"),
+                           "status": status, "sid": session_id})
 
             # POPRAWKA: Definicja funkcji przeniesiona na właściwy poziom
             def upsert_run(kind, block):
@@ -1796,22 +1863,22 @@ def update_group(gid):
 
                 if ex:
                     conn.execute(text("""
-                        UPDATE schedule_slots 
-                        SET driver_id=:did, vehicle_id=:veh, starts_at=:s, ends_at=:e, 
-                            place_from=:from, place_to=:to, status=:status, 
-                            distance_km=:distance
-                        WHERE id=:id
-                    """), {**payload, "id": ex["id"]})
+                            UPDATE schedule_slots 
+                            SET driver_id=:did, vehicle_id=:veh, starts_at=:s, ends_at=:e, 
+                                place_from=:from, place_to=:to, status=:status, 
+                                distance_km=:distance
+                            WHERE id=:id
+                        """), {**payload, "id": ex["id"]})
                 else:
                     conn.execute(text("""
-                        INSERT INTO schedule_slots 
-                        (group_id, client_id, driver_id, vehicle_id, kind, starts_at, ends_at, 
-                         place_from, place_to, status, distance_km)
-                        SELECT :gid, client_id, :did, :veh, :kind, :s, :e, 
-                               :from, :to, :status, :distance 
-                        FROM schedule_slots 
-                        WHERE group_id=:gid AND kind='therapy' LIMIT 1
-                    """), payload)
+                            INSERT INTO schedule_slots 
+                            (group_id, client_id, driver_id, vehicle_id, kind, starts_at, ends_at, 
+                             place_from, place_to, status, distance_km)
+                            SELECT :gid, client_id, :did, :veh, :kind, :s, :e, 
+                                   :from, :to, :status, :distance 
+                            FROM schedule_slots 
+                            WHERE group_id=:gid AND kind='therapy' LIMIT 1
+                        """), payload)
 
             upsert_run("pickup", pickup)
             upsert_run("dropoff", dropoff)
@@ -1827,15 +1894,16 @@ def update_group(gid):
 
 def get_semester_dates(school_year_start, semester):
     """Zwraca datę początkową i końcową dla danego semestru roku szkolnego."""
-    if semester == 1: # I Półrocze (Wrzesień - Styczeń)
+    if semester == 1:  # I Półrocze (Wrzesień - Styczeń)
         start_date = date(school_year_start, 9, 1)
-        end_date = date(school_year_start + 1, 2, 1) # Kończy się przed 1 lutego
-    elif semester == 2: # II Półrocze (Luty - Czerwiec)
+        end_date = date(school_year_start + 1, 2, 1)  # Kończy się przed 1 lutego
+    elif semester == 2:  # II Półrocze (Luty - Czerwiec)
         start_date = date(school_year_start + 1, 2, 1)
-        end_date = date(school_year_start + 1, 7, 1) # Kończy się przed 1 lipca
+        end_date = date(school_year_start + 1, 7, 1)  # Kończy się przed 1 lipca
     else:
         raise ValueError("Semester must be 1 or 2")
     return start_date, end_date
+
 
 @app.get("/tus")
 def tus_page():
@@ -1999,7 +2067,6 @@ def create_tus_session():
         traceback.print_exc()
         return jsonify({"error": "Wewnętrzny błąd serwera."}), 500
 
-
 @app.put("/api/tus/sessions/<int:session_id>")
 def update_tus_session(session_id):
     data = request.get_json(silent=True) or {}
@@ -2079,7 +2146,7 @@ def tus_update_targets(gid):
             target.reward = reward
         else:  # Stwórz nowy
             # --- POCZĄTEK POPRAWKI ---
-            target = TUSGroupTarget() # Stwórz pusty obiekt
+            target = TUSGroupTarget()  # Stwórz pusty obiekt
             # Ustaw wartości jako atrybuty
             target.group_id = gid
             target.school_year_start = school_year_start
@@ -2185,8 +2252,8 @@ def add_member_bonus():
     data = request.get_json(silent=True) or {}
     try:
         session_id = int(data.get("session_id"))
-        client_id  = int(data.get("client_id"))
-        points     = int(data.get("points"))
+        client_id = int(data.get("client_id"))
+        points = int(data.get("points"))
     except (TypeError, ValueError):
         return jsonify({"error": "session_id, client_id, points (int) są wymagane"}), 400
     if points < 0:
@@ -2202,30 +2269,31 @@ def add_member_bonus():
 
         # 2) sprawdź członkostwo klienta w grupie
         member = conn.execute(text("""
-            SELECT 1 FROM tus_group_members
-            WHERE group_id=:gid AND client_id=:cid
-        """), {"gid": gid, "cid": client_id}).scalar()
+                SELECT 1 FROM tus_group_members
+                WHERE group_id=:gid AND client_id=:cid
+            """), {"gid": gid, "cid": client_id}).scalar()
         if not member:
             return jsonify({"error": "Klient nie należy do tej grupy"}), 400
 
         # 3) wstaw bonus
         new_id = conn.execute(text("""
-            INSERT INTO tus_member_bonuses (session_id, client_id, points)
-            VALUES (:sid, :cid, :pts)
-            RETURNING id
-        """), {"sid": session_id, "cid": client_id, "pts": points}).scalar_one()
+                INSERT INTO tus_member_bonuses (session_id, client_id, points)
+                VALUES (:sid, :cid, :pts)
+                RETURNING id
+            """), {"sid": session_id, "cid": client_id, "pts": points}).scalar_one()
 
     return jsonify({"id": new_id, "ok": True}), 201
 
 
-
-
-def _half_bounds(year:int, half:int):
+def _half_bounds(year: int, half: int):
     if half == 1:
-        a = datetime(year,1,1,tzinfo=TZ); b = datetime(year,7,1,tzinfo=TZ)
+        a = datetime(year, 1, 1, tzinfo=TZ);
+        b = datetime(year, 7, 1, tzinfo=TZ)
     else:
-        a = datetime(year,7,1,tzinfo=TZ); b = datetime(year+1,1,1,tzinfo=TZ)
-    return a,b
+        a = datetime(year, 7, 1, tzinfo=TZ);
+        b = datetime(year + 1, 1, 1, tzinfo=TZ)
+    return a, b
+
 
 # CRUD dla tematów (prosty przykład)
 @app.get("/api/tus/topics")
@@ -2253,11 +2321,13 @@ def create_tus_topic():
             # Rollback i close są obsługiwane automatycznie przez session_scope
             return jsonify({"error": "Topic with this title already exists"}), 409
 
+
 @app.get("/api/tus/behaviors")
 def get_behaviors():
     with Session() as s:
         rows = s.query(TUSBehavior).filter_by(active=True).order_by(TUSBehavior.title).all()
         return jsonify([{"id": b.id, "title": b.title, "default_max_points": b.default_max_points} for b in rows])
+
 
 @app.post("/api/tus/behaviors")
 def create_behavior():
@@ -2265,7 +2335,7 @@ def create_behavior():
     title = (data.get("title") or "").strip()
     dmp = int(data.get("default_max_points") or 3)
     if not title:
-        return jsonify({"error":"title required"}), 400
+        return jsonify({"error": "title required"}), 400
     with Session() as s:
         b = TUSBehavior(title=title, default_max_points=dmp)
         s.add(b)
@@ -2274,7 +2344,8 @@ def create_behavior():
             return jsonify({"id": b.id, "title": b.title, "default_max_points": b.default_max_points}), 201
         except IntegrityError:
             s.rollback()
-            return jsonify({"error":"behavior already exists"}), 409
+            return jsonify({"error": "behavior already exists"}), 409
+
 
 @app.delete("/api/tus/behaviors/<int:bid>")
 def delete_behavior(bid):
@@ -2285,28 +2356,30 @@ def delete_behavior(bid):
         s.commit()
         return "", 204
 
+
 @app.get("/api/tus/sessions/<int:sid>/behaviors")
 def session_behaviors(sid):
     with engine.begin() as conn:
         q = text("""
-          SELECT sb.id, sb.behavior_id, b.title, sb.max_points
-          FROM tus_session_behaviors sb
-          JOIN tus_behaviors b ON b.id=sb.behavior_id
-          WHERE sb.session_id=:sid
-          ORDER BY b.title
-        """)
+              SELECT sb.id, sb.behavior_id, b.title, sb.max_points
+              FROM tus_session_behaviors sb
+              JOIN tus_behaviors b ON b.id=sb.behavior_id
+              WHERE sb.session_id=:sid
+              ORDER BY b.title
+            """)
         rows = conn.execute(q, {"sid": sid}).mappings().all()
         return jsonify([dict(r) for r in rows])
+
 
 @app.post("/api/tus/sessions/<int:sid>/behaviors")
 def set_session_behaviors(sid):
     """
-    Body: { behaviors: [ {behavior_id, max_points?}, ... ] }  # max 4
-    """
+        Body: { behaviors: [ {behavior_id, max_points?}, ... ] }  # max 4
+        """
     data = request.get_json(silent=True) or {}
     items = data.get("behaviors") or []
     if len(items) > 4:
-        return jsonify({"error":"max 4 behaviors per session"}), 400
+        return jsonify({"error": "max 4 behaviors per session"}), 400
     with engine.begin() as conn:
         # wyczyść i wstaw
         conn.execute(text("DELETE FROM tus_session_behaviors WHERE session_id=:sid"), {"sid": sid})
@@ -2314,9 +2387,9 @@ def set_session_behaviors(sid):
             bid = int(it["behavior_id"])
             mp = int(it.get("max_points", 3))
             conn.execute(text("""
-              INSERT INTO tus_session_behaviors(session_id, behavior_id, max_points)
-              VALUES (:sid, :bid, :mp)
-            """), {"sid": sid, "bid": bid, "mp": mp})
+                  INSERT INTO tus_session_behaviors(session_id, behavior_id, max_points)
+                  VALUES (:sid, :bid, :mp)
+                """), {"sid": sid, "bid": bid, "mp": mp})
     return jsonify({"ok": True}), 200
 
 
@@ -2325,68 +2398,69 @@ def get_session_scores(sid):
     with engine.begin() as conn:
         # behaviors
         beh = conn.execute(text("""
-          SELECT sb.behavior_id, b.title, sb.max_points
-          FROM tus_session_behaviors sb
-          JOIN tus_behaviors b ON b.id=sb.behavior_id
-          WHERE sb.session_id=:sid
-          ORDER BY b.title
-        """), {"sid": sid}).mappings().all()
+              SELECT sb.behavior_id, b.title, sb.max_points
+              FROM tus_session_behaviors sb
+              JOIN tus_behaviors b ON b.id=sb.behavior_id
+              WHERE sb.session_id=:sid
+              ORDER BY b.title
+            """), {"sid": sid}).mappings().all()
 
         # members of group owning this session
         grp = conn.execute(text("""
-          SELECT group_id FROM tus_sessions WHERE id=:sid
-        """), {"sid": sid}).scalar()
+              SELECT group_id FROM tus_sessions WHERE id=:sid
+            """), {"sid": sid}).scalar()
         members = conn.execute(text("""
-          SELECT c.id, c.full_name
-          FROM tus_groups g
-          JOIN tus_group_members gm ON gm.group_id=g.id
-          JOIN clients c ON c.id=gm.client_id
-          WHERE g.id=:gid
-          ORDER BY c.full_name
-        """), {"gid": grp}).mappings().all()
+              SELECT c.id, c.full_name
+              FROM tus_groups g
+              JOIN tus_group_members gm ON gm.group_id=g.id
+              JOIN clients c ON c.id=gm.client_id
+              WHERE g.id=:gid
+              ORDER BY c.full_name
+            """), {"gid": grp}).mappings().all()
 
         # scores
         sc_rows = conn.execute(text("""
-          SELECT client_id, behavior_id, points
-          FROM tus_session_member_scores
-          WHERE session_id=:sid
-        """), {"sid": sid}).mappings().all()
+              SELECT client_id, behavior_id, points
+              FROM tus_session_member_scores
+              WHERE session_id=:sid
+            """), {"sid": sid}).mappings().all()
         scores = {}
         for r in sc_rows:
             scores.setdefault(r["client_id"], {})[r["behavior_id"]] = r["points"]
 
         # partial rewards
         rw = conn.execute(text("""
-          SELECT client_id, awarded, note, points FROM tus_session_partial_rewards
-          WHERE session_id=:sid
-        """), {"sid": sid}).mappings().all()
+              SELECT client_id, awarded, note, points FROM tus_session_partial_rewards
+              WHERE session_id=:sid
+            """), {"sid": sid}).mappings().all()
         rewards = {r["client_id"]: {"awarded": r["awarded"], "note": r["note"], "points": r["points"]} for r in rw}
 
         return jsonify({
-          "behaviors": [dict(b) for b in beh],
-          "members": [dict(m) for m in members],
-          "scores": scores,
-          "rewards": rewards
+            "behaviors": [dict(b) for b in beh],
+            "members": [dict(m) for m in members],
+            "scores": scores,
+            "rewards": rewards
         })
+
 
 @app.post("/api/tus/sessions/<int:sid>/scores")
 def save_session_scores(sid):
     """
-    Body:
-    {
-      "scores":[
-        {"client_id":1, "items":[{"behavior_id":11,"points":2}, ...], "partial_reward":{"awarded":true,"note":"..." }},
-        ...
-      ]
-    }
-    """
+        Body:
+        {
+          "scores":[
+            {"client_id":1, "items":[{"behavior_id":11,"points":2}, ...], "partial_reward":{"awarded":true,"note":"..." }},
+            ...
+          ]
+        }
+        """
     data = request.get_json(silent=True) or {}
     items = data.get("scores") or []
     # pobierz limity max_points
     with engine.begin() as conn:
         limits = {r["behavior_id"]: r["max_points"] for r in conn.execute(text("""
-            SELECT behavior_id, max_points FROM tus_session_behaviors WHERE session_id=:sid
-        """), {"sid": sid}).mappings().all()}
+                SELECT behavior_id, max_points FROM tus_session_behaviors WHERE session_id=:sid
+            """), {"sid": sid}).mappings().all()}
         for row in items:
             cid = int(row["client_id"])
             for it in (row.get("items") or []):
@@ -2398,32 +2472,33 @@ def save_session_scores(sid):
                     return jsonify({"error": f"points {pts} out of range for behavior {bid} (max {limits[bid]})"}), 400
                 # UPSERT
                 conn.execute(text("""
-                  INSERT INTO tus_session_member_scores(session_id, client_id, behavior_id, points)
-                  VALUES (:sid,:cid,:bid,:pts)
-                  ON CONFLICT (session_id, client_id, behavior_id)
-                  DO UPDATE SET points = EXCLUDED.points
-                """), {"sid": sid, "cid": cid, "bid": bid, "pts": pts})
+                      INSERT INTO tus_session_member_scores(session_id, client_id, behavior_id, points)
+                      VALUES (:sid,:cid,:bid,:pts)
+                      ON CONFLICT (session_id, client_id, behavior_id)
+                      DO UPDATE SET points = EXCLUDED.points
+                    """), {"sid": sid, "cid": cid, "bid": bid, "pts": pts})
 
             # partial reward
             pr = row.get("partial_reward") or {}
             if pr:
                 conn.execute(text("""
-                  INSERT INTO tus_session_partial_rewards(session_id, client_id, awarded, note, points, awarded_at)
-                  VALUES (:sid, :cid, :aw, :note, :pts, CASE WHEN :aw THEN NOW() ELSE NULL END)
-                  ON CONFLICT (session_id, client_id)
-                  DO UPDATE SET awarded = EXCLUDED.awarded,
-                                note = EXCLUDED.note,
-                                points = EXCLUDED.points,
-                                awarded_at = CASE WHEN EXCLUDED.awarded THEN NOW() ELSE NULL END
-                """), {"sid": sid, "cid": cid,
-                       "aw": bool(pr.get("awarded")),
-                       "note": pr.get("note"),
-                       "pts": int(pr.get("points", 0))  # <-- NOWA WARTOŚĆ
-                       })
+                      INSERT INTO tus_session_partial_rewards(session_id, client_id, awarded, note, points, awarded_at)
+                      VALUES (:sid, :cid, :aw, :note, :pts, CASE WHEN :aw THEN NOW() ELSE NULL END)
+                      ON CONFLICT (session_id, client_id)
+                      DO UPDATE SET awarded = EXCLUDED.awarded,
+                                    note = EXCLUDED.note,
+                                    points = EXCLUDED.points,
+                                    awarded_at = CASE WHEN EXCLUDED.awarded THEN NOW() ELSE NULL END
+                    """), {"sid": sid, "cid": cid,
+                           "aw": bool(pr.get("awarded")),
+                           "note": pr.get("note"),
+                           "pts": int(pr.get("points", 0))  # <-- NOWA WARTOŚĆ
+                           })
 
     return jsonify({"ok": True}), 200
 
-#def _half_bounds(year:int, half:int):
+
+# def _half_bounds(year:int, half:int):
 #    if half == 1:
 #        a = datetime(year,1,1,tzinfo=TZ); b = datetime(year,7,1,tzinfo=TZ)
 #    else:
@@ -2433,10 +2508,10 @@ def save_session_scores(sid):
 @app.get("/api/gaps/day")
 def gaps_day():
     """
-    Zwraca listy aktywnych klientów/terapeutów/kierowców,
-    którzy NIE mają żadnego slotu w danym dniu.
-    Param: ?date=YYYY-MM-DD (domyślnie dzisiaj w Europe/Warsaw)
-    """
+        Zwraca listy aktywnych klientów/terapeutów/kierowców,
+        którzy NIE mają żadnego slotu w danym dniu.
+        Param: ?date=YYYY-MM-DD (domyślnie dzisiaj w Europe/Warsaw)
+        """
     qd = (request.args.get("date") or "").strip()
     if not qd:
         d = datetime.now(TZ).date()
@@ -2447,41 +2522,41 @@ def gaps_day():
             return jsonify({"error": "Invalid date. Use YYYY-MM-DD"}), 400
 
     sql_clients = """
-      SELECT c.id, c.full_name
-      FROM clients c
-      LEFT JOIN schedule_slots ss
-        ON ss.client_id = c.id
-       AND ss.starts_at::date = :d
-      WHERE c.active = true
-        AND ss.id IS NULL
-      ORDER BY c.full_name;
-    """
+          SELECT c.id, c.full_name
+          FROM clients c
+          LEFT JOIN schedule_slots ss
+            ON ss.client_id = c.id
+           AND ss.starts_at::date = :d
+          WHERE c.active = true
+            AND ss.id IS NULL
+          ORDER BY c.full_name;
+        """
 
     # terapeuta: brak żadnej TERAPII tego dnia
     sql_therapists = """
-      SELECT t.id, t.full_name
-      FROM therapists t
-      LEFT JOIN schedule_slots ss
-        ON ss.therapist_id = t.id
-       AND ss.kind = 'therapy'
-       AND ss.starts_at::date = :d
-      WHERE t.active = true
-        AND ss.id IS NULL
-      ORDER BY t.full_name;
-    """
+          SELECT t.id, t.full_name
+          FROM therapists t
+          LEFT JOIN schedule_slots ss
+            ON ss.therapist_id = t.id
+           AND ss.kind = 'therapy'
+           AND ss.starts_at::date = :d
+          WHERE t.active = true
+            AND ss.id IS NULL
+          ORDER BY t.full_name;
+        """
 
     # kierowca: brak żadnego kursu (pickup/dropoff) tego dnia
     sql_drivers = """
-      SELECT d.id, d.full_name
-      FROM drivers d
-      LEFT JOIN schedule_slots ss
-        ON ss.driver_id = d.id
-       AND ss.kind IN ('pickup','dropoff')
-       AND ss.starts_at::date = :d
-      WHERE d.active = true
-        AND ss.id IS NULL
-      ORDER BY d.full_name;
-    """
+          SELECT d.id, d.full_name
+          FROM drivers d
+          LEFT JOIN schedule_slots ss
+            ON ss.driver_id = d.id
+           AND ss.kind IN ('pickup','dropoff')
+           AND ss.starts_at::date = :d
+          WHERE d.active = true
+            AND ss.id IS NULL
+          ORDER BY d.full_name;
+        """
 
     with engine.begin() as conn:
         clients = [dict(r) for r in conn.execute(text(sql_clients), {"d": d}).mappings().all()]
@@ -2504,64 +2579,64 @@ def gaps_day():
 @app.get("/api/gaps/month")
 def gaps_month():
     """
-    Zwraca aktywnych klientów / terapeutów / kierowców,
-    którzy w danym miesiącu NIE mają żadnego slotu.
-    Dodatkowo zwraca informacje o nieobecnościach.
-    """
+        Zwraca aktywnych klientów / terapeutów / kierowców,
+        którzy w danym miesiącu NIE mają żadnego slotu.
+        Dodatkowo zwraca informacje o nieobecnościach.
+        """
     mk = (request.args.get("month") or "").strip()
     if not mk:
         mk = datetime.now(TZ).strftime("%Y-%m")
 
     # Klient: brak JAKIEGOKOLWIEK slotu w miesiącu
     sql_clients = """
-      SELECT c.id, c.full_name
-      FROM clients c
-      WHERE c.active = true
-        AND NOT EXISTS (
-          SELECT 1 FROM schedule_slots ss
-          WHERE ss.client_id = c.id
-            AND ss.starts_at IS NOT NULL
-            AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk
-        )
-      ORDER BY c.full_name;
-    """
+          SELECT c.id, c.full_name
+          FROM clients c
+          WHERE c.active = true
+            AND NOT EXISTS (
+              SELECT 1 FROM schedule_slots ss
+              WHERE ss.client_id = c.id
+                AND ss.starts_at IS NOT NULL
+                AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk
+            )
+          ORDER BY c.full_name;
+        """
 
     # Terapeuta: brak TERAPII w miesiącu
     sql_therapists = """
-      SELECT t.id, t.full_name
-      FROM therapists t
-      WHERE t.active = true
-        AND NOT EXISTS (
-          SELECT 1 FROM schedule_slots ss
-          WHERE ss.therapist_id = t.id
-            AND ss.kind = 'therapy'
-            AND ss.starts_at IS NOT NULL
-            AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk
-        )
-      ORDER BY t.full_name;
-    """
+          SELECT t.id, t.full_name
+          FROM therapists t
+          WHERE t.active = true
+            AND NOT EXISTS (
+              SELECT 1 FROM schedule_slots ss
+              WHERE ss.therapist_id = t.id
+                AND ss.kind = 'therapy'
+                AND ss.starts_at IS NOT NULL
+                AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk
+            )
+          ORDER BY t.full_name;
+        """
 
     # Kierowca: brak kursów (pickup/dropoff) w miesiącu
     sql_drivers = """
-      SELECT d.id, d.full_name
-      FROM drivers d
-      WHERE d.active = true
-        AND NOT EXISTS (
-          SELECT 1 FROM schedule_slots ss
-          WHERE ss.driver_id = d.id
-            AND ss.kind IN ('pickup','dropoff')
-            AND ss.starts_at IS NOT NULL
-            AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk
-        )
-      ORDER BY d.full_name;
-    """
+          SELECT d.id, d.full_name
+          FROM drivers d
+          WHERE d.active = true
+            AND NOT EXISTS (
+              SELECT 1 FROM schedule_slots ss
+              WHERE ss.driver_id = d.id
+                AND ss.kind IN ('pickup','dropoff')
+                AND ss.starts_at IS NOT NULL
+                AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk
+            )
+          ORDER BY d.full_name;
+        """
 
     # NOWOŚĆ: Pobieranie nieobecności
     sql_absences = text("""
-        SELECT person_type, person_id, status 
-        FROM absences
-        WHERE to_char(start_date, 'YYYY-MM') <= :mk AND to_char(end_date, 'YYYY-MM') >= :mk
-    """)
+            SELECT person_type, person_id, status 
+            FROM absences
+            WHERE to_char(start_date, 'YYYY-MM') <= :mk AND to_char(end_date, 'YYYY-MM') >= :mk
+        """)
 
     with engine.begin() as conn:
         clients = [dict(r) for r in conn.execute(text(sql_clients), {"mk": mk}).mappings().all()]
@@ -2596,38 +2671,39 @@ def gaps_month():
         }
     }), 200
 
+
 @app.get("/api/client/<int:cid>/packages")
 def client_packages(cid):
     mk = request.args.get("month")
     # POPRAWKA: Usunięto CAST, ponieważ oba pola są typu UUID
     sql = text("""
-        WITH all_events AS (
-            SELECT
-                'individual' as type, eg.id::text AS group_id, eg.label, ss.id AS slot_id,
-                ss.kind, ss.starts_at, ss.ends_at, ss.status, ss.therapist_id, t.full_name AS therapist_name,
-                ss.driver_id, d.full_name AS driver_name, ss.place_from, ss.place_to, ss.distance_km
-            FROM event_groups eg
-            JOIN schedule_slots ss ON eg.id = ss.group_id
-            LEFT JOIN therapists t ON t.id = ss.therapist_id
-            LEFT JOIN drivers d ON d.id = ss.driver_id
-            WHERE eg.client_id = :cid
-            UNION ALL
-            SELECT
-                'tus' as type, g.id::text AS group_id, g.name AS label, s.id AS slot_id, 'therapy' as kind,
-                (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
-                (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
-                'planned' as status, g.therapist_id, th.full_name AS therapist_name,
-                NULL AS driver_id, NULL AS driver_name, 'Poradnia' AS place_from, 'Poradnia' AS place_to, NULL as distance_km
-            FROM tus_sessions s
-            JOIN tus_groups g ON s.group_id = g.id
-            JOIN tus_group_members gm ON gm.group_id = g.id
-            LEFT JOIN therapists th ON g.therapist_id = th.id
-            WHERE gm.client_id = :cid
-        )
-        SELECT * FROM all_events
-        WHERE (:mk IS NULL OR to_char(starts_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM') = :mk)
-        ORDER BY starts_at;
-    """)
+            WITH all_events AS (
+                SELECT
+                    'individual' as type, eg.id::text AS group_id, eg.label, ss.id AS slot_id,
+                    ss.kind, ss.starts_at, ss.ends_at, ss.status, ss.therapist_id, t.full_name AS therapist_name,
+                    ss.driver_id, d.full_name AS driver_name, ss.place_from, ss.place_to, ss.distance_km
+                FROM event_groups eg
+                JOIN schedule_slots ss ON eg.id = ss.group_id
+                LEFT JOIN therapists t ON t.id = ss.therapist_id
+                LEFT JOIN drivers d ON d.id = ss.driver_id
+                WHERE eg.client_id = :cid
+                UNION ALL
+                SELECT
+                    'tus' as type, g.id::text AS group_id, g.name AS label, s.id AS slot_id, 'therapy' as kind,
+                    (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
+                    (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
+                    'planned' as status, g.therapist_id, th.full_name AS therapist_name,
+                    NULL AS driver_id, NULL AS driver_name, 'Poradnia' AS place_from, 'Poradnia' AS place_to, NULL as distance_km
+                FROM tus_sessions s
+                JOIN tus_groups g ON s.group_id = g.id
+                JOIN tus_group_members gm ON gm.group_id = g.id
+                LEFT JOIN therapists th ON g.therapist_id = th.id
+                WHERE gm.client_id = :cid
+            )
+            SELECT * FROM all_events
+            WHERE (:mk IS NULL OR to_char(starts_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM') = :mk)
+            ORDER BY starts_at;
+        """)
 
     with engine.begin() as conn:
         rows = conn.execute(sql, {"cid": cid, "mk": mk}).mappings().all()
@@ -2642,39 +2718,36 @@ def client_packages(cid):
         return jsonify(results)
 
 
-
 # === DRIVER SCHEDULE (kursy kierowcy z klientami) ===
 @app.get("/api/drivers/<int:did>/schedule")
 def driver_schedule(did):
     mk = request.args.get("month")
     sql = """
-    SELECT
-      ss.id AS slot_id,
-      ss.kind,
-      to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM-DD"T"HH24:MI:SS') AS starts_at,
-      to_char(ss.ends_at   AT TIME ZONE 'Europe/Warsaw','YYYY-MM-DD"T"HH24:MI:SS') AS ends_at,
-      ss.status,
-      c.id AS client_id,
-      c.full_name AS client_name,
-      ss.place_from,
-      ss.place_to,
-      ss.vehicle_id,
-      ss.group_id,
-      ss.distance_km
-    FROM schedule_slots ss
-    JOIN clients c ON c.id = ss.client_id
-    WHERE ss.driver_id = :did
-      AND (
-        :mk IS NULL OR
-        (ss.starts_at IS NOT NULL AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk)
-      )
-    ORDER BY ss.starts_at;
-    """
+        SELECT
+          ss.id AS slot_id,
+          ss.kind,
+          to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM-DD"T"HH24:MI:SS') AS starts_at,
+          to_char(ss.ends_at   AT TIME ZONE 'Europe/Warsaw','YYYY-MM-DD"T"HH24:MI:SS') AS ends_at,
+          ss.status,
+          c.id AS client_id,
+          c.full_name AS client_name,
+          ss.place_from,
+          ss.place_to,
+          ss.vehicle_id,
+          ss.group_id,
+          ss.distance_km
+        FROM schedule_slots ss
+        JOIN clients c ON c.id = ss.client_id
+        WHERE ss.driver_id = :did
+          AND (
+            :mk IS NULL OR
+            (ss.starts_at IS NOT NULL AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw','YYYY-MM') = :mk)
+          )
+        ORDER BY ss.starts_at;
+        """
     with engine.begin() as conn:
         rows = conn.execute(text(sql), {"did": did, "mk": mk}).mappings().all()
         return jsonify([dict(r) for r in rows]), 200
-
-
 
 
 # BACKEND (Flask)
@@ -2684,20 +2757,20 @@ def update_slot(sid):
     fields = []
     params = {"sid": sid}
     if "status" in data:
-      fields.append("status=:status")
-      params["status"] = data["status"]
+        fields.append("status=:status")
+        params["status"] = data["status"]
     if "starts_at" in data:
-      fields.append("starts_at=:starts_at")
-      params["starts_at"] = datetime.fromisoformat(data["starts_at"]).replace(tzinfo=TZ)
+        fields.append("starts_at=:starts_at")
+        params["starts_at"] = datetime.fromisoformat(data["starts_at"]).replace(tzinfo=TZ)
     if "ends_at" in data:
-      fields.append("ends_at=:ends_at")
-      params["ends_at"] = datetime.fromisoformat(data["ends_at"]).replace(tzinfo=TZ)
+        fields.append("ends_at=:ends_at")
+        params["ends_at"] = datetime.fromisoformat(data["ends_at"]).replace(tzinfo=TZ)
     if not fields:
-      return jsonify({"error":"No fields"}), 400
+        return jsonify({"error": "No fields"}), 400
     sql = f"UPDATE schedule_slots SET {', '.join(fields)} WHERE id=:sid RETURNING id;"
     with engine.begin() as conn:
         row = conn.execute(text(sql), params).mappings().first()
-        if not row: return jsonify({"error":"Not found"}), 404
+        if not row: return jsonify({"error": "Not found"}), 404
         return jsonify({"ok": True, "id": row["id"]}), 200
 
 
@@ -2747,7 +2820,8 @@ def update_slot_status(slot_id):
         traceback.print_exc()
         return jsonify({"error": f"Wewnętrzny błąd serwera: {str(e)}"}), 500
 
-#zmiana widkou kart grup
+
+# zmiana widkou kart grup
 @app.get("/api/tus/groups-summary")
 def get_tus_groups_summary():
     """Zwraca podsumowanie dla kart grup, bazując na bieżącym roku szkolnym."""
@@ -2862,37 +2936,37 @@ def get_client_history(client_id: int):
         with engine.begin() as conn:
             # 1. Spotkania indywidualne
             individual_sql = text('''
-                SELECT 
-                    ss.id as slot_id,
-                    ss.starts_at,
-                    ss.ends_at,
-                    ss.status,
-                    th.full_name as therapist_name,
-                    eg.label as topic,
-                    ss.place_to as place,
-                    EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes
-                FROM schedule_slots ss
-                LEFT JOIN therapists th ON th.id = ss.therapist_id
-                LEFT JOIN event_groups eg ON eg.id = ss.group_id
-                WHERE ss.client_id = :cid
-                    AND ss.kind = 'therapy'
-                ORDER BY ss.starts_at DESC
-            ''')
+                    SELECT 
+                        ss.id as slot_id,
+                        ss.starts_at,
+                        ss.ends_at,
+                        ss.status,
+                        th.full_name as therapist_name,
+                        eg.label as topic,
+                        ss.place_to as place,
+                        EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes
+                    FROM schedule_slots ss
+                    LEFT JOIN therapists th ON th.id = ss.therapist_id
+                    LEFT JOIN event_groups eg ON eg.id = ss.group_id
+                    WHERE ss.client_id = :cid
+                        AND ss.kind = 'therapy'
+                    ORDER BY ss.starts_at DESC
+                ''')
 
             individual_rows = conn.execute(individual_sql, {"cid": client_id}).mappings().all()
 
             # 2. ZMIENIONE: Pobierz NAJNOWSZĄ notatkę dla każdej daty
             notes_sql = text('''
-                SELECT DISTINCT ON (DATE(created_at))
-                    id,
-                    content,
-                    created_at,
-                    category
-                FROM client_notes
-                WHERE client_id = :cid
-                    AND category = 'session'
-                ORDER BY DATE(created_at) DESC, created_at DESC
-            ''')
+                    SELECT DISTINCT ON (DATE(created_at))
+                        id,
+                        content,
+                        created_at,
+                        category
+                    FROM client_notes
+                    WHERE client_id = :cid
+                        AND category = 'session'
+                    ORDER BY DATE(created_at) DESC, created_at DESC
+                ''')
 
             notes_rows = conn.execute(notes_sql, {"cid": client_id}).mappings().all()
 
@@ -2907,18 +2981,18 @@ def get_client_history(client_id: int):
 
             # 3. Spotkania TUS
             tus_sql = text('''
-                SELECT 
-                    ts.session_date,
-                    ts.session_time,
-                    tt.title as topic_title,
-                    tg.name as group_name
-                FROM tus_sessions ts
-                JOIN tus_groups tg ON tg.id = ts.group_id
-                JOIN tus_group_members tgm ON tgm.group_id = tg.id
-                LEFT JOIN tus_topics tt ON tt.id = ts.topic_id
-                WHERE tgm.client_id = :cid
-                ORDER BY ts.session_date DESC
-            ''')
+                    SELECT 
+                        ts.session_date,
+                        ts.session_time,
+                        tt.title as topic_title,
+                        tg.name as group_name
+                    FROM tus_sessions ts
+                    JOIN tus_groups tg ON tg.id = ts.group_id
+                    JOIN tus_group_members tgm ON tgm.group_id = tg.id
+                    LEFT JOIN tus_topics tt ON tt.id = ts.topic_id
+                    WHERE tgm.client_id = :cid
+                    ORDER BY ts.session_date DESC
+                ''')
 
             tus_rows = conn.execute(tus_sql, {"cid": client_id}).mappings().all()
 
@@ -2964,31 +3038,31 @@ def get_tus_schedule():
         return jsonify({"error": "Parametr 'month' jest wymagany."}), 400
 
     sql = text("""
-        SELECT
-            s.id AS session_id,
-            s.session_date,
-            s.session_time,
-            g.id AS group_id,
-            g.name AS group_name,
-            COALESCE(t.title, 'Brak tematu') AS topic_title,
-            COALESCE(th.full_name, 'Brak terapeuty') AS therapist_name,
-            (SELECT json_agg(json_build_object('id', c.id, 'name', c.full_name))
-             FROM tus_group_members gm
-             JOIN clients c ON c.id = gm.client_id
-             WHERE gm.group_id = g.id) AS members
-        FROM 
-            tus_sessions s
-        JOIN 
-            tus_groups g ON s.group_id = g.id
-        LEFT JOIN 
-            tus_topics t ON s.topic_id = t.id
-        LEFT JOIN 
-            therapists th ON g.therapist_id = th.id
-        WHERE 
-            to_char(s.session_date, 'YYYY-MM') = :month
-        ORDER BY 
-            s.session_date, s.session_time;
-    """)
+            SELECT
+                s.id AS session_id,
+                s.session_date,
+                s.session_time,
+                g.id AS group_id,
+                g.name AS group_name,
+                COALESCE(t.title, 'Brak tematu') AS topic_title,
+                COALESCE(th.full_name, 'Brak terapeuty') AS therapist_name,
+                (SELECT json_agg(json_build_object('id', c.id, 'name', c.full_name))
+                 FROM tus_group_members gm
+                 JOIN clients c ON c.id = gm.client_id
+                 WHERE gm.group_id = g.id) AS members
+            FROM 
+                tus_sessions s
+            JOIN 
+                tus_groups g ON s.group_id = g.id
+            LEFT JOIN 
+                tus_topics t ON s.topic_id = t.id
+            LEFT JOIN 
+                therapists th ON g.therapist_id = th.id
+            WHERE 
+                to_char(s.session_date, 'YYYY-MM') = :month
+            ORDER BY 
+                s.session_date, s.session_time;
+        """)
 
     # --- NOWE LINIE DIAGNOSTYCZNE ---
     print("--- DIAGNOSTYKA ZAPYTANIA TUS SCHEDULE ---")
@@ -3007,8 +3081,9 @@ def get_tus_schedule():
         ]
         return jsonify(results)
 
-#@app.get("/api/therapists/<int:tid>/schedule")
-#def therapist_schedule(tid):
+
+# @app.get("/api/therapists/<int:tid>/schedule")
+# def therapist_schedule(tid):
 #    mk = request.args.get("month")
 #    if not mk:
 #        return jsonify({"error": "Parametr 'month' jest wymagany."}), 400
@@ -3034,8 +3109,8 @@ def get_tus_schedule():
 #        individual_rows = conn.execute(sql_individual, {"tid": tid, "mk": mk}).mappings().all()
 #        all_results.extend(individual_rows)
 
-        # Query 2: TUS group sessions
-        # FIX: Explicitly create and convert timestamp to UTC
+# Query 2: TUS group sessions
+# FIX: Explicitly create and convert timestamp to UTC
 #        sql_tus = text("""
 #            SELECT
 #                s.id AS slot_id, 'tus' as type, 'therapy' as kind,
@@ -3051,10 +3126,10 @@ def get_tus_schedule():
 #        tus_rows = conn.execute(sql_tus, {"tid": tid, "mk": mk}).mappings().all()
 #        all_results.extend(tus_rows)
 
-    # Sorting will now work correctly
+# Sorting will now work correctly
 #    all_results.sort(key=lambda r: r.get('starts_at') or datetime.max.replace(tzinfo=ZoneInfo("UTC")))
 
-    # Formatting the dates to strings for the frontend
+# Formatting the dates to strings for the frontend
 #    results = [
 #        {**r,
 #         'starts_at': r['starts_at'].isoformat() if r.get('starts_at') else None,
@@ -3063,7 +3138,7 @@ def get_tus_schedule():
 #    ]
 #    return jsonify(results)
 
-    # POPRAWIONE SORTOWANIE - konwertuj wszystkie daty do tej samej strefy czasowej
+# POPRAWIONE SORTOWANIE - konwertuj wszystkie daty do tej samej strefy czasowej
 
 
 @app.get("/api/therapists/<int:tid>/schedule")
@@ -3076,33 +3151,33 @@ def therapist_schedule(tid):
     with engine.begin() as conn:
         # Zapytanie 1: Zajęcia indywidualne
         sql_individual = text("""
-            SELECT
-                ss.id AS slot_id, 'individual' as type, ss.kind,
-                ss.starts_at, ss.ends_at, ss.status, c.full_name AS client_name,
-                ss.place_to, g.label AS group_name, g.id::text as group_id
-            FROM schedule_slots ss
-            JOIN clients c ON c.id = ss.client_id
-            LEFT JOIN event_groups g ON g.id = CAST(ss.group_id AS UUID)
-            WHERE ss.therapist_id = :tid
-              AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM') = :mk
-        """)
+                SELECT
+                    ss.id AS slot_id, 'individual' as type, ss.kind,
+                    ss.starts_at, ss.ends_at, ss.status, c.full_name AS client_name,
+                    ss.place_to, g.label AS group_name, g.id::text as group_id
+                FROM schedule_slots ss
+                JOIN clients c ON c.id = ss.client_id
+                LEFT JOIN event_groups g ON g.id = CAST(ss.group_id AS UUID)
+                WHERE ss.therapist_id = :tid
+                  AND to_char(ss.starts_at AT TIME ZONE 'Europe/Warsaw', 'YYYY-MM') = :mk
+            """)
         all_results.extend(conn.execute(sql_individual, {"tid": tid, "mk": mk}).mappings().all())
 
         # Zapytanie 2: Zajęcia grupowe TUS
         sql_tus = text("""
-            SELECT
-                s.id AS slot_id, 'tus' as type, 'therapy' as kind,
-                (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
-                (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
-                'planned' as status, g.name AS client_name,
-                'Poradnia' as place_to, g.name AS group_name, g.id::text as group_id
-            FROM tus_sessions s
-            JOIN tus_groups g ON s.group_id = g.id
-            JOIN tus_group_members gm on g.id = gm.group_id
-            WHERE (g.therapist_id = :tid OR g.assistant_therapist_id = :tid)
-              AND gm.client_id IS NOT NULL 
-              AND to_char(s.session_date, 'YYYY-MM') = :mk
-        """)
+                SELECT
+                    s.id AS slot_id, 'tus' as type, 'therapy' as kind,
+                    (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
+                    (s.session_date::timestamp + COALESCE(s.session_time, '00:00:00')::interval + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
+                    'planned' as status, g.name AS client_name,
+                    'Poradnia' as place_to, g.name AS group_name, g.id::text as group_id
+                FROM tus_sessions s
+                JOIN tus_groups g ON s.group_id = g.id
+                JOIN tus_group_members gm on g.id = gm.group_id
+                WHERE (g.therapist_id = :tid OR g.assistant_therapist_id = :tid)
+                  AND gm.client_id IS NOT NULL 
+                  AND to_char(s.session_date, 'YYYY-MM') = :mk
+            """)
         all_results.extend(conn.execute(sql_tus, {"tid": tid, "mk": mk}).mappings().all())
 
     # --- POCZĄTEK OSTATECZNEJ POPRAWKI ---
@@ -3132,21 +3207,19 @@ def therapist_schedule(tid):
     return jsonify(results)
 
 
-
-
 @app.post("/api/schedule/group")
 def create_group_with_slots():
     """
-    JSON:
-    {
-      "client_id": 1,
-      "label": "Wtorek poranny",
-      "therapy":  {"therapist_id":2, "starts_at":"2025-08-19T09:00:00", "ends_at":"2025-08-19T10:00:00", "place":"Poradnia"},
-      "pickup":   {"driver_id":3, "vehicle_id":1, "starts_at":"2025-08-19T08:30:00", "ends_at":"2025-08-19T09:00:00", "from":"Dom", "to":"Poradnia"},
-      "dropoff":  {"driver_id":3, "vehicle_id":1, "starts_at":"2025-08-19T10:05:00", "ends_at":"2025-08-19T10:35:00", "from":"Poradnia", "to":"Dom"},
-      "status": "planned"
-    }
-    """
+        JSON:
+        {
+          "client_id": 1,
+          "label": "Wtorek poranny",
+          "therapy":  {"therapist_id":2, "starts_at":"2025-08-19T09:00:00", "ends_at":"2025-08-19T10:00:00", "place":"Poradnia"},
+          "pickup":   {"driver_id":3, "vehicle_id":1, "starts_at":"2025-08-19T08:30:00", "ends_at":"2025-08-19T09:00:00", "from":"Dom", "to":"Poradnia"},
+          "dropoff":  {"driver_id":3, "vehicle_id":1, "starts_at":"2025-08-19T10:05:00", "ends_at":"2025-08-19T10:35:00", "from":"Poradnia", "to":"Dom"},
+          "status": "planned"
+        }
+        """
     data = request.get_json(silent=True) or {}
     gid = uuid.uuid4()
     status = data.get("status", "planned")
@@ -3181,9 +3254,9 @@ def create_group_with_slots():
         with engine.begin() as conn:
             # 1) Utwórz nadrzędny pakiet w event_groups
             conn.execute(text("""
-                    INSERT INTO event_groups (id, client_id, label)
-                    VALUES (:id, :client_id, :label)
-                """), {
+                        INSERT INTO event_groups (id, client_id, label)
+                        VALUES (:id, :client_id, :label)
+                    """), {
                 "id": gid,
                 "client_id": data["client_id"],
                 "label": data.get("label")
@@ -3196,14 +3269,14 @@ def create_group_with_slots():
             session_id = ensure_shared_session_id_for_therapist(conn, int(t["therapist_id"]), ts, te)
 
             therapy_slot_id = conn.execute(text("""
-                    INSERT INTO schedule_slots (
-                        group_id, client_id, therapist_id, kind, 
-                        starts_at, ends_at, place_to, status, session_id
-                    ) VALUES (
-                        :group_id, :client_id, :therapist_id, 'therapy', 
-                        :starts_at, :ends_at, :place, :status, :session_id
-                    ) RETURNING id
-                """), {
+                        INSERT INTO schedule_slots (
+                            group_id, client_id, therapist_id, kind, 
+                            starts_at, ends_at, place_to, status, session_id
+                        ) VALUES (
+                            :group_id, :client_id, :therapist_id, 'therapy', 
+                            :starts_at, :ends_at, :place, :status, :session_id
+                        ) RETURNING id
+                    """), {
                 "group_id": str(gid),
                 "client_id": data["client_id"],
                 "therapist_id": t["therapist_id"],
@@ -3217,9 +3290,9 @@ def create_group_with_slots():
             # 3) Utwórz wpis o obecności
             if therapy_slot_id:
                 conn.execute(text("""
-                        INSERT INTO individual_session_attendance (slot_id, status)
-                        VALUES (:slot_id, 'obecny')
-                    """), {"slot_id": therapy_slot_id})
+                            INSERT INTO individual_session_attendance (slot_id, status)
+                            VALUES (:slot_id, 'obecny')
+                        """), {"slot_id": therapy_slot_id})
 
             # POPRAWIONA FUNKCJA insert_run
             def insert_run(run_data, kind):
@@ -3254,17 +3327,17 @@ def create_group_with_slots():
                 print(f"💾 Zapisuję slot z distance_km = {distance}")
 
                 result = conn.execute(text("""
-                        INSERT INTO schedule_slots (
-                            group_id, client_id, driver_id, vehicle_id, kind, 
-                            starts_at, ends_at, place_from, place_to, status, run_id,
-                            distance_km
-                        ) VALUES (
-                            :group_id, :client_id, :driver_id, :vehicle_id, :kind, 
-                            :starts_at, :ends_at, :from, :to, :status, :run_id,
-                            :distance
-                        )
-                        RETURNING id
-                    """), {
+                            INSERT INTO schedule_slots (
+                                group_id, client_id, driver_id, vehicle_id, kind, 
+                                starts_at, ends_at, place_from, place_to, status, run_id,
+                                distance_km
+                            ) VALUES (
+                                :group_id, :client_id, :driver_id, :vehicle_id, :kind, 
+                                :starts_at, :ends_at, :from, :to, :status, :run_id,
+                                :distance
+                            )
+                            RETURNING id
+                        """), {
                     "group_id": str(gid),
                     "client_id": data["client_id"],
                     "driver_id": run_data["driver_id"],
@@ -3512,8 +3585,8 @@ def get_general_bonus_history(group_id: int):
             TUSGeneralBonus.reason,
             Client.full_name
         ).join(Client, Client.id == TUSGeneralBonus.client_id) \
-         .filter(TUSGeneralBonus.group_id == group_id) \
-         .order_by(TUSGeneralBonus.awarded_at.desc()).all()
+            .filter(TUSGeneralBonus.group_id == group_id) \
+            .order_by(TUSGeneralBonus.awarded_at.desc()).all()
 
         results = [
             {
@@ -3524,6 +3597,7 @@ def get_general_bonus_history(group_id: int):
             } for h in history
         ]
         return jsonify(results)
+
 
 @app.put('/api/tus/groups/<int:group_id>/schedule')
 def save_group_schedule(group_id):
@@ -3622,6 +3696,7 @@ def save_attendance(session_id):
             db_session.add(new_attendance)
 
     return jsonify({"message": "Obecność zapisana pomyślnie."}), 200
+
 
 @app.route('/api/daily-attendance', methods=['GET'])
 def get_daily_attendance():
@@ -3787,6 +3862,7 @@ def update_individual_attendance(slot_id):
 
     return jsonify({"message": "Status obecności zaktualizowany."})
 
+
 @app.get("/individual_attendance.html")
 def individual_attendance_page():
     # Tutaj można dodać @login_required, jeśli strona ma być chroniona
@@ -3857,14 +3933,14 @@ def parse_schedule_image():
             }
         }
         prompt = f"""
-        Przeanalizuj obraz harmonogramu dla miesiąca {month_from_form}, terapeuta: {therapist_from_form}.
+            Przeanalizuj obraz harmonogramu dla miesiąca {month_from_form}, terapeuta: {therapist_from_form}.
 
-        Dostępni klienci: {', '.join(all_clients[:10])}... (łącznie {len(all_clients)})
-        Dostępne grupy: {', '.join(all_groups)}
+            Dostępni klienci: {', '.join(all_clients[:10])}... (łącznie {len(all_clients)})
+            Dostępne grupy: {', '.join(all_groups)}
 
-        Dla każdego wpisu podaj: datę, godziny, nazwę klienta/grupy, typ zajęć (indywidualne/tus).
-        Dopasuj skrócone nazwy do pełnych z listy.
-        """
+            Dla każdego wpisu podaj: datę, godziny, nazwę klienta/grupy, typ zajęć (indywidualne/tus).
+            Dopasuj skrócone nazwy do pełnych z listy.
+            """
     else:
         schema = {
             "type": "ARRAY",
@@ -3880,14 +3956,14 @@ def parse_schedule_image():
             }
         }
         prompt = f"""
-        Przeanalizuj obraz harmonogramu dla dnia {date_from_form}, terapeuta: {therapist_from_form}.
+            Przeanalizuj obraz harmonogramu dla dnia {date_from_form}, terapeuta: {therapist_from_form}.
 
-        Dostępni klienci: {', '.join(all_clients[:10])}... (łącznie {len(all_clients)})
-        Dostępne grupy: {', '.join(all_groups)}
+            Dostępni klienci: {', '.join(all_clients[:10])}... (łącznie {len(all_clients)})
+            Dostępne grupy: {', '.join(all_groups)}
 
-        Wyodrębnij godziny, nazwy klientów/grup, typ zajęć.
-        Dopasuj skrócone nazwy do pełnych z listy.
-        """
+            Wyodrębnij godziny, nazwy klientów/grup, typ zajęć.
+            Dopasuj skrócone nazwy do pełnych z listy.
+            """
 
     payload = {
         "contents": [{
@@ -3905,51 +3981,101 @@ def parse_schedule_image():
     # Użyj swojego klucza API
     api_key = "AIzaSyDbkt_jhBU9LNd40MAJm1GazLUPeywYo1E"
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
+    current_timeout = 90
 
-    try:
-        response = requests.post(api_url, json=payload, headers={'Content-Type': 'application/json'}, timeout=90)
-        response.raise_for_status()
-        result = response.json()
+    # Pętla do obsługi timeout'ów i ponownych prób
+    while True:
+        try:
+            # PRÓBA WYSŁANIA ZAPYTANIA
+            response = requests.post(
+                api_url,
+                json=payload,
+                headers={'Content-Type': 'application/json'},
+                timeout=current_timeout  # Używamy bieżącej wartości timeout
+            )
+            # Jeśli żądanie się powiodło, sprawdź status HTTP (np. 200)
+            response.raise_for_status()
 
-        if 'candidates' not in result or not result['candidates']:
-            return jsonify({"error": "AI nie zwróciło wyników", "response": result}), 500
+            # Sukces - przejdź do przetwarzania odpowiedzi
+            result = response.json()
 
-        json_text = result['candidates'][0]['content']['parts'][0]['text']
-        parsed_data = json.loads(json_text)
+            # === LOGIKA PRZETWARZANIA WYNIKU API ===
 
-        # Dopasuj nazwy po stronie serwera
-        processed_data = []
-        for item in parsed_data:
-            original_name = item.get('client_name', '')
+            # 1. Sprawdzenie, czy AI zwróciło kandydatów
+            if 'candidates' not in result or not result['candidates']:
+                # Zgłaszamy wyjątek, aby przejść do ogólnej obsługi błędu na dole
+                raise Exception("AI nie zwróciło wyników w 'candidates'.")
 
-            if item.get('type', '').lower() == 'tus':
-                matched_name = find_best_match(original_name, all_groups)
+            # 2. Parsowanie JSON-a z odpowiedzi tekstowej
+            json_text = result['candidates'][0]['content']['parts'][0]['text']
+            # Uwaga: używamy 'json.loads' z zaimportowanego modułu 'json'
+            parsed_data = json.loads(json_text)
+
+            # 3. Dopasowanie nazw (zakładając, że te zmienne/funkcje są dostępne w kontekście funkcji)
+            processed_data = []
+            for item in parsed_data:
+                original_name = item.get('client_name', '')
+
+                if item.get('type', '').lower() == 'tus':
+                    matched_name = find_best_match(original_name, all_groups)
+                else:
+                    matched_name = find_best_match(original_name, all_clients)
+
+                processed_item = {
+                    'date': item.get('date', date_from_form),
+                    'start_time': item.get('start_time'),
+                    'end_time': item.get('end_time'),
+                    'client_name': matched_name or original_name,
+                    'type': item.get('type', 'indywidualne'),
+                    'therapist_name': therapist_from_form,
+                    'original_name': original_name,
+                    'matched': matched_name is not None
+                }
+                processed_data.append(processed_item)
+
+            # 4. Zakończenie sukcesem i zwrócenie wyniku (zakładając użycie Flask/Django 'jsonify')
+            return jsonify({
+                "success": True,
+                "data": processed_data,
+                "matched_count": len([d for d in processed_data if d['matched']]),
+                "total_count": len(processed_data)
+            })
+
+        except ReadTimeout as e:
+            # === OBSŁUGA BŁĘDU TIMEOUT I PŁYTANIE O KONTYNUACJĘ ===
+            print(f"Błąd w parse_schedule_image: ReadTimeout po {current_timeout} sekundach.")
+            print("Serwer API zbyt długo przetwarzał obraz (prawdopodobnie skomplikowany rękopis).")
+
+            user_input = input("Czy chcesz spróbować ponownie z wydłużonym limitem czasu (np. +90 sekund)? (T/N): ")
+
+            if user_input.lower() == 't':
+                current_timeout += 90
+                print(f"Ponowna próba z limitem czasu: {current_timeout} sekund.")
+                continue  # Kontynuuje pętlę while True
             else:
-                matched_name = find_best_match(original_name, all_clients)
+                print("Anulowano przez użytkownika.")
+                # Przekazanie błędu do ogólnej obsługi błędu na końcu funkcji
+                raise e
 
-            processed_item = {
-                'date': item.get('date', date_from_form),
-                'start_time': item.get('start_time'),
-                'end_time': item.get('end_time'),
-                'client_name': matched_name or original_name,
-                'type': item.get('type', 'indywidualne'),
-                'therapist_name': therapist_from_form,
-                'original_name': original_name,
-                'matched': matched_name is not None
-            }
+        except requests.exceptions.RequestException as e:
+            # Obsługa innych błędów requests (np. ConnectionError, błędy HTTP z raise_for_status)
+            print(f"Wystąpił błąd podczas komunikacji z API: {e}")
+            # Przekazanie błędu do ogólnej obsługi błędu na końcu funkcji
+            raise e
 
-            processed_data.append(processed_item)
-
-        return jsonify({
-            "success": True,
-            "data": processed_data,
-            "matched_count": len([d for d in processed_data if d['matched']]),
-            "total_count": len(processed_data)
-        })
-
+    # Obsługa wszystkich innych błędów, które nie są ReadTimeout lub RequestException,
+    # albo tych, które zostały zgłoszone wewnątrz bloków 'except' (za pomocą 'raise e')
+    # Ta sekcja powinna znajdować się POZA pętlą 'while True' i obsługiwać wszystkie wyjątki w funkcji
+    try:
+        # Ten fragment jest tylko demonstracyjny.
+        # W rzeczywistym kodzie funkcji 'parse_schedule_image' powinna to być ostatnia sekcja.
+        pass
     except Exception as e:
+        # Wystąpił błąd poza pętlą (lub został do niej przekazany przez 'raise e')
         print(f"Błąd w parse_schedule_image: {traceback.format_exc()}")
         return jsonify({"error": f"Wystąpił błąd: {str(e)}"}), 500
+
+
 
 
 @app.get("/api/test-name-matching")
@@ -3981,10 +4107,12 @@ def test_name_matching():
         'available_groups': all_groups
     })
 
+
 @app.before_request
 def list_routes():
     if request.endpoint:
         print(f"Endpoint: {request.endpoint}, Method: {request.method}")
+
 
 # Lub dodaj specjalny endpoint do wyświetlenia wszystkich routes:
 @app.route("/api/routes")
@@ -4008,6 +4136,7 @@ def check_file_size():
 
         if content_length > max_size:
             return jsonify({'error': 'File too large'}), 413
+
 
 @app.route('/api/health')
 def health_check():
@@ -4281,7 +4410,6 @@ def get_scheduled_clients():
         return jsonify({'error': str(e)}), 500
 
 
-
 @app.route('/api/attendance/bulk', methods=['POST'])
 def save_bulk_attendance():
     try:
@@ -4454,7 +4582,6 @@ def find_duplicate_endpoints():
 
     return duplicates
 
-
     # Sprawdź duplikaty przy starcie
     duplicates = find_duplicate_endpoints()
     if duplicates:
@@ -4513,29 +4640,29 @@ def init_foundation_table():
     """Inicjalizacja tabeli foundation w PostgreSQL"""
     with engine.begin() as conn:
         conn.execute(text('''
-            CREATE TABLE IF NOT EXISTS foundation (
-                id SERIAL PRIMARY KEY,
-                name TEXT,
-                krs TEXT UNIQUE,
-                nip TEXT,
-                regon TEXT,
-                city TEXT,
-                voivodeship TEXT,
-                street TEXT,
-                building_number TEXT,
-                postal_code TEXT,
-                email TEXT,
-                phone TEXT,
-                board_members TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        '''))
+                CREATE TABLE IF NOT EXISTS foundation (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT,
+                    krs TEXT UNIQUE,
+                    nip TEXT,
+                    regon TEXT,
+                    city TEXT,
+                    voivodeship TEXT,
+                    street TEXT,
+                    building_number TEXT,
+                    postal_code TEXT,
+                    email TEXT,
+                    phone TEXT,
+                    board_members TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            '''))
 
         conn.execute(text('''
-            CREATE INDEX IF NOT EXISTS idx_foundation_krs 
-            ON foundation(krs)
-        '''))
+                CREATE INDEX IF NOT EXISTS idx_foundation_krs 
+                ON foundation(krs)
+            '''))
 
     print("✓ Tabela foundation zainicjalizowana")
 
@@ -4544,32 +4671,32 @@ def init_projects_table():
     """Inicjalizacja tabeli projects w PostgreSQL (jeśli nie istnieje)"""
     with engine.begin() as conn:
         conn.execute(text('''
-            CREATE TABLE IF NOT EXISTS projects (
-                id SERIAL PRIMARY KEY,
-                title VARCHAR(255) NOT NULL,
-                description TEXT,
-                start_date DATE,
-                end_date DATE,
-                status VARCHAR(50) DEFAULT 'planowany',
-                budget FLOAT,
-                coordinator VARCHAR(255),
-                partners TEXT,
-                beneficiaries_count INTEGER,
-                photo_url TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        '''))
+                CREATE TABLE IF NOT EXISTS projects (
+                    id SERIAL PRIMARY KEY,
+                    title VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    start_date DATE,
+                    end_date DATE,
+                    status VARCHAR(50) DEFAULT 'planowany',
+                    budget FLOAT,
+                    coordinator VARCHAR(255),
+                    partners TEXT,
+                    beneficiaries_count INTEGER,
+                    photo_url TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            '''))
 
         conn.execute(text('''
-            CREATE INDEX IF NOT EXISTS idx_projects_status 
-            ON projects(status)
-        '''))
+                CREATE INDEX IF NOT EXISTS idx_projects_status 
+                ON projects(status)
+            '''))
 
         conn.execute(text('''
-            CREATE INDEX IF NOT EXISTS idx_projects_dates 
-            ON projects(start_date, end_date)
-        '''))
+                CREATE INDEX IF NOT EXISTS idx_projects_dates 
+                ON projects(start_date, end_date)
+            '''))
 
     print("✓ Tabela projects zainicjalizowana")
 
@@ -4610,30 +4737,30 @@ def init_all_tables():
         print("=" * 60 + "\n")
         return False
 
+
 def init_documents_table():
     """Inicjalizacja tabeli dokumentów w PostgreSQL"""
     with engine.begin() as conn:
         conn.execute(text('''
-            CREATE TABLE IF NOT EXISTS client_documents (
-                id SERIAL PRIMARY KEY,
-                client_id INTEGER NOT NULL,
-                file_name TEXT NOT NULL,
-                file_path TEXT NOT NULL,
-                file_type TEXT NOT NULL,
-                file_size INTEGER NOT NULL,
-                document_type TEXT,
-                notes TEXT,
-                upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                uploaded_by TEXT,
-                FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
-            )
-        '''))
-
+                CREATE TABLE IF NOT EXISTS client_documents (
+                    id SERIAL PRIMARY KEY,
+                    client_id INTEGER NOT NULL,
+                    file_name TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    file_type TEXT NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    document_type TEXT,
+                    notes TEXT,
+                    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    uploaded_by TEXT,
+                    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+                )
+            '''))
 
         conn.execute(text('''
-            CREATE INDEX IF NOT EXISTS idx_client_documents_client_id 
-            ON client_documents(client_id)
-        '''))
+                CREATE INDEX IF NOT EXISTS idx_client_documents_client_id 
+                ON client_documents(client_id)
+            '''))
 
     print("✓ Tabela client_documents zainicjalizowana")
 
@@ -4697,12 +4824,12 @@ def upload_client_documents(client_id):
                     print("Rozpoczynam zapis do bazy...")
                     with engine.begin() as conn:
                         result = conn.execute(text('''
-                            INSERT INTO client_documents 
-                            (client_id, file_name, file_path, file_type, file_size, 
-                             document_type, notes, uploaded_by)
-                            VALUES (:cid, :fname, :fpath, :ftype, :fsize, :dtype, :notes, :uby)
-                            RETURNING id
-                        '''), {
+                                INSERT INTO client_documents 
+                                (client_id, file_name, file_path, file_type, file_size, 
+                                 document_type, notes, uploaded_by)
+                                VALUES (:cid, :fname, :fpath, :ftype, :fsize, :dtype, :notes, :uby)
+                                RETURNING id
+                            '''), {
                             "cid": client_id,
                             "fname": file.filename,
                             "fpath": filepath,
@@ -4771,12 +4898,12 @@ def get_client_documents(client_id):
 
             # Pobierz dokumenty
             result = conn.execute(text('''
-                SELECT id, client_id, file_name, file_type, file_size,
-                       document_type, notes, upload_date, uploaded_by
-                FROM client_documents
-                WHERE client_id = :cid
-                ORDER BY upload_date DESC
-            '''), {"cid": client_id})
+                    SELECT id, client_id, file_name, file_type, file_size,
+                           document_type, notes, upload_date, uploaded_by
+                    FROM client_documents
+                    WHERE client_id = :cid
+                    ORDER BY upload_date DESC
+                '''), {"cid": client_id})
 
             documents = [dict(row) for row in result.mappings().all()]
             print(f"Znaleziono {len(documents)} dokumentów")
@@ -4795,9 +4922,9 @@ def download_document(doc_id):
     try:
         with engine.begin() as conn:
             result = conn.execute(text('''
-                SELECT file_name, file_path, file_type
-                FROM client_documents WHERE id = :did
-            '''), {"did": doc_id})
+                    SELECT file_name, file_path, file_type
+                    FROM client_documents WHERE id = :did
+                '''), {"did": doc_id})
 
             row = result.mappings().first()
 
@@ -4824,6 +4951,7 @@ def download_document(doc_id):
         import traceback
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/documents/<int:doc_id>', methods=['DELETE'])
 def delete_document(doc_id):
@@ -4862,13 +4990,13 @@ def get_projects():
 
     with engine.begin() as conn:
         sql = text("""
-            SELECT id, title, description, start_date, end_date, status, 
-                   budget, coordinator, partners, beneficiaries_count, photo_url,
-                   created_at, updated_at
-            FROM projects
-            WHERE (:status IS NULL OR status = :status)
-            ORDER BY start_date DESC NULLS LAST, created_at DESC
-        """)
+                SELECT id, title, description, start_date, end_date, status, 
+                       budget, coordinator, partners, beneficiaries_count, photo_url,
+                       created_at, updated_at
+                FROM projects
+                WHERE (:status IS NULL OR status = :status)
+                ORDER BY start_date DESC NULLS LAST, created_at DESC
+            """)
 
         result = conn.execute(sql, {"status": status_filter})
         projects = []
@@ -4894,12 +5022,12 @@ def get_project(project_id):
     """Szczegóły pojedynczego projektu"""
     with engine.begin() as conn:
         sql = text("""
-            SELECT id, title, description, start_date, end_date, status, 
-                   budget, coordinator, partners, beneficiaries_count, photo_url,
-                   created_at, updated_at
-            FROM projects
-            WHERE id = :pid
-        """)
+                SELECT id, title, description, start_date, end_date, status, 
+                       budget, coordinator, partners, beneficiaries_count, photo_url,
+                       created_at, updated_at
+                FROM projects
+                WHERE id = :pid
+            """)
 
         result = conn.execute(sql, {"pid": project_id})
         row = result.mappings().first()
@@ -4930,13 +5058,13 @@ def create_project():
 
     with engine.begin() as conn:
         sql = text("""
-            INSERT INTO projects 
-            (title, description, start_date, end_date, status, budget, 
-             coordinator, partners, beneficiaries_count, photo_url)
-            VALUES (:title, :desc, :start, :end, :status, :budget, 
-                    :coord, :partners, :benef, :photo)
-            RETURNING id
-        """)
+                INSERT INTO projects 
+                (title, description, start_date, end_date, status, budget, 
+                 coordinator, partners, beneficiaries_count, photo_url)
+                VALUES (:title, :desc, :start, :end, :status, :budget, 
+                        :coord, :partners, :benef, :photo)
+                RETURNING id
+            """)
 
         result = conn.execute(sql, {
             "title": data['title'],
@@ -4965,21 +5093,21 @@ def update_project(project_id):
 
     with engine.begin() as conn:
         sql = text("""
-            UPDATE projects
-            SET title = :title,
-                description = :desc,
-                start_date = :start,
-                end_date = :end,
-                status = :status,
-                budget = :budget,
-                coordinator = :coord,
-                partners = :partners,
-                beneficiaries_count = :benef,
-                photo_url = :photo,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = :pid
-            RETURNING id
-        """)
+                UPDATE projects
+                SET title = :title,
+                    description = :desc,
+                    start_date = :start,
+                    end_date = :end,
+                    status = :status,
+                    budget = :budget,
+                    coordinator = :coord,
+                    partners = :partners,
+                    beneficiaries_count = :benef,
+                    photo_url = :photo,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = :pid
+                RETURNING id
+            """)
 
         result = conn.execute(sql, {
             "pid": project_id,
@@ -5024,18 +5152,18 @@ def get_projects_report():
     with engine.begin() as conn:
         # Projekty z danego roku
         sql = text("""
-            SELECT 
-                id, title, description, status, 
-                start_date, end_date, budget, 
-                coordinator, partners, beneficiaries_count,
-                photo_url
-            FROM projects
-            WHERE 
-                EXTRACT(YEAR FROM start_date) = :year
-                OR EXTRACT(YEAR FROM end_date) = :year
-                OR (start_date <= :year_end AND (end_date >= :year_start OR end_date IS NULL))
-            ORDER BY start_date, title
-        """)
+                SELECT 
+                    id, title, description, status, 
+                    start_date, end_date, budget, 
+                    coordinator, partners, beneficiaries_count,
+                    photo_url
+                FROM projects
+                WHERE 
+                    EXTRACT(YEAR FROM start_date) = :year
+                    OR EXTRACT(YEAR FROM end_date) = :year
+                    OR (start_date <= :year_end AND (end_date >= :year_start OR end_date IS NULL))
+                ORDER BY start_date, title
+            """)
 
         projects = conn.execute(sql, {
             "year": year,
@@ -5063,9 +5191,9 @@ def get_projects_report():
 
 def fetch_krs_data(krs_number):
     """
-    Pobieranie danych z KRS przez API
-    Używa publicznego API MS (api.stat.gov.pl) lub rejestr.io
-    """
+        Pobieranie danych z KRS przez API
+        Używa publicznego API MS (api.stat.gov.pl) lub rejestr.io
+        """
     try:
         # Próba 1: API MS (Ministerstwo Sprawiedliwości)
         # Uwaga: To jest przykładowy endpoint - w praktyce trzeba użyć prawdziwego API
@@ -5184,24 +5312,24 @@ def fetch_and_save_krs():
         # Zapisz w bazie danych - UŻYWAMY engine.begin()
         with engine.begin() as conn:
             conn.execute(text('''
-                INSERT INTO foundation 
-                (name, krs, nip, regon, city, voivodeship, street, building_number, 
-                 postal_code, email, phone, board_members, updated_at)
-                VALUES (:name, :krs, :nip, :regon, :city, :voiv, :street, :building, 
-                        :postal, :email, :phone, :board, :updated)
-                ON CONFLICT (krs) 
-                DO UPDATE SET 
-                    name = EXCLUDED.name,
-                    nip = EXCLUDED.nip,
-                    regon = EXCLUDED.regon,
-                    city = EXCLUDED.city,
-                    voivodeship = EXCLUDED.voivodeship,
-                    street = EXCLUDED.street,
-                    building_number = EXCLUDED.building_number,
-                    postal_code = EXCLUDED.postal_code,
-                    board_members = EXCLUDED.board_members,
-                    updated_at = EXCLUDED.updated_at
-            '''), {
+                    INSERT INTO foundation 
+                    (name, krs, nip, regon, city, voivodeship, street, building_number, 
+                     postal_code, email, phone, board_members, updated_at)
+                    VALUES (:name, :krs, :nip, :regon, :city, :voiv, :street, :building, 
+                            :postal, :email, :phone, :board, :updated)
+                    ON CONFLICT (krs) 
+                    DO UPDATE SET 
+                        name = EXCLUDED.name,
+                        nip = EXCLUDED.nip,
+                        regon = EXCLUDED.regon,
+                        city = EXCLUDED.city,
+                        voivodeship = EXCLUDED.voivodeship,
+                        street = EXCLUDED.street,
+                        building_number = EXCLUDED.building_number,
+                        postal_code = EXCLUDED.postal_code,
+                        board_members = EXCLUDED.board_members,
+                        updated_at = EXCLUDED.updated_at
+                '''), {
                 'name': foundation_data.get('name'),
                 'krs': foundation_data.get('krs'),
                 'nip': foundation_data.get('nip'),
@@ -5250,26 +5378,26 @@ def save_foundation():
 
         with engine.begin() as conn:
             conn.execute(text('''
-                INSERT INTO foundation 
-                (name, krs, nip, regon, city, voivodeship, street, building_number,
-                 postal_code, email, phone, board_members, updated_at)
-                VALUES (:name, :krs, :nip, :regon, :city, :voiv, :street, :building,
-                        :postal, :email, :phone, :board, :updated)
-                ON CONFLICT (krs) 
-                DO UPDATE SET 
-                    name = EXCLUDED.name,
-                    nip = EXCLUDED.nip,
-                    regon = EXCLUDED.regon,
-                    city = EXCLUDED.city,
-                    voivodeship = EXCLUDED.voivodeship,
-                    street = EXCLUDED.street,
-                    building_number = EXCLUDED.building_number,
-                    postal_code = EXCLUDED.postal_code,
-                    email = EXCLUDED.email,
-                    phone = EXCLUDED.phone,
-                    board_members = EXCLUDED.board_members,
-                    updated_at = EXCLUDED.updated_at
-            '''), {
+                    INSERT INTO foundation 
+                    (name, krs, nip, regon, city, voivodeship, street, building_number,
+                     postal_code, email, phone, board_members, updated_at)
+                    VALUES (:name, :krs, :nip, :regon, :city, :voiv, :street, :building,
+                            :postal, :email, :phone, :board, :updated)
+                    ON CONFLICT (krs) 
+                    DO UPDATE SET 
+                        name = EXCLUDED.name,
+                        nip = EXCLUDED.nip,
+                        regon = EXCLUDED.regon,
+                        city = EXCLUDED.city,
+                        voivodeship = EXCLUDED.voivodeship,
+                        street = EXCLUDED.street,
+                        building_number = EXCLUDED.building_number,
+                        postal_code = EXCLUDED.postal_code,
+                        email = EXCLUDED.email,
+                        phone = EXCLUDED.phone,
+                        board_members = EXCLUDED.board_members,
+                        updated_at = EXCLUDED.updated_at
+                '''), {
                 'name': data.get('name'),
                 'krs': data.get('krs'),
                 'nip': data.get('nip'),
@@ -5308,26 +5436,26 @@ def check_schedule_structure():
 
         # Pobierz kolumny
         cur.execute("""
-            SELECT column_name, data_type 
-            FROM information_schema.columns 
-            WHERE table_name = 'schedule_slots'
-            ORDER BY ordinal_position
-        """)
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'schedule_slots'
+                ORDER BY ordinal_position
+            """)
         columns = [dict(c) for c in cur.fetchall()]
 
         # Pobierz przykładowe dane BEZ kolumn typu range
         cur.execute("""
-            SELECT 
-                id, client_id, kind, therapist_id, driver_id, 
-                vehicle_id, 
-                starts_at::text as starts_at,  -- konwersja na text
-                ends_at::text as ends_at,      -- konwersja na text
-                place_from, place_to, status,
-                CASE WHEN group_id IS NOT NULL THEN group_id ELSE NULL END as group_id
-            FROM schedule_slots 
-            ORDER BY id DESC
-            LIMIT 5
-        """)
+                SELECT 
+                    id, client_id, kind, therapist_id, driver_id, 
+                    vehicle_id, 
+                    starts_at::text as starts_at,  -- konwersja na text
+                    ends_at::text as ends_at,      -- konwersja na text
+                    place_from, place_to, status,
+                    CASE WHEN group_id IS NOT NULL THEN group_id ELSE NULL END as group_id
+                FROM schedule_slots 
+                ORDER BY id DESC
+                LIMIT 5
+            """)
         samples = [dict(s) for s in cur.fetchall()]
 
         return jsonify({
@@ -5389,25 +5517,25 @@ def check_schedule_conflicts():
             ends_at = therapy.get('ends_at')
 
             cur.execute("""
-                SELECT 
-                    ss.id,
-                    ss.group_id::text,
-                    c.full_name as client_name,
-                    ss.starts_at,
-                    ss.ends_at,
-                    'Terapeuta już zajęty' as reason
-                FROM schedule_slots ss
-                JOIN clients c ON ss.client_id = c.id
-                WHERE ss.therapist_id = %s
-                AND ss.status NOT IN ('cancelled')
-                AND (
-                    (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
-                )
-                AND (
-                    %s IS NULL OR ss.group_id::text != %s
-                )
-                ORDER BY ss.starts_at
-            """, (therapist_id, starts_at, ends_at, group_id, group_id))
+                    SELECT 
+                        ss.id,
+                        ss.group_id::text,
+                        c.full_name as client_name,
+                        ss.starts_at,
+                        ss.ends_at,
+                        'Terapeuta już zajęty' as reason
+                    FROM schedule_slots ss
+                    JOIN clients c ON ss.client_id = c.id
+                    WHERE ss.therapist_id = %s
+                    AND ss.status NOT IN ('cancelled')
+                    AND (
+                        (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
+                    )
+                    AND (
+                        %s IS NULL OR ss.group_id::text != %s
+                    )
+                    ORDER BY ss.starts_at
+                """, (therapist_id, starts_at, ends_at, group_id, group_id))
 
             therapy_conflicts = cur.fetchall()
             conflicts["therapy"] = [dict(row) for row in therapy_conflicts]
@@ -5420,27 +5548,27 @@ def check_schedule_conflicts():
 
             if driver_id:
                 cur.execute("""
-                    SELECT 
-                        ss.id,
-                        ss.group_id::text,
-                        c.full_name as client_name,
-                        ss.starts_at,
-                        ss.ends_at,
-                        ss.kind,
-                        'Kierowca już zajęty' as reason
-                    FROM schedule_slots ss
-                    JOIN clients c ON ss.client_id = c.id
-                    WHERE ss.driver_id = %s
-                    AND ss.kind IN ('pickup', 'dropoff')
-                    AND ss.status NOT IN ('cancelled')
-                    AND (
-                        (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
-                    )
-                    AND (
-                        %s IS NULL OR ss.group_id::text != %s
-                    )
-                    ORDER BY ss.starts_at
-                """, (driver_id, starts_at, ends_at, group_id, group_id))
+                        SELECT 
+                            ss.id,
+                            ss.group_id::text,
+                            c.full_name as client_name,
+                            ss.starts_at,
+                            ss.ends_at,
+                            ss.kind,
+                            'Kierowca już zajęty' as reason
+                        FROM schedule_slots ss
+                        JOIN clients c ON ss.client_id = c.id
+                        WHERE ss.driver_id = %s
+                        AND ss.kind IN ('pickup', 'dropoff')
+                        AND ss.status NOT IN ('cancelled')
+                        AND (
+                            (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
+                        )
+                        AND (
+                            %s IS NULL OR ss.group_id::text != %s
+                        )
+                        ORDER BY ss.starts_at
+                    """, (driver_id, starts_at, ends_at, group_id, group_id))
 
                 pickup_conflicts = cur.fetchall()
                 conflicts["pickup"] = [dict(row) for row in pickup_conflicts]
@@ -5453,27 +5581,27 @@ def check_schedule_conflicts():
 
             if driver_id:
                 cur.execute("""
-                    SELECT 
-                        ss.id,
-                        ss.group_id::text,
-                        c.full_name as client_name,
-                        ss.starts_at,
-                        ss.ends_at,
-                        ss.kind,
-                        'Kierowca już zajęty' as reason
-                    FROM schedule_slots ss
-                    JOIN clients c ON ss.client_id = c.id
-                    WHERE ss.driver_id = %s
-                    AND ss.kind IN ('pickup', 'dropoff')
-                    AND ss.status NOT IN ('cancelled')
-                    AND (
-                        (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
-                    )
-                    AND (
-                        %s IS NULL OR ss.group_id::text != %s
-                    )
-                    ORDER BY ss.starts_at
-                """, (driver_id, starts_at, ends_at, group_id, group_id))
+                        SELECT 
+                            ss.id,
+                            ss.group_id::text,
+                            c.full_name as client_name,
+                            ss.starts_at,
+                            ss.ends_at,
+                            ss.kind,
+                            'Kierowca już zajęty' as reason
+                        FROM schedule_slots ss
+                        JOIN clients c ON ss.client_id = c.id
+                        WHERE ss.driver_id = %s
+                        AND ss.kind IN ('pickup', 'dropoff')
+                        AND ss.status NOT IN ('cancelled')
+                        AND (
+                            (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
+                        )
+                        AND (
+                            %s IS NULL OR ss.group_id::text != %s
+                        )
+                        ORDER BY ss.starts_at
+                    """, (driver_id, starts_at, ends_at, group_id, group_id))
 
                 dropoff_conflicts = cur.fetchall()
                 conflicts["dropoff"] = [dict(row) for row in dropoff_conflicts]
@@ -5484,26 +5612,26 @@ def check_schedule_conflicts():
             ends_at = therapy.get('ends_at')
 
             cur.execute("""
-                SELECT 
-                    ss.id,
-                    ss.group_id::text,
-                    ss.kind,
-                    ss.starts_at,
-                    ss.ends_at,
-                    t.full_name as therapist_name,
-                    'Klient ma już inne zajęcia' as reason
-                FROM schedule_slots ss
-                LEFT JOIN therapists t ON ss.therapist_id = t.id
-                WHERE ss.client_id = %s
-                AND ss.status NOT IN ('cancelled')
-                AND (
-                    (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
-                )
-                AND (
-                    %s IS NULL OR ss.group_id::text != %s
-                )
-                ORDER BY ss.starts_at
-            """, (client_id, starts_at, ends_at, group_id, group_id))
+                    SELECT 
+                        ss.id,
+                        ss.group_id::text,
+                        ss.kind,
+                        ss.starts_at,
+                        ss.ends_at,
+                        t.full_name as therapist_name,
+                        'Klient ma już inne zajęcia' as reason
+                    FROM schedule_slots ss
+                    LEFT JOIN therapists t ON ss.therapist_id = t.id
+                    WHERE ss.client_id = %s
+                    AND ss.status NOT IN ('cancelled')
+                    AND (
+                        (ss.starts_at, ss.ends_at) OVERLAPS (%s::timestamptz, %s::timestamptz)
+                    )
+                    AND (
+                        %s IS NULL OR ss.group_id::text != %s
+                    )
+                    ORDER BY ss.starts_at
+                """, (client_id, starts_at, ends_at, group_id, group_id))
 
             client_conflicts = cur.fetchall()
             conflicts["client"] = [dict(row) for row in client_conflicts]
@@ -5597,10 +5725,10 @@ def update_schedule(slot_id):
         conn.commit()
 
         return jsonify({
-                'success': True,
-                'message': 'Wizyta zaktualizowana',
-                'slot_id': slot_id
-            }), 200
+            'success': True,
+            'message': 'Wizyta zaktualizowana',
+            'slot_id': slot_id
+        }), 200
 
     except Exception as e:
         if conn:
@@ -5629,27 +5757,28 @@ def delete_schedule_slot(slot_id):
                 text('SELECT id FROM schedule_slots WHERE id = :id'),
                 {"id": slot_id}
             ).scalar()
-            
+
             if not slot:
                 return jsonify({'error': 'Sesja nie znaleziona'}), 404
-            
+
             # Usuń slot
             conn.execute(
                 text('DELETE FROM schedule_slots WHERE id = :id'),
                 {"id": slot_id}
             )
-            
+
             return jsonify({'message': 'Sesja usunięta pomyślnie'}), 200
-            
+
     except Exception as e:
         print(f"Błąd usuwania sesji: {e}")
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/schedule/<int:slot_id>', methods=['PUT'])
 def update_schedule_slot(slot_id):
     """Aktualizuje sesję"""
     data = request.get_json()
-    
+
     try:
         with engine.begin() as conn:
             # Sprawdź czy slot istnieje
@@ -5657,45 +5786,46 @@ def update_schedule_slot(slot_id):
                 text('SELECT id FROM schedule_slots WHERE id = :id'),
                 {"id": slot_id}
             ).scalar()
-            
+
             if not slot:
                 return jsonify({'error': 'Sesja nie znaleziona'}), 404
-            
+
             # Przygotuj update
             update_fields = []
             params = {"id": slot_id}
-            
+
             if 'label' in data:
                 update_fields.append("label = :label")
                 params["label"] = data['label']
-            
+
             if 'starts_at' in data:
                 update_fields.append("starts_at = :starts_at")
                 params["starts_at"] = data['starts_at']
-            
+
             if 'ends_at' in data:
                 update_fields.append("ends_at = :ends_at")
                 params["ends_at"] = data['ends_at']
-            
+
             if 'place_to' in data:
                 update_fields.append("place_to = :place_to")
                 params["place_to"] = data['place_to']
-            
+
             if not update_fields:
                 return jsonify({'error': 'Brak danych do aktualizacji'}), 400
-            
+
             # Wykonaj update
             set_clause = ", ".join(update_fields)
             conn.execute(
                 text(f'UPDATE schedule_slots SET {set_clause} WHERE id = :id'),
                 params
             )
-            
+
             return jsonify({'message': 'Sesja zaktualizowana'}), 200
-            
+
     except Exception as e:
         print(f"Błąd aktualizacji sesji: {e}")
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/drivers/<int:driver_id>/schedule', methods=['GET'])
 def get_driver_schedule(driver_id):
@@ -5713,27 +5843,27 @@ def get_driver_schedule(driver_id):
 
         # KWERENDA Z GPS I DISTANCE
         cur.execute("""
-            SELECT 
-                ss.id as slot_id,
-                ss.group_id::text as group_id,
-                ss.driver_id,
-                ss.client_id,
-                c.full_name as client_name,
-                ss.starts_at,
-                ss.ends_at,
-                ss.kind,
-                ss.status,
-                ss.place_from,
-                ss.place_to,
-                ss.distance_km,  -- ✅ JUŻ JEST!
-                ss.vehicle_id
-            FROM schedule_slots ss
-            LEFT JOIN clients c ON ss.client_id = c.id
-            WHERE ss.driver_id = %s
-            AND ss.kind IN ('pickup', 'dropoff')
-            AND DATE(ss.starts_at) = %s
-            ORDER BY ss.starts_at
-        """, (driver_id, date))
+                SELECT 
+                    ss.id as slot_id,
+                    ss.group_id::text as group_id,
+                    ss.driver_id,
+                    ss.client_id,
+                    c.full_name as client_name,
+                    ss.starts_at,
+                    ss.ends_at,
+                    ss.kind,
+                    ss.status,
+                    ss.place_from,
+                    ss.place_to,
+                    ss.distance_km,  -- ✅ JUŻ JEST!
+                    ss.vehicle_id
+                FROM schedule_slots ss
+                LEFT JOIN clients c ON ss.client_id = c.id
+                WHERE ss.driver_id = %s
+                AND ss.kind IN ('pickup', 'dropoff')
+                AND DATE(ss.starts_at) = %s
+                ORDER BY ss.starts_at
+            """, (driver_id, date))
 
         routes = [dict(row) for row in cur.fetchall()]
 
@@ -5755,6 +5885,7 @@ def get_driver_schedule(driver_id):
         if conn:
             conn.close()
 
+
 @app.route('/api/test-driver-gps/<int:driver_id>')
 def test_driver_gps(driver_id):
     """TEST - Sprawdź czy GPS działa"""
@@ -5768,16 +5899,16 @@ def test_driver_gps(driver_id):
 
     # Najprostsza możliwa kwerenda
     cur.execute("""
-        SELECT 
-            id, place_from, place_to,
-            from_latitude, from_longitude,
-            to_latitude, to_longitude,
-            distance_km
-        FROM schedule_slots
-        WHERE driver_id = %s
-        AND DATE(starts_at) = %s
-        LIMIT 1
-    """, (driver_id, date))
+            SELECT 
+                id, place_from, place_to,
+                from_latitude, from_longitude,
+                to_latitude, to_longitude,
+                distance_km
+            FROM schedule_slots
+            WHERE driver_id = %s
+            AND DATE(starts_at) = %s
+            LIMIT 1
+        """, (driver_id, date))
 
     result = cur.fetchone()
     cur.close()
@@ -5794,23 +5925,23 @@ def recalculate_all_distances():
         with engine.begin() as conn:
             # Znajdź wszystkie sloty bez dystansu
             rows = conn.execute(text("""
-                SELECT id, place_from, place_to
-                FROM schedule_slots
-                WHERE kind IN ('pickup', 'dropoff')
-                AND (distance_km IS NULL OR distance_km = 0)
-                AND place_from IS NOT NULL 
-                AND place_to IS NOT NULL
-            """)).mappings().all()
+                    SELECT id, place_from, place_to
+                    FROM schedule_slots
+                    WHERE kind IN ('pickup', 'dropoff')
+                    AND (distance_km IS NULL OR distance_km = 0)
+                    AND place_from IS NOT NULL 
+                    AND place_to IS NOT NULL
+                """)).mappings().all()
 
             updated = 0
             for row in rows:
                 distance = get_route_distance(row['place_from'], row['place_to'])
                 if distance:
                     conn.execute(text("""
-                        UPDATE schedule_slots 
-                        SET distance_km = :dist 
-                        WHERE id = :id
-                    """), {"dist": distance, "id": row['id']})
+                            UPDATE schedule_slots 
+                            SET distance_km = :dist 
+                            WHERE id = :id
+                        """), {"dist": distance, "id": row['id']})
                     updated += 1
 
             return jsonify({
@@ -5857,30 +5988,30 @@ def check_existing_distances():
     try:
         with engine.begin() as conn:
             result = conn.execute(text("""
-                SELECT 
-                    id,
-                    kind,
-                    place_from,
-                    place_to,
-                    distance_km,
-                    starts_at::date as date
-                FROM schedule_slots
-                WHERE kind IN ('pickup', 'dropoff')
-                ORDER BY starts_at DESC
-                LIMIT 20
-            """))
+                    SELECT 
+                        id,
+                        kind,
+                        place_from,
+                        place_to,
+                        distance_km,
+                        starts_at::date as date
+                    FROM schedule_slots
+                    WHERE kind IN ('pickup', 'dropoff')
+                    ORDER BY starts_at DESC
+                    LIMIT 20
+                """))
 
             rows = [dict(row) for row in result.mappings().all()]
 
             stats = conn.execute(text("""
-                SELECT 
-                    COUNT(*) as total,
-                    COUNT(distance_km) as with_distance,
-                    COUNT(*) - COUNT(distance_km) as without_distance,
-                    AVG(distance_km) as avg_distance
-                FROM schedule_slots
-                WHERE kind IN ('pickup', 'dropoff')
-            """)).mappings().first()
+                    SELECT 
+                        COUNT(*) as total,
+                        COUNT(distance_km) as with_distance,
+                        COUNT(*) - COUNT(distance_km) as without_distance,
+                        AVG(distance_km) as avg_distance
+                    FROM schedule_slots
+                    WHERE kind IN ('pickup', 'dropoff')
+                """)).mappings().first()
 
             return jsonify({
                 "statistics": dict(stats),
@@ -5969,10 +6100,10 @@ def force_calculate_distance(slot_id):
         with engine.begin() as conn:
             # Pobierz slot
             result = conn.execute(text("""
-                SELECT id, place_from, place_to, distance_km
-                FROM schedule_slots
-                WHERE id = :sid
-            """), {"sid": slot_id})
+                    SELECT id, place_from, place_to, distance_km
+                    FROM schedule_slots
+                    WHERE id = :sid
+                """), {"sid": slot_id})
 
             slot = result.mappings().first()
             if not slot:
@@ -5990,10 +6121,10 @@ def force_calculate_distance(slot_id):
             if new_distance:
                 # Zapisz w bazie
                 conn.execute(text("""
-                    UPDATE schedule_slots
-                    SET distance_km = :dist
-                    WHERE id = :sid
-                """), {"dist": new_distance, "sid": slot_id})
+                        UPDATE schedule_slots
+                        SET distance_km = :dist
+                        WHERE id = :sid
+                    """), {"dist": new_distance, "sid": slot_id})
 
                 return jsonify({
                     "success": True,
@@ -6036,21 +6167,21 @@ def get_client_notes(client_id):
             # Pobierz notatki z filtrem lub bez
             if category and category != 'all':
                 sql = text('''
-                    SELECT id, client_id, content, category, 
-                           created_by_name, created_at, updated_at
-                    FROM client_notes
-                    WHERE client_id = :cid AND category = :cat
-                    ORDER BY created_at DESC
-                ''')
+                        SELECT id, client_id, content, category, 
+                               created_by_name, created_at, updated_at
+                        FROM client_notes
+                        WHERE client_id = :cid AND category = :cat
+                        ORDER BY created_at DESC
+                    ''')
                 result = conn.execute(sql, {"cid": client_id, "cat": category})
             else:
                 sql = text('''
-                    SELECT id, client_id, content, category, 
-                           created_by_name, created_at, updated_at
-                    FROM client_notes
-                    WHERE client_id = :cid
-                    ORDER BY created_at DESC
-                ''')
+                        SELECT id, client_id, content, category, 
+                               created_by_name, created_at, updated_at
+                        FROM client_notes
+                        WHERE client_id = :cid
+                        ORDER BY created_at DESC
+                    ''')
                 result = conn.execute(sql, {"cid": client_id})
 
             notes = []
@@ -6097,11 +6228,11 @@ def add_client_note(client_id):
 
             # Dodaj notatkę
             result = conn.execute(text('''
-                INSERT INTO client_notes (client_id, content, category, created_by_name)
-                VALUES (:cid, :content, :category, :created_by)
-                RETURNING id, client_id, content, category, created_by_name, 
-                          created_at, updated_at
-            '''), {
+                    INSERT INTO client_notes (client_id, content, category, created_by_name)
+                    VALUES (:cid, :content, :category, :created_by)
+                    RETURNING id, client_id, content, category, created_by_name, 
+                              created_at, updated_at
+                '''), {
                 "cid": client_id,
                 "content": content,
                 "category": category,
@@ -6136,23 +6267,23 @@ def update_client_note(client_id, note_id):
         with engine.begin() as conn:
             # Sprawdź czy notatka należy do tego klienta
             exists = conn.execute(text('''
-                SELECT 1 FROM client_notes 
-                WHERE id = :nid AND client_id = :cid
-            '''), {"nid": note_id, "cid": client_id}).scalar()
+                    SELECT 1 FROM client_notes 
+                    WHERE id = :nid AND client_id = :cid
+                '''), {"nid": note_id, "cid": client_id}).scalar()
 
             if not exists:
                 return jsonify({'error': 'Notatka nie istnieje lub nie należy do tego klienta'}), 404
 
             # Aktualizuj notatkę
             result = conn.execute(text('''
-                UPDATE client_notes
-                SET content = :content,
-                    category = :category,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = :nid AND client_id = :cid
-                RETURNING id, client_id, content, category, created_by_name,
-                          created_at, updated_at
-            '''), {
+                    UPDATE client_notes
+                    SET content = :content,
+                        category = :category,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = :nid AND client_id = :cid
+                    RETURNING id, client_id, content, category, created_by_name,
+                              created_at, updated_at
+                '''), {
                 "nid": note_id,
                 "cid": client_id,
                 "content": content,
@@ -6179,18 +6310,18 @@ def delete_client_note(client_id, note_id):
         with engine.begin() as conn:
             # Sprawdź czy notatka należy do tego klienta
             exists = conn.execute(text('''
-                SELECT 1 FROM client_notes 
-                WHERE id = :nid AND client_id = :cid
-            '''), {"nid": note_id, "cid": client_id}).scalar()
+                    SELECT 1 FROM client_notes 
+                    WHERE id = :nid AND client_id = :cid
+                '''), {"nid": note_id, "cid": client_id}).scalar()
 
             if not exists:
                 return jsonify({'error': 'Notatka nie istnieje lub nie należy do tego klienta'}), 404
 
             # Usuń notatkę
             conn.execute(text('''
-                DELETE FROM client_notes
-                WHERE id = :nid AND client_id = :cid
-            '''), {"nid": note_id, "cid": client_id})
+                    DELETE FROM client_notes
+                    WHERE id = :nid AND client_id = :cid
+                '''), {"nid": note_id, "cid": client_id})
 
             return jsonify({'message': 'Notatka usunięta pomyślnie'}), 200
 
@@ -6199,6 +6330,7 @@ def delete_client_note(client_id, note_id):
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 @app.get("/api/clients/<int:client_id>/sessions")
 def get_client_sessions(client_id):
@@ -6219,53 +6351,53 @@ def get_client_sessions(client_id):
             # Zapytanie z filtrem miesiąca
             if month:
                 sql = text('''
-                    SELECT 
-                        ss.id,
-                        eg.label,
-                        ss.starts_at,
-                        ss.ends_at,
-                        ss.place_to,
-                        EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes,
-                        th.full_name as therapist_name,
-                        cn.content as notes,
-                        cn.id as note_id
-                    FROM schedule_slots ss
-                    LEFT JOIN event_groups eg ON eg.id = ss.group_id::uuid
-                    LEFT JOIN therapists th ON th.id = ss.therapist_id
-                    LEFT JOIN client_notes cn ON cn.client_id = ss.client_id 
-                        AND DATE(cn.created_at) = DATE(ss.starts_at)
-                        AND cn.category = 'session'
-                    WHERE ss.client_id = :cid
-                        AND ss.kind = 'therapy'
-                        AND ss.starts_at IS NOT NULL
-                        AND DATE_TRUNC('month', ss.starts_at) = DATE_TRUNC('month', TO_DATE(:month, 'YYYY-MM'))
-                    ORDER BY ss.starts_at DESC
-                ''')
+                        SELECT 
+                            ss.id,
+                            eg.label,
+                            ss.starts_at,
+                            ss.ends_at,
+                            ss.place_to,
+                            EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes,
+                            th.full_name as therapist_name,
+                            cn.content as notes,
+                            cn.id as note_id
+                        FROM schedule_slots ss
+                        LEFT JOIN event_groups eg ON eg.id = ss.group_id::uuid
+                        LEFT JOIN therapists th ON th.id = ss.therapist_id
+                        LEFT JOIN client_notes cn ON cn.client_id = ss.client_id 
+                            AND DATE(cn.created_at) = DATE(ss.starts_at)
+                            AND cn.category = 'session'
+                        WHERE ss.client_id = :cid
+                            AND ss.kind = 'therapy'
+                            AND ss.starts_at IS NOT NULL
+                            AND DATE_TRUNC('month', ss.starts_at) = DATE_TRUNC('month', TO_DATE(:month, 'YYYY-MM'))
+                        ORDER BY ss.starts_at DESC
+                    ''')
                 result = conn.execute(sql, {"cid": client_id, "month": month + "-01"})
             else:
                 sql = text('''
-                    SELECT 
-                        ss.id,
-                        eg.label,
-                        ss.starts_at,
-                        ss.ends_at,
-                        ss.place_to,
-                        EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes,
-                        th.full_name as therapist_name,
-                        cn.content as notes,
-                        cn.id as note_id
-                    FROM schedule_slots ss
-                    LEFT JOIN event_groups eg ON eg.id = ss.group_id::uuid
-                    LEFT JOIN therapists th ON th.id = ss.therapist_id
-                    LEFT JOIN client_notes cn ON cn.client_id = ss.client_id 
-                        AND DATE(cn.created_at) = DATE(ss.starts_at)
-                        AND cn.category = 'session'
-                    WHERE ss.client_id = :cid
-                        AND ss.kind = 'therapy'
-                        AND ss.starts_at IS NOT NULL
-                    ORDER BY ss.starts_at DESC
-                    LIMIT 100
-                ''')
+                        SELECT 
+                            ss.id,
+                            eg.label,
+                            ss.starts_at,
+                            ss.ends_at,
+                            ss.place_to,
+                            EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes,
+                            th.full_name as therapist_name,
+                            cn.content as notes,
+                            cn.id as note_id
+                        FROM schedule_slots ss
+                        LEFT JOIN event_groups eg ON eg.id = ss.group_id::uuid
+                        LEFT JOIN therapists th ON th.id = ss.therapist_id
+                        LEFT JOIN client_notes cn ON cn.client_id = ss.client_id 
+                            AND DATE(cn.created_at) = DATE(ss.starts_at)
+                            AND cn.category = 'session'
+                        WHERE ss.client_id = :cid
+                            AND ss.kind = 'therapy'
+                            AND ss.starts_at IS NOT NULL
+                        ORDER BY ss.starts_at DESC
+                        LIMIT 100
+                    ''')
                 result = conn.execute(sql, {"cid": client_id})
 
             sessions = []
@@ -6305,23 +6437,23 @@ def get_waiting_clients():
         with engine.begin() as conn:
             # Zapytanie z paginacją
             sql = text('''
-                SELECT 
-                    id,
-                    first_name,
-                    last_name,
-                    birth_date,
-                    diagnosis,
-                    registration_date,
-                    notes,
-                    status,
-                    CURRENT_DATE - registration_date as waiting_days,
-                    created_at,
-                    updated_at
-                FROM waiting_clients
-                WHERE (:status = 'all' OR status = :status)
-                ORDER BY registration_date ASC
-                LIMIT :limit OFFSET :offset
-            ''')
+                    SELECT 
+                        id,
+                        first_name,
+                        last_name,
+                        birth_date,
+                        diagnosis,
+                        registration_date,
+                        notes,
+                        status,
+                        CURRENT_DATE - registration_date as waiting_days,
+                        created_at,
+                        updated_at
+                    FROM waiting_clients
+                    WHERE (:status = 'all' OR status = :status)
+                    ORDER BY registration_date ASC
+                    LIMIT :limit OFFSET :offset
+                ''')
 
             result = conn.execute(sql, {
                 "status": status,
@@ -6340,9 +6472,9 @@ def get_waiting_clients():
 
             # Pobierz całkowitą liczbę rekordów
             count_sql = text('''
-                SELECT COUNT(*) FROM waiting_clients
-                WHERE (:status = 'all' OR status = :status)
-            ''')
+                    SELECT COUNT(*) FROM waiting_clients
+                    WHERE (:status = 'all' OR status = :status)
+                ''')
             total = conn.execute(count_sql, {"status": status}).scalar()
 
             return jsonify({
@@ -6406,12 +6538,12 @@ def add_waiting_client():
         with engine.begin() as conn:
             # Sprawdź duplikaty
             exists = conn.execute(text('''
-                SELECT 1 FROM waiting_clients 
-                WHERE first_name = :fname 
-                AND last_name = :lname 
-                AND birth_date = :bdate
-                AND status = 'oczekujący'
-            '''), {
+                    SELECT 1 FROM waiting_clients 
+                    WHERE first_name = :fname 
+                    AND last_name = :lname 
+                    AND birth_date = :bdate
+                    AND status = 'oczekujący'
+                '''), {
                 "fname": first_name,
                 "lname": last_name,
                 "bdate": data['birth_date']
@@ -6422,11 +6554,11 @@ def add_waiting_client():
 
             # Dodaj nowego klienta
             sql = text('''
-                INSERT INTO waiting_clients 
-                (first_name, last_name, birth_date, diagnosis, registration_date, notes, status)
-                VALUES (:fname, :lname, :bdate, :diag, :regdate, :notes, :status)
-                RETURNING id, first_name, last_name, registration_date, status
-            ''')
+                    INSERT INTO waiting_clients 
+                    (first_name, last_name, birth_date, diagnosis, registration_date, notes, status)
+                    VALUES (:fname, :lname, :bdate, :diag, :regdate, :notes, :status)
+                    RETURNING id, first_name, last_name, registration_date, status
+                ''')
 
             result = conn.execute(sql, {
                 "fname": first_name,
@@ -6525,11 +6657,11 @@ def update_waiting_client(client_id):
             update_fields.append("updated_at = CURRENT_TIMESTAMP")
 
             sql = text(f'''
-                UPDATE waiting_clients
-                SET {', '.join(update_fields)}
-                WHERE id = :id
-                RETURNING id, first_name, last_name, status, updated_at
-            ''')
+                    UPDATE waiting_clients
+                    SET {', '.join(update_fields)}
+                    WHERE id = :id
+                    RETURNING id, first_name, last_name, status, updated_at
+                ''')
 
             result = conn.execute(sql, params)
             updated = dict(result.mappings().first())
@@ -6557,11 +6689,11 @@ def delete_waiting_client(client_id):
         with engine.begin() as conn:
             result = conn.execute(
                 text('''
-                    UPDATE waiting_clients 
-                    SET status = 'anulowany', updated_at = CURRENT_TIMESTAMP
-                    WHERE id = :id AND status != 'anulowany'
-                    RETURNING id
-                '''),
+                        UPDATE waiting_clients 
+                        SET status = 'anulowany', updated_at = CURRENT_TIMESTAMP
+                        WHERE id = :id AND status != 'anulowany'
+                        RETURNING id
+                    '''),
                 {"id": client_id}
             )
 
@@ -6594,19 +6726,19 @@ def accept_waiting_client(client_id):
 
             # Dodaj do clients z pełnymi danymi
             new_client = conn.execute(text('''
-                INSERT INTO clients (
-                    full_name, 
-                    phone, 
-                    address, 
-                    active,
-                    birth_date,
-                    diagnosis,
-                    notes,
-                    waiting_client_id
-                )
-                VALUES (:name, :phone, :address, true, :bdate, :diag, :notes, :wid)
-                RETURNING id, full_name
-            '''), {
+                    INSERT INTO clients (
+                        full_name, 
+                        phone, 
+                        address, 
+                        active,
+                        birth_date,
+                        diagnosis,
+                        notes,
+                        waiting_client_id
+                    )
+                    VALUES (:name, :phone, :address, true, :bdate, :diag, :notes, :wid)
+                    RETURNING id, full_name
+                '''), {
                 "name": f"{waiting['first_name']} {waiting['last_name']}",
                 "phone": '',
                 "address": '',
@@ -6619,10 +6751,10 @@ def accept_waiting_client(client_id):
             # Zmień status w waiting_clients
             conn.execute(
                 text('''
-                    UPDATE waiting_clients 
-                    SET status = :status, updated_at = CURRENT_TIMESTAMP 
-                    WHERE id = :id
-                '''),
+                        UPDATE waiting_clients 
+                        SET status = :status, updated_at = CURRENT_TIMESTAMP 
+                        WHERE id = :id
+                    '''),
                 {"status": 'przyjęty', "id": client_id}
             )
 
@@ -6646,14 +6778,14 @@ def get_waiting_stats():
     try:
         with engine.begin() as conn:
             stats = conn.execute(text('''
-                SELECT 
-                    COUNT(*) FILTER (WHERE status = 'oczekujący') as oczekujacy,
-                    COUNT(*) FILTER (WHERE status = 'przyjęty') as przyjeci,
-                    COUNT(*) FILTER (WHERE status = 'anulowany') as anulowani,
-                    ROUND(AVG(CURRENT_DATE - registration_date) FILTER (WHERE status = 'oczekujący')) as sredni_czas_dni,
-                    MAX(CURRENT_DATE - registration_date) FILTER (WHERE status = 'oczekujący') as max_czas_dni
-                FROM waiting_clients
-            ''')).mappings().first()
+                    SELECT 
+                        COUNT(*) FILTER (WHERE status = 'oczekujący') as oczekujacy,
+                        COUNT(*) FILTER (WHERE status = 'przyjęty') as przyjeci,
+                        COUNT(*) FILTER (WHERE status = 'anulowany') as anulowani,
+                        ROUND(AVG(CURRENT_DATE - registration_date) FILTER (WHERE status = 'oczekujący')) as sredni_czas_dni,
+                        MAX(CURRENT_DATE - registration_date) FILTER (WHERE status = 'oczekujący') as max_czas_dni
+                    FROM waiting_clients
+                ''')).mappings().first()
 
             return jsonify(dict(stats)), 200
 
@@ -6661,73 +6793,234 @@ def get_waiting_stats():
         print(f"Błąd w get_waiting_stats: {str(e)}")
         return jsonify({'error': 'Błąd pobierania statystyk'}), 500
 
-# DODAJ PONIŻSZE FUNKCJE PRZED BLOKIEM app.run(...)
-# LUB W DOWOLNYM MIEJSCU Z DEFINICJAMI ENDPOINTÓW
+    # === DZIENNIK ENDPOINTS ===
 
-@app.post("/api/schedule")
-@app.post("/api/sessions")
-@app.post("/api/appointments")
-@app.post("/api/slots")
-def post_schedule_alias():
-    """
-    Alias dla POST /api/schedule/group.
-    Obsługuje żądania POST wysyłane do /api/schedule, /api/sessions, /api/appointments, /api/slots.
-    Wymaga, aby body JSON zawierało strukturę oczekiwaną przez create_group_with_slots (tj. 'client_id' i 'therapy').
-    """
-    print("--- ALIAS POST WYWOŁANY ---")
+@app.get("/api/journal")
+def get_journal_entries():
+        """Pobiera wszystkie wpisy z dziennika z pełnymi nazwami"""
+
+        # Opcjonalny filtr na klienta
+        client_id = request.args.get('client_id', type=int)
+
+        with session_scope() as db_session:
+            query = db_session.query(JournalEntry).options(
+                joinedload(JournalEntry.client),
+                joinedload(JournalEntry.therapist)
+            )
+
+            if client_id:
+                query = query.filter(JournalEntry.client_id == client_id)
+
+            entries = query.order_by(JournalEntry.data.desc(), JournalEntry.id.desc()).all()
+
+            results = []
+            for e in entries:
+                # Upewnij się, że używasz bezpiecznego dostępu do relacji
+                client_name = e.client.full_name if e.client else 'Nieznany Klient'
+                therapist_name = e.therapist.full_name if e.therapist else 'Nieznany Terapeuta'
+
+                results.append({
+                    "id": e.id,
+                    "data": e.data.isoformat(),
+                    "client_id": e.client_id,
+                    "klient": client_name,
+                    "therapist_id": e.therapist_id,
+                    "terapeuta": therapist_name,
+                    "temat": e.temat,
+                    "cele": e.cele,
+                    "created_at": e.created_at.isoformat() if e.created_at else None
+                })
+
+            return jsonify(results), 200
+
+@app.post("/api/journal")
+def create_journal_entry():
+    """Tworzy nowy wpis w dzienniku"""
     data = request.get_json(silent=True) or {}
-    
-    # 1. Prosta walidacja (przekierowujemy błąd 400 jeśli brakuje kluczowych danych)
-    if not data.get("client_id") or not data.get("therapy"):
-        return jsonify({
-            "error": "Brak wymaganych pól: 'client_id' i 'therapy' (z 'starts_at', 'ends_at' i 'therapist_id').",
-            "details": f"Żądanie do: {request.path}",
-            "expected_endpoint": "/api/schedule/group"
-        }), 400
 
-    # 2. Jeśli brakuje "pickup" lub "dropoff", dodaj je jako null (wymagane w logice create_group_with_slots, jeśli nie podane)
-    # Ta część zapewnia, że JSON przejdzie przez funkcję bez wyjątku KeyError, jeśli te klucze nie są w ogóle zdefiniowane
-    if "pickup" not in data:
-        data["pickup"] = None
-    if "dropoff" not in data:
-        data["dropoff"] = None
-
-    # Zastąp oryginalne ciało żądania
-    request._cached_json = data
-    
-    # 3. Wywołaj logikę głównego endpointa tworzenia pakietu
     try:
-        # Flask nie pozwala na bezpośrednie wywołanie innej funkcji view z tym samym Request context
-        # W celu obejścia, używamy "app.test_client" (zwróci to problem z transakcją ORM, ale jest tu tylko testem)
-        # Lepszym sposobem jest wywołanie funkcji bezpośrednio i stworzenie obiektu request:
-        return create_group_with_slots()
+        # Walidacja wymaganych pól
+        required = ['data', 'client_id', 'therapist_id']
+        if not all(k in data for k in required):
+            return jsonify({"error": "Pola 'data', 'client_id' i 'therapist_id' są wymagane."}), 400
+
+        # Konwersja daty i ID
+        entry_date = datetime.fromisoformat(data["data"]).date()
+        client_id = int(data["client_id"])
+        therapist_id = int(data["therapist_id"])
+
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": f"Nieprawidłowy format danych: {str(e)}"}), 400
+
+    with session_scope() as db_session:
+        new_entry = JournalEntry(
+            data=entry_date,
+            client_id=client_id,
+            therapist_id=therapist_id,
+            temat=data.get("temat"),
+            cele=data.get("cele")
+        )
+        db_session.add(new_entry)
+        db_session.flush() # Upewnij się, że dostaniemy ID
+
+        return jsonify({
+            "id": new_entry.id,
+            "data": new_entry.data.isoformat(),
+            "message": "Wpis do dziennika utworzony."
+        }), 201
+
+@app.get("/api/journal/<int:entry_id>")
+def get_journal_entry(entry_id):
+        """Pobiera pojedynczy wpis z dziennika"""
+        with session_scope() as db_session:
+            entry = db_session.query(JournalEntry).options(
+                joinedload(JournalEntry.client),
+                joinedload(JournalEntry.therapist)
+            ).filter(JournalEntry.id == entry_id).first()
+
+            if not entry:
+                return jsonify({"error": "Wpis nie znaleziony"}), 404
+
+            return jsonify({
+                "id": entry.id,
+                "data": entry.data.isoformat(),
+                "client_id": entry.client_id,
+                "klient": entry.client.full_name if entry.client else 'Nieznany Klient',
+                "therapist_id": entry.therapist_id,
+                "terapeuta": entry.therapist.full_name if entry.therapist else 'Nieznany Terapeuta',
+                "temat": entry.temat,
+                "cele": entry.cele,
+                "updated_at": entry.updated_at.isoformat() if entry.updated_at else None
+            }), 200
+
+
+@app.put("/api/journal/<int:entry_id>")
+@app.patch("/api/journal/<int:entry_id>")
+def update_journal_entry(entry_id):
+    """Aktualizuje wpis w dzienniku"""
+    data = request.get_json(silent=True) or {}
+
+    with session_scope() as db_session:
+        entry = db_session.query(JournalEntry).filter(JournalEntry.id == entry_id).first()
+
+        if not entry:
+            return jsonify({"error": "Wpis nie znaleziony"}), 404
+
+        # Aktualizacja pól tylko jeśli są przekazane
+        if "data" in data:
+            try:
+                entry.data = datetime.fromisoformat(data["data"]).date()
+            except (ValueError, TypeError):
+                return jsonify({"error": "Nieprawidłowy format daty."}), 400
+
+        if "client_id" in data: entry.client_id = int(data["client_id"])
+        if "therapist_id" in data: entry.therapist_id = int(data["therapist_id"])
+        if "temat" in data: entry.temat = data["temat"]
+        if "cele" in data: entry.cele = data["cele"]
+
+        db_session.commit()
+
+        return jsonify({"id": entry.id, "message": "Wpis zaktualizowany."}), 200
+
+@app.delete("/api/journal/<int:entry_id>")
+def delete_journal_entry(entry_id):
+        """Usuwa wpis z dziennika"""
+        with session_scope() as db_session:
+            entry = db_session.query(JournalEntry).filter(JournalEntry.id == entry_id).first()
+
+            if not entry:
+                return jsonify({"error": "Wpis nie znaleziony"}), 404
+
+            db_session.delete(entry)
+            db_session.commit()
+
+            return "", 204  # 204 No Content - standardowa odpowiedź na DELETE
+
+
+@app.get("/api/clients/<int:client_id>/all-sessions")
+def get_client_all_sessions(client_id: int):
+    """
+    Zwraca ujednoliconą historię spotkań klienta, łącząc:
+    1. Spotkania indywidualne (schedule_slots z kind='therapy')
+    2. Wpisy z Dziennika (dziennik)
+    3. Sesje TUS (jeśli są powiązane)
+    """
+    try:
+        with engine.begin() as conn:
+            # 1. Spotkania indywidualne (schedule_slots)
+            individual_sql = text('''
+                SELECT 
+                    ss.id as source_id,
+                    'individual' as source_type,
+                    ss.starts_at,
+                    ss.ends_at,
+                    ss.status,
+                    th.full_name as therapist_name,
+                    eg.label as topic_or_temat,
+                    ss.place_to as place,
+                    EXTRACT(EPOCH FROM (ss.ends_at - ss.starts_at))/60 as duration_minutes,
+                    cn.content as notes,
+                    cn.id as note_id
+                FROM schedule_slots ss
+                LEFT JOIN therapists th ON th.id = ss.therapist_id
+                LEFT JOIN event_groups eg ON eg.id = ss.group_id
+                LEFT JOIN client_notes cn ON cn.client_id = ss.client_id 
+                    AND DATE(cn.created_at) = DATE(ss.starts_at)
+                    AND cn.category = 'session'
+                WHERE ss.client_id = :cid
+                    AND ss.kind = 'therapy'
+
+                UNION ALL
+
+                -- 2. Wpisy z Dziennika (dziennik)
+                SELECT 
+                    d.id as source_id,
+                    'journal' as source_type,
+                    d.data::timestamp with time zone AS starts_at, -- Używamy daty jako startu
+                    (d.data + interval '60 minutes')::timestamp with time zone AS ends_at,
+                    'done' as status,
+                    th.full_name as therapist_name,
+                    d.temat as topic_or_temat,
+                    'Dziennik' as place,
+                    60 as duration_minutes,
+                    d.cele as notes, -- Notatki zapisane są w kolumnie 'cele'
+                    NULL as note_id -- Dziennik nie używa tabeli client_notes
+                FROM dziennik d
+                JOIN therapists th ON th.id = d.therapist_id
+                WHERE d.client_id = :cid
+
+                ORDER BY starts_at DESC
+            ''')
+
+            # UWAGA: Sesje TUS pominąłem, aby nie komplikować Unii,
+            # ale powinny być ładowane oddzielnie lub dodane do Unii.
+
+            rows = conn.execute(individual_sql, {"cid": client_id}).mappings().all()
+
+            history = []
+            for row in rows:
+                row_dict = dict(row)
+                if row_dict['starts_at']:
+                    row_dict['starts_at'] = row_dict['starts_at'].isoformat()
+                if row_dict['ends_at']:
+                    row_dict['ends_at'] = row_dict['ends_at'].isoformat()
+                if row_dict['duration_minutes']:
+                    row_dict['duration_minutes'] = int(row_dict['duration_minutes'])
+
+                history.append(row_dict)
+
+            return jsonify(history), 200
 
     except Exception as e:
-        # Ponowne zgłoszenie błędu z kontekstem
+        print(f"❌ BŁĄD w get_client_all_sessions: {str(e)}")
         import traceback
-        return jsonify({
-            "error": f"Błąd wewnętrzny podczas wywoływania /api/schedule/group: {str(e)}",
-            "traceback": traceback.format_exc().splitlines()[-2]
-        }), 500
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # Wywołaj przy starcie aplikacji
+if __name__ == '__main__':
+    init_documents_table()  # Dodaj tę linię
+    app.run(debug=True, host='0.0.0.0', port=5000)
+        # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+    
