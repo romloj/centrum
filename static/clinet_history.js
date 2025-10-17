@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ZMIENIONY: Ustaw poprawny adres URL API, jeśli nie jest lokalny
-    const API = "http://localhost:5000";
+    //const API = "http://localhost:5000";
+    const API="";
     const clientSelector = document.getElementById('clientSelector');
     const historyContainer = document.getElementById('historyContainer');
     const alertBox = document.getElementById('alertBox');
@@ -412,4 +413,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Globalnie dostępne funkcje
     window.showSessionDetails = showSessionDetails;
     window.toggleEditMode = toggleEditMode;
+
     window.saveNoteEdit = saveNoteEdit;
