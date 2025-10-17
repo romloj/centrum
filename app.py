@@ -4597,17 +4597,49 @@ def get_attendance_by_date():
     """Pobiera obecność dla konkretnej daty"""
     try:
         date = request.args.get('date')
+        client_id = request.args.get('client_id', type=int)  # opcjonalny filtr
+
         if not date:
             return jsonify({'error': 'Date parameter is required'}), 400
 
-        print(f"Pobieram obecność dla daty: {date}")
+        with session_scope() as db_session:
+            # Pobierz obecność z połączeniem do slot i klienta
+            query = db_session.query(
+                IndividualSessionAttendance.status,
+                ScheduleSlot.client_id,
+                ScheduleSlot.starts_at,
+                ScheduleSlot.therapist_id,
+                ScheduleSlot.kind
+            ).join(
+                ScheduleSlot, IndividualSessionAttendance.slot_id == ScheduleSlot.id
+            ).filter(
+                func.date(ScheduleSlot.starts_at) == date
+            )
 
-        # Tymczasowo zwróć pustą listę
-        return jsonify([])
+            # Opcjonalny filtr na klienta
+            if client_id:
+                query = query.filter(ScheduleSlot.client_id == client_id)
+
+            attendance_data = query.all()
+
+            result = []
+            for attendance in attendance_data:
+                result.append({
+                    'client_id': attendance.client_id,
+                    'status': attendance.status,
+                    'session_time': attendance.starts_at.strftime('%H:%M') if attendance.starts_at else '09:00',
+                    'service_type': attendance.kind,
+                    'therapist_id': attendance.therapist_id,
+                    'notes': ''  # Dodaj jeśli masz kolumnę notes
+                })
+
+            return jsonify(result), 200
 
     except Exception as e:
         print(f"Błąd w /api/attendance: {str(e)}")
-        return jsonify([])
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/upload/client-photo', methods=['POST'])
@@ -7024,3 +7056,4 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
