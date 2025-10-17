@@ -1,12 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API = "";
+    // ZMIENIONY: Ustaw poprawny adres URL API, jeśli nie jest lokalny
+    const API = "http://localhost:5000";
     const clientSelector = document.getElementById('clientSelector');
     const historyContainer = document.getElementById('historyContainer');
     const alertBox = document.getElementById('alertBox');
-    // POCZĄTEK ZMIANY: Referencja do pola wyszukiwania
     const searchInput = document.getElementById('searchInput');
-    let allClients = []; // Zmienna do przechowywania wszystkich klientów
-    // KONIEC ZMIANY
+    let allClients = [];
+    let currentClientId = null; // Przechowuje aktualnie wybranego klienta
 
     const showAlert = (msg, type = "success") => {
         alertBox.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
@@ -27,30 +27,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // POCZĄTEK ZMIANY: Funkcja renderująca opcje w selektorze
     function renderClientOptions(searchTerm = '') {
         const lowerCaseSearchTerm = searchTerm.toLowerCase();
         const filteredClients = allClients.filter(client =>
             client.full_name.toLowerCase().includes(lowerCaseSearchTerm)
         );
 
+        const selectedClientId = clientSelector.value;
         clientSelector.innerHTML = '<option value="">-- Wybierz klienta --</option>';
         if (filteredClients.length > 0) {
             filteredClients.forEach(client => {
-                const option = new Option(client.full_name, client.client_id);
+                const option = new Option(client.full_name, client.client_id || client.id); // Użyj client_id lub id
+                if (option.value === selectedClientId) {
+                    option.selected = true;
+                }
                 clientSelector.add(option);
             });
         } else {
              clientSelector.innerHTML = '<option value="">Brak pasujących klientów</option>';
         }
     }
-    // KONIEC ZMIANY
 
     async function initializeClientSelector() {
         try {
+            // Zmieniono endpoint na standardowy /api/clients
             const clients = await fetchJSON(`${API}/api/clients?include_inactive=true`);
             allClients = clients.sort((a, b) => a.full_name.localeCompare(b.full_name));
-            renderClientOptions(); // Wywołaj, aby wypełnić listę na starcie
+            renderClientOptions();
         } catch (error) {
             showAlert(`Nie udało się załadować listy klientów: ${error.message}`, 'danger');
         }
@@ -58,6 +61,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadClientHistory() {
         const clientId = clientSelector.value;
+        currentClientId = clientId; // Ustaw aktualnie wybranego klienta
+
         if (!clientId) {
             historyContainer.innerHTML = '<p class="text-center text-muted p-5">Wybierz klienta, aby zobaczyć jego historię.</p>';
             return;
@@ -65,154 +70,107 @@ document.addEventListener('DOMContentLoaded', () => {
 
         historyContainer.innerHTML = '<p class="text-center text-muted p-5">Ładowanie historii...</p>';
         try {
-            const history = await fetchJSON(`${API}/api/clients/${clientId}/history`);
-            renderHistory(history);
+            // NOWY ENDPOINT ŁĄCZĄCY DZIENNIK I SESJE
+            const allSessions = await fetchJSON(`${API}/api/clients/${clientId}/all-sessions`);
+            // Stary endpoint TUS (potrzebny oddzielnie, jeśli nie jest zunifikowany)
+            const tusHistory = await fetchJSON(`${API}/api/clients/${clientId}/history`).then(res => res.tus_group || []);
+
+            renderHistory(allSessions, tusHistory);
         } catch (error) {
-            historyContainer.innerHTML = `<div class="alert alert-danger">Wystąpił błąd: ${error.message}</div>`;
+            historyContainer.innerHTML = `<div class="alert alert-danger">Wystąpił błąd ładowania historii: ${error.message}</div>`;
         }
     }
 
-    // Funkcja do skracania tekstu - DODAJ TO
-function truncateText(text, maxLength = 100) {
-    if (!text) return '-';
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
+    function truncateText(text, maxLength = 100) {
+        if (!text) return '-';
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
     }
 
-// Funkcja renderująca historię z endpointa /sessions (pełne dane)
-function renderHistoryFromSessions(sessions) {
-    if (!sessions || sessions.length === 0) {
-        historyContainer.innerHTML = '<div class="alert alert-info">Brak sesji dla tego klienta.</div>';
-        return;
-    }
+    // ZMIENIONA FUNKCJA renderHistory
+    function renderHistory(allSessions, tusHistory) {
 
-    let html = `
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="bi bi-person-fill"></i> Wszystkie Sesje Terapeutyczne</h5>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 15%;">Data i Godzina</th>
-                                <th style="width: 15%;">Terapeuta</th>
-                                <th style="width: 25%;">Temat</th>
-                                <th style="width: 35%;">Notatki</th>
-                                <th style="width: 10%;">Akcje</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
+        const individualAndJournalSessions = allSessions.filter(s => s.source_type !== 'tus');
 
-    sessions.forEach((session, index) => {
-        const topic = session.label || session.topic || 'Bez tematu';
-        const notes = session.notes || '';
-        const truncatedNotes = truncateText(notes, 80);
-        const hasNotes = notes.length > 0;
-        const therapist = session.therapist_name || 'Nieznany';
-        const date = session.starts_at || session.date;
-
-        html += `
-            <tr>
-                <td>${new Date(date).toLocaleString('pl-PL', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                })}</td>
-                <td>${therapist}</td>
-                <td><strong>${topic}</strong></td>
-                <td>
-                    ${hasNotes ? `
-                        <div class="text-muted small">${truncatedNotes}</div>
-                    ` : '<span class="text-muted fst-italic">Brak notatek</span>'}
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary"
-                        data-session='${JSON.stringify({
-                            date: date,
-                            therapist: therapist,
-                            topic: topic,
-                            notes: notes,
-                            place: session.place_to || session.place || '',
-                            duration: session.duration_minutes || 60
-                        }).replace(/'/g, "&apos;")}'
-                        onclick="showSessionDetails(this)">
-                        <i class="bi bi-eye"></i>
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
-
-    html += `</tbody></table></div></div></div>`;
-    historyContainer.innerHTML = html;
-}
-
-    function renderHistory(history) {
-        console.log('📥 Otrzymane dane z API:', history);
-        console.log('📊 Liczba sesji indywidualnych:', history.individual?.length);
-        console.log('📋 Pierwsza sesja:', history.individual?.[0]);
-        let html = '';
-
-        // Sekcja spotkań indywidualnych
-        html += `
+        let html = `
             <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Spotkania Indywidualne</h5>
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Wszystkie Sesje Indywidualne i Wpisy Dziennika</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Data i Godzina</th>
-                                    <th>Terapeuta</th>
-                                    <th>Status</th>
+                                    <th style="width: 15%;">Data i Godzina</th>
+                                    <th style="width: 15%;">Typ / Terapeuta</th>
+                                    <th style="width: 25%;">Temat</th>
+                                    <th style="width: 35%;">Notatki</th>
+                                    <th style="width: 10%;">Akcje</th>
                                 </tr>
                             </thead>
                             <tbody>`;
 
-        if (history.individual && history.individual.length > 0) {
-            history.individual.forEach(session => {
+        if (individualAndJournalSessions && individualAndJournalSessions.length > 0) {
+            individualAndJournalSessions.forEach(session => {
+                // Ujednolicone pola: topic_or_temat, notes, therapist_name
+                const date = session.starts_at;
+                const notes = session.notes || '';
+                const truncatedNotes = truncateText(notes, 80);
+                const isJournal = session.source_type === 'journal';
+
+                const typeLabel = isJournal ?
+                    `<span class="badge bg-info text-dark">Dziennik</span>` :
+                    `<span class="badge bg-secondary">Indywidualna</span>`;
+
+                const topic = session.topic_or_temat || 'Bez tematu';
+                const therapist = session.therapist_name || 'Nieznany';
+
+                // Użyj unikalnego ID dla detali
+                const detailId = `${session.source_type}_${session.source_id}`;
+
+                // Przygotowanie danych do modalu
+                const modalData = {
+                    date: date,
+                    therapist: therapist,
+                    topic: topic,
+                    notes: notes,
+                    place: session.place || 'N/A',
+                    duration: session.duration_minutes || 60,
+                    note_id: session.note_id || null, // Używaj note_id z tabeli client_notes tylko dla typu 'individual'
+                    source_type: session.source_type
+                };
+
                 html += `
-    <tr>
-            <td>${new Date(session.date).toLocaleString('pl-PL', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            })}</td>
-            <td>${session.therapist || '-'}</td>
-            <td><strong>${session.topic || 'Bez tematu'}</strong></td>
-            <td>
-                ${session.notes ? `
-                    <div class="text-muted small">${truncateText(session.notes, 80)}</div>
-                ` : '<span class="text-muted fst-italic">Brak notatek</span>'}
-            </td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary"
-                    data-session='${JSON.stringify(session).replace(/'/g, "&apos;")}'
-                    onclick="showSessionDetails(this)">
-                    <i class="bi bi-eye"></i>
-                </button>
-            </td>
-        </tr>
-    `;
+                    <tr>
+                        <td>${new Date(date).toLocaleString('pl-PL', {
+                            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                        })}</td>
+                        <td>${typeLabel}<br><span class="small">${therapist}</span></td>
+                        <td><strong>${topic}</strong></td>
+                        <td>
+                            ${notes ? `<div class="text-muted small">${truncatedNotes}</div>` : '<span class="text-muted fst-italic">Brak notatek</span>'}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary"
+                                data-session='${JSON.stringify(modalData).replace(/'/g, "&apos;")}'
+                                onclick="showSessionDetails(this)">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
             });
         } else {
-            html += '<tr><td colspan="3" class="text-center text-muted">Brak spotkań indywidualnych w historii.</td></tr>';
+            html += '<tr><td colspan="5" class="text-center text-muted">Brak wpisów w historii indywidualnej lub dzienniku.</td></tr>';
         }
         html += `</tbody></table></div></div></div>`;
 
-        // Sekcja spotkań TUS
+        // Sekcja spotkań TUS (bez zmian, używamy danych z osobnego endpointu)
         html += `
             <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Sesje Grupowe TUS</h5>
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-star"></i> Sesje Grupowe TUS</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -226,8 +184,8 @@ function renderHistoryFromSessions(sessions) {
                             </thead>
                             <tbody>`;
 
-        if (history.tus_group && history.tus_group.length > 0) {
-            history.tus_group.forEach(session => {
+        if (tusHistory && tusHistory.length > 0) {
+            tusHistory.forEach(session => {
                 const sessionTime = session.time ? ` ${session.time}` : '';
                 html += `
                     <tr>
@@ -246,200 +204,212 @@ function renderHistoryFromSessions(sessions) {
     }
 
     clientSelector.addEventListener('change', loadClientHistory);
-    // POCZĄTEK ZMIANY: Nasłuchiwanie na wpisywanie w polu wyszukiwania
     searchInput.addEventListener('input', () => {
         renderClientOptions(searchInput.value);
     });
-    // KONIEC ZMIANY
 
     initializeClientSelector();
     loadClientHistory();
 });
-    document.addEventListener('DOMContentLoaded', () => {
-        const fabContainer = document.getElementById('fab-container');
-        const fabMainBtn = document.getElementById('fab-main-btn');
+    // =========================================================================
+    // === FUNKCJE MODALA (Przeniesione do globalnego scope) ===
+    // =========================================================================
 
-        fabMainBtn.addEventListener('click', () => {
-            fabContainer.classList.toggle('open');
-        });
-    });
+    // Funkcja do wyświetlenia pełnych szczegółów sesji w modalu
+    function showSessionDetails(button) {
+        const sessionData = button.getAttribute('data-session');
+        const session = JSON.parse(sessionData);
+        const clientId = document.getElementById('clientSelector').value;
+        const isJournal = session.source_type === 'journal';
 
-// Funkcja do wyświetlenia pełnych szczegółów sesji w modalu
-function showSessionDetails(button) {
-    const sessionData = button.getAttribute('data-session');
-    const session = JSON.parse(sessionData);
-    const clientId = document.getElementById('clientSelector').value;
-
-    const modalHTML = `
-        <div class="modal fade" id="sessionDetailsModal" tabindex="-1">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">📋 Szczegóły sesji</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <strong>📅 Data i godzina:</strong>
-                            <p>${new Date(session.date).toLocaleString('pl-PL')}</p>
+        const modalHTML = `
+            <div class="modal fade" id="sessionDetailsModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                📋 Szczegóły ${isJournal ? 'Wpisu Dziennika' : 'Sesji Indywidualnej'}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="mb-3">
-                            <strong>👨‍⚕️ Terapeuta:</strong>
-                            <p>${session.therapist || '-'}</p>
-                        </div>
-                        <div class="mb-3">
-                            <strong>📝 Temat:</strong>
-                            <p>${session.topic || 'Bez tematu'}</p>
-                        </div>
-                        ${session.place ? `
-                        <div class="mb-3">
-                            <strong>📍 Miejsce:</strong>
-                            <p>${session.place}</p>
-                        </div>
-                        ` : ''}
-                        ${session.duration ? `
-                        <div class="mb-3">
-                            <strong>⏱️ Czas trwania:</strong>
-                            <p>${session.duration} min</p>
-                        </div>
-                        ` : ''}
-
-                        <!-- TRYB PODGLĄDU -->
-                        <div id="viewMode">
+                        <div class="modal-body">
                             <div class="mb-3">
-                                <strong>📄 Notatki:</strong>
-                                <div class="border rounded p-3 bg-light">
-                                    <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${session.notes || 'Brak notatek'}</pre>
+                                <strong>📅 Data i godzina:</strong>
+                                <p>${new Date(session.date).toLocaleString('pl-PL')}</p>
+                            </div>
+                            <div class="mb-3">
+                                <strong>👨‍⚕️ Terapeuta:</strong>
+                                <p>${session.therapist || '-'}</p>
+                            </div>
+                            <div class="mb-3">
+                                <strong>📝 Temat:</strong>
+                                <p>${session.topic || 'Bez tematu'}</p>
+                            </div>
+                            ${session.place && !isJournal ? `
+                            <div class="mb-3">
+                                <strong>📍 Miejsce:</strong>
+                                <p>${session.place}</p>
+                            </div>
+                            ` : ''}
+                            ${session.duration ? `
+                            <div class="mb-3">
+                                <strong>⏱️ Czas trwania:</strong>
+                                <p>${session.duration} min</p>
+                            </div>
+                            ` : ''}
+
+                            <div id="viewMode">
+                                <div class="mb-3">
+                                    <strong>📄 Notatki / Cele:</strong>
+                                    <div class="border rounded p-3 bg-light">
+                                        <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${session.notes || 'Brak notatek'}</pre>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="editMode" style="display: none;">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <strong>📄 Edytuj Notatki ${isJournal ? '(z tabeli dziennik)' : ''}:</strong>
+                                    </label>
+                                    <textarea id="editNoteContent" class="form-control" rows="8" style="font-family: inherit;">${session.notes || ''}</textarea>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- TRYB EDYCJI (ukryty) -->
-                        <div id="editMode" style="display: none;">
-                            <div class="mb-3">
-                                <label class="form-label"><strong>📄 Edytuj notatki:</strong></label>
-                                <textarea id="editNoteContent" class="form-control" rows="8" style="font-family: inherit;">${session.notes || ''}</textarea>
-                            </div>
+                        <div class="modal-footer" id="viewModeButtons">
+                            <button type="button" class="btn btn-primary" onclick="toggleEditMode(true)">
+                                ✏️ Edytuj
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="window.print()">
+                                🖨️ Drukuj
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
                         </div>
-                    </div>
 
-                    <!-- PRZYCISKI PODGLĄDU -->
-                    <div class="modal-footer" id="viewModeButtons">
-                        <button type="button" class="btn btn-primary" onclick="toggleEditMode(true)">✏️ Edytuj</button>
-                        <button type="button" class="btn btn-secondary" onclick="window.print()">🖨️ Drukuj</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
-                    </div>
-
-                    <!-- PRZYCISKI EDYCJI (ukryte) -->
-                    <div class="modal-footer" id="editModeButtons" style="display: none;">
-                        <button type="button" class="btn btn-success" onclick="saveNoteEdit(${clientId}, '${session.date}', '${session.note_id || ''}')">💾 Zapisz</button>
-                        <button type="button" class="btn btn-secondary" onclick="toggleEditMode(false)">Anuluj</button>
+                        <div class="modal-footer" id="editModeButtons" style="display: none;">
+                            <button type="button" class="btn btn-success"
+                                onclick="saveNoteEdit(
+                                    ${clientId},
+                                    '${session.date}',
+                                    '${session.note_id || ''}',
+                                    '${isJournal ? session.source_id : ''}',
+                                    '${session.source_type}'
+                                )">
+                                💾 Zapisz
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="toggleEditMode(false)">Anuluj</button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    `;
-    // Usuń stary modal jeśli istnieje
-    const oldModal = document.getElementById('sessionDetailsModal');
-    if (oldModal) oldModal.remove();
+        `;
+        // Usuń stary modal jeśli istnieje
+        const oldModal = document.getElementById('sessionDetailsModal');
+        if (oldModal) oldModal.remove();
 
-    // Dodaj nowy modal
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    const modal = new bootstrap.Modal(document.getElementById('sessionDetailsModal'));
-    modal.show();
+        // Dodaj nowy modal
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        const modal = new bootstrap.Modal(document.getElementById('sessionDetailsModal'));
+        modal.show();
 
-    // Usuń modal po zamknięciu
-    document.getElementById('sessionDetailsModal').addEventListener('hidden.bs.modal', function () {
-        this.remove();
-    });
-}
-
-// Przełącz między trybem podglądu a edycji
-function toggleEditMode(editMode) {
-    document.getElementById('viewMode').style.display = editMode ? 'none' : 'block';
-    document.getElementById('editMode').style.display = editMode ? 'block' : 'none';
-    document.getElementById('viewModeButtons').style.display = editMode ? 'none' : 'flex';
-    document.getElementById('editModeButtons').style.display = editMode ? 'flex' : 'none';
-}
-
-// Zapisz edytowaną notatkę
-// Zapisz edytowaną notatkę
-async function saveNoteEdit(clientId, sessionDate, noteId) {
-    const newContent = document.getElementById('editNoteContent').value.trim();
-
-    if (!newContent) {
-        alert('Notatka nie może być pusta!');
-        return;
+        // Usuń modal po zamknięciu
+        document.getElementById('sessionDetailsModal').addEventListener('hidden.bs.modal', function () {
+            this.remove();
+        });
     }
 
-    const saveBtn = document.querySelector('#editModeButtons .btn-success');
-    saveBtn.disabled = true;
-    saveBtn.textContent = '⏳ Zapisywanie...';
+    // Przełącz między trybem podglądu a edycji
+    function toggleEditMode(editMode) {
+        document.getElementById('viewMode').style.display = editMode ? 'none' : 'block';
+        document.getElementById('editMode').style.display = editMode ? 'block' : 'none';
+        document.getElementById('viewModeButtons').style.display = editMode ? 'none' : 'flex';
+        document.getElementById('editModeButtons').style.display = editMode ? 'flex' : 'none';
+    }
 
-    try {
-        let response;
-
-        if (noteId) {
-            // Aktualizuj istniejącą notatkę
-            response = await fetch(`/api/clients/${clientId}/notes/${noteId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    content: newContent,
-                    category: 'session'
-                })
-            });
-        } else {
-            // Utwórz nową notatkę
-            response = await fetch(`/api/clients/${clientId}/notes`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    content: newContent,
-                    category: 'session',
-                    created_by_name: 'System',
-                    created_at: sessionDate
-                })
-            });
-        }
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Błąd zapisu');
-        }
-
-        // Zamknij modal
-        bootstrap.Modal.getInstance(document.getElementById('sessionDetailsModal')).hide();
-
-        // ZMIANA: Odśwież listę używając istniejącej funkcji
-        const clientSelector = document.getElementById('clientSelector');
-        if (clientSelector && clientSelector.value) {
-            // Wywołaj event change żeby odświeżyć
-            clientSelector.dispatchEvent(new Event('change'));
-        }
-
-        // Pokaż komunikat sukcesu
+    // Zapisz edytowaną notatkę
+    async function saveNoteEdit(clientId, sessionDate, noteId, journalId, sourceType) {
+        const newContent = document.getElementById('editNoteContent').value.trim();
         const alertBox = document.getElementById('alertBox');
-        if (alertBox) {
-            alertBox.innerHTML = `
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    ✅ Notatka została zapisana!
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            `;
-            setTimeout(() => alertBox.innerHTML = '', 3000);
+
+        if (!newContent) {
+            alert('Notatka nie może być pusta!');
+            return;
         }
 
-    } catch (error) {
-        console.error('Błąd zapisu notatki:', error);
-        alert('Nie udało się zapisać notatki: ' + error.message);
-    } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = '💾 Zapisz';
-    }
-}
+        const saveBtn = document.querySelector('#editModeButtons .btn-success');
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ Zapisywanie...';
 
-// Globalnie dostępne funkcje
-window.showSessionDetails = showSessionDetails;
-window.toggleEditMode = toggleEditMode;
-window.saveNoteEdit = saveNoteEdit;
+        try {
+            let response;
+
+            // --- LOGIKA ZAPISU DLA RÓŻNYCH ŹRÓDEŁ DANYCH ---
+            if (sourceType === 'journal') {
+                // Zapisz do tabeli 'dziennik' (aktualizujemy pole 'cele')
+                response = await fetch(`http://localhost:5000/api/journal/${journalId}`, {
+                    method: 'PUT', // Lub PATCH
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cele: newContent // Zapisujemy nową treść w polu 'cele'
+                    })
+                });
+            } else {
+                // Zapisz do tabeli 'client_notes' (dla standardowych sesji)
+                if (noteId) {
+                    // Aktualizuj istniejącą notatkę
+                    response = await fetch(`http://localhost:5000/api/clients/${clientId}/notes/${noteId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            content: newContent,
+                            category: 'session'
+                        })
+                    });
+                } else {
+                    // Utwórz nową notatkę (na podstawie daty sesji)
+                    const datePart = new Date(sessionDate).toISOString().split('T')[0];
+                    response = await fetch(`http://localhost:5000/api/clients/${clientId}/notes`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            content: newContent,
+                            category: 'session',
+                            created_by_name: 'System',
+                            created_at: datePart // API mapuje to do DATE(created_at)
+                        })
+                    });
+                }
+            }
+            // --- KONIEC LOGIKI ZAPISU ---
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: `Błąd serwera: ${response.status}` }));
+                throw new Error(error.error || 'Błąd zapisu');
+            }
+
+            // Zamknij modal
+            bootstrap.Modal.getInstance(document.getElementById('sessionDetailsModal')).hide();
+
+            // Odśwież listę
+            const clientSelector = document.getElementById('clientSelector');
+            if (clientSelector && clientSelector.value) {
+                loadClientHistory();
+            }
+
+            // Pokaż komunikat sukcesu
+            showAlert('✅ Notatka została zapisana!', 'success');
+
+        } catch (error) {
+            console.error('Błąd zapisu notatki:', error);
+            showAlert('❌ Nie udało się zapisać notatki: ' + error.message, 'danger');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Zapisz';
+        }
+    }
+
+    // Globalnie dostępne funkcje
+    window.showSessionDetails = showSessionDetails;
+    window.toggleEditMode = toggleEditMode;
+    window.saveNoteEdit = saveNoteEdit;
