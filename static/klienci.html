@@ -149,7 +149,9 @@
       <h1 class="h4 m-0">👥 Zarządzanie Klientami</h1>
       <div class="ms-auto d-flex gap-2">
         <input type="text" id="searchInput" class="form-control" placeholder="Szukaj po nazwisku..." style="width: 250px;">
+          <input type="file" id="importFileInput" accept=".csv,application/json" style="display: none;">
         <button id="addClientBtn" class="btn btn-primary">Dodaj klienta</button>
+
       </div>
     </header>
 
@@ -270,11 +272,19 @@
           <i class="bi bi-house-fill"></i>
         </a>
       </li>
+        <li class="fab-item">
+        <span class="fab-label">Import klientów</span>
+        <button id="importClientsBtn" class="fab-button" title="Importuj klientów">
+        <i class="bi bi-file-earmark-arrow-up-fill"></i>
+    </button>
+    </li>
     </ul>
     <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
       <i class="bi bi-plus-lg"></i>
     </button>
   </div>
+
+
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
@@ -290,6 +300,8 @@
       const clientPhoto = document.getElementById('clientPhoto');
       const photoPreview = document.getElementById('clientPhotoPreview');
       const photoPlaceholder = document.getElementById('photoPlaceholder');
+      const importFileInput = document.getElementById('importFileInput');
+      const importClientsBtn = document.getElementById('importClientsBtn');
 
       const showAlert = (msg, type = "success") => {
         const box = document.getElementById("alertBox");
@@ -330,18 +342,29 @@
       });
 
       async function fetchJSON(url, options = {}) {
-        try {
-          const response = await fetch(url, options);
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: `Błąd serwera: ${response.status}` }));
-            throw new Error(errorData.error);
-          }
-          return response.json();
-        } catch (error) {
-          console.error("Błąd API:", error);
-          throw error;
-        }
-      }
+  try {
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      // Obsługa błędów, jeśli status to 4xx lub 5xx
+      const errorData = await response.json().catch(() => ({ error: `Błąd serwera: ${response.status}` }));
+      throw new Error(errorData.error);
+    }
+
+    // ⚠️ KLUCZOWA ZMIANA: Sprawdź, czy odpowiedź nie jest pusta
+    if (response.status === 204 || response.headers.get('content-length') === '0' || response.type === 'opaque' || response.status === 202) {
+      // Dla statusów takich jak 204 No Content, 202 Accepted lub pustej odpowiedzi:
+      return {}; // Zwróć pusty obiekt, aby nie zepsuć promise'a
+    }
+
+    // Jeśli odpowiedź ma treść (np. dla GET, POST, PUT), zwróć JSON
+    return response.json();
+
+  } catch (error) {
+    console.error("Błąd API:", error);
+    throw error;
+  }
+}
 
       async function loadClients() {
           clientsTableBody.innerHTML = '<tr><td colspan="7" class="text-center">Ładowanie...</td></tr>';
@@ -515,6 +538,157 @@
     saveClientBtn.disabled = false;
   }
 }
+
+// Funkcja do przetwarzania pliku
+    function processFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                const content = event.target.result;
+                let clients = [];
+
+                if (file.type === 'application/json') {
+                    // Obsługa JSON
+                    try {
+                        clients = JSON.parse(content);
+                        if (!Array.isArray(clients)) {
+                             throw new Error("Plik JSON musi zawierać tablicę obiektów.");
+                        }
+                        resolve(clients);
+                    } catch (e) {
+                        reject('Błąd parsowania pliku JSON: ' + e.message);
+                    }
+
+                } else if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                    // Bardzo uproszczona obsługa CSV (wymaga biblioteki lub bardziej zaawansowanej logiki)
+                    // Poniższa implementacja zakłada proste, jednolinijkowe dane i nagłówki
+                    const lines = content.trim().split('\n');
+                    if (lines.length < 2) return reject('Plik CSV jest pusty lub ma tylko nagłówki.');
+
+                    const headers = lines[0].toLowerCase().split(';').map(h => h.trim());
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i].trim(); // Dodaj trim dla całego wiersza
+                        if (!line) continue; // Pomiń całkowicie puste wiersze
+
+                        const values = line.split(';');
+
+                        // To jest kluczowe! Upewnij się, że wiersz ma tyle wartości, ile nagłówków.
+                        if (values.length !== headers.length) {
+                            console.warn(`Pominięto wiersz ${i + 1}: niezgodna liczba kolumn. Oczekiwano ${headers.length}, otrzymano ${values.length}. Wiersz: ${line}`);
+                            continue;
+                        }
+
+                        let client = {};
+                    let isValidClient = false;
+
+                    headers.forEach((header, index) => {
+                        const value = values[index].trim();
+
+                        if (header === 'full_name' && value) {
+                            client.full_name = value;
+                            isValidClient = true; // Potwierdzenie, że to ważny wiersz klienta
+                        } else if (header === 'phone') {
+                            client.phone = value;
+                        } else if (header === 'address') {
+                            client.address = value;
+                        } else if (header === 'notes') {
+                            client.notes = value;
+                        } else if (header === 'active') {
+                            // Konwersja na boolean: TRUE, true, 1 itp.
+                            client.active = value.toUpperCase() === 'TRUE' || value === '1';
+                        } else if (header === 'photo_url') {
+                            client.photo_url = value;
+                        }
+                        // Ignoruj nieznane nagłówki
+                    });
+
+                    // Dodaj klienta tylko, jeśli ma co najmniej Imię i Nazwisko
+                    if (isValidClient) {
+                        // Upewnij się, że puste pola otrzymują null (jeśli API tego wymaga)
+                        if (!client.phone) client.phone = null;
+                        if (!client.address) client.address = null;
+                        if (!client.notes) client.notes = null;
+                        if (!client.photo_url) client.photo_url = null;
+
+                        // Ustaw domyślną wartość dla active, jeśli była pusta
+                        if (client.active === undefined) client.active = true;
+
+                        clients.push(client);
+                    }
+
+                        if (client.full_name) {
+                            clients.push(client);
+                        }
+                    }
+                    if (clients.length === 0) return reject('Nie udało się wczytać poprawnych danych klientów z CSV.');
+                    resolve(clients);
+
+                } else {
+                    reject('Nieobsługiwany format pliku. Użyj CSV lub JSON.');
+                }
+            };
+
+            reader.onerror = () => reject('Błąd odczytu pliku.');
+            reader.readAsText(file);
+        });
+    }
+
+    // Główna funkcja do importu
+    async function handleImportClients() {
+        const file = importFileInput.files[0];
+        if (!file) {
+            showAlert('Proszę wybrać plik do importu.', 'warning');
+            return;
+        }
+
+        try {
+            showAlert('Przetwarzanie pliku...', 'info');
+            const clientsToImport = await processFile(file);
+            console.log('Gotowi do importu:', clientsToImport);
+
+            let importedCount = 0;
+            let failedCount = 0;
+
+            // Iteracja i wysyłanie każdego klienta do API
+            for (const clientData of clientsToImport) {
+                try {
+                    const result = await fetchJSON(`${API}/api/clients`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(clientData)
+                    });
+                    importedCount++;
+                } catch (error) {
+                    console.error('Błąd importu klienta:', clientData, error);
+                    failedCount++;
+                }
+            }
+
+            // Ostateczny komunikat
+            if (importedCount > 0) {
+                showAlert(`Zakończono import: Pomyślnie zaimportowano ${importedCount} klientów. ${failedCount > 0 ? `, Błędów: ${failedCount}.` : ''}`, 'success');
+            } else if (failedCount > 0) {
+                showAlert(`Nie udało się zaimportować żadnego klienta. Błędów: ${failedCount}.`, 'danger');
+            } else {
+                 showAlert(`Plik został przetworzony, ale nie znaleziono żadnych klientów do importu.`, 'warning');
+            }
+
+            loadClients(); // Odśwież listę
+            importFileInput.value = ''; // Resetuj pole pliku
+
+        } catch (error) {
+            showAlert(error, 'danger');
+            importFileInput.value = '';
+        }
+    }
+
+    // Uruchomienie procesu
+    importClientsBtn.addEventListener('click', () => {
+        importFileInput.click(); // Kliknięcie przycisku FAB otwiera okno wyboru pliku
+    });
+
+    importFileInput.addEventListener('change', handleImportClients);
 
       addClientBtn.addEventListener('click', openModalForCreate);
       saveClientBtn.addEventListener('click', saveClient);
