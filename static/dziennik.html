@@ -184,8 +184,8 @@
 
     <script>
         // --- KONFIGURACJA ---
-        const API_BASE_URL = 'http://localhost:5000/api';
-
+        const API_BASE_URL = window.location.origin;  //'http://localhost:5000/api';
+       
         // --- GLOBALNE ZMIENNE ---
         let allClients = [];
         let allTherapists = [];
@@ -661,4 +661,5 @@
         document.addEventListener('DOMContentLoaded', fetchInitialData);
     </script>
 </body>
+
 </html>
