@@ -6876,30 +6876,64 @@ def create_journal_entry():
         if not all(k in data for k in required):
             return jsonify({"error": "Pola 'data', 'client_id' i 'therapist_id' są wymagane."}), 400
 
-        # Konwersja daty i ID
-        entry_date = datetime.fromisoformat(data["data"]).date()
+        # === POCZĄTEK POPRAWKI: Elastyczne parsowanie daty ===
+        date_str = data.get("data")
+        entry_date = None
+
+        if not date_str:
+            return jsonify({"error": "Brak pola 'data'."}), 400
+
+        try:
+            # 1. Spróbuj formatu ISO (YYYY-MM-DD), np. z ręcznego wpisu
+            entry_date = datetime.fromisoformat(date_str).date()
+        except ValueError:
+            # 2. Spróbuj formatu polskiego (DD.MM.YYYY), np. z CSV
+            try:
+                entry_date = datetime.strptime(date_str, '%d.%m.%Y').date()
+            except ValueError:
+                # 3. Jeśli oba formaty zawiodą, zwróć błąd
+                return jsonify({"error": f"Nieprawidłowy format daty: '{date_str}'. Oczekiwano YYYY-MM-DD lub DD.MM.YYYY."}), 400
+        
+        if not entry_date:
+            return jsonify({"error": "Nie udało się przetworzyć daty."}), 400
+        # === KONIEC POPRAWKI ===
+
         client_id = int(data["client_id"])
         therapist_id = int(data["therapist_id"])
 
     except (ValueError, TypeError) as e:
-        return jsonify({"error": f"Nieprawidłowy format danych: {str(e)}"}), 400
+        # Ten błąd wyłapie teraz głównie błędy konwersji ID (np. int(None))
+        return jsonify({"error": f"Nieprawidłowy format danych (np. ID klienta/terapeuty): {str(e)}"}), 400
 
     with session_scope() as db_session:
-        new_entry = JournalEntry(
-            data=entry_date,
-            client_id=client_id,
-            therapist_id=therapist_id,
-            temat=data.get("temat"),
-            cele=data.get("cele")
-        )
-        db_session.add(new_entry)
-        db_session.flush() # Upewnij się, że dostaniemy ID
+        try:
+            new_entry = JournalEntry(
+                data=entry_date,
+                client_id=client_id,
+                therapist_id=therapist_id,
+                temat=data.get("temat"),
+                cele=data.get("cele")
+            )
+            db_session.add(new_entry)
+            db_session.flush() # Upewnij się, że dostaniemy ID
 
-        return jsonify({
-            "id": new_entry.id,
-            "data": new_entry.data.isoformat(),
-            "message": "Wpis do dziennika utworzony."
-        }), 201
+            return jsonify({
+                "id": new_entry.id,
+                "data": new_entry.data.isoformat(),
+                "message": "Wpis do dziennika utworzony."
+            }), 201
+        
+        except IntegrityError as e:
+            # Obsługa błędu, jeśli ID klienta lub terapeuty nie istnieje
+            db_session.rollback()
+            print(f"Błąd IntegrityError w create_journal_entry: {e}")
+            return jsonify({"error": "Błąd integralności bazy danych. Sprawdź, czy ID klienta i terapeuty są poprawne.", "details": str(e.orig)}), 409
+        
+        except Exception as e:
+            # Ogólna obsługa błędów zapisu
+            db_session.rollback()
+            print(f"Błąd Exception w create_journal_entry: {e}")
+            return jsonify({"error": f"Wewnętrzny błąd serwera podczas zapisu: {str(e)}"}), 500
 
 @app.get("/api/journal/<int:entry_id>")
 def get_journal_entry(entry_id):
@@ -7056,4 +7090,5 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
