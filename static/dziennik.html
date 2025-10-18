@@ -717,11 +717,43 @@
         });
     }
         // --- INICJALIZACJA ---
-        document.addEventListener('DOMContentLoaded', fetchInitialData);
+        // --- INICJALIZACJA ---
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchInitialData(); // Ładuje dane i wywołuje renderClientOptions()
+
+        // === DODAJ TEN FRAGMENT ===
+        const searchInput = document.getElementById('clientSearchInput');
+        if (searchInput) {
+            // Filtruj listy przy każdym wpisaniu znaku
+            searchInput.addEventListener('input', () => {
+                renderClientOptions(searchInput.value);
+            });
+        }
+        // === KONIEC DODAWANIA ===
+
+        // Dodaj listener dla głównego selektora, jeśli ma filtrować tabelę (opcjonalnie)
+        const clientSelectView = document.getElementById('clientSelect');
+        if (clientSelectView) {
+            clientSelectView.addEventListener('change', () => {
+                // Tutaj możesz dodać logikę filtrowania tabeli `journal-list`
+                // na podstawie `clientSelectView.value`
+                // Na razie zostawiamy to puste lub dodajemy console.log
+                console.log("Wybrano klienta (widok):", clientSelectView.value);
+                // Jeśli chcesz, aby wybór w tym selektorze ustawiał też ten w formularzu:
+                 const formSelect = document.getElementById('client_id');
+                 if (formSelect) {
+                      formSelect.value = clientSelectView.value;
+                 }
+                 // I opcjonalnie załaduj wpisy tylko dla tego klienta:
+                 // fetchJournalEntriesFiltered(clientSelectView.value); 
+            });
+        }
+    });
     </script>
 </body>
 
 </html>
+
 
 
 
