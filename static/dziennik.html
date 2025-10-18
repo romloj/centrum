@@ -127,6 +127,16 @@
             </div>
         </div>
 
+        <div class="col-md-6">
+          <label class="form-label"><strong>Wyszukaj klienta</strong></label>
+          <input type="text" id="clientSearchInput" class="form-control mb-2" placeholder="Wpisz imię lub nazwisko...">
+          
+          <label class="form-label" for="clientSelect"><strong>Wybierz klienta</strong></label>
+          <select id="clientSelect" class="form-select">
+            <option value="">Najpierw wyszukaj lub załaduj...</option>
+          </select>
+        </div>
+
         <button class="add-btn" onclick="showForm()">Dodaj Nowy Wpis</button>
 
         <div id="journalForm">
@@ -199,39 +209,42 @@
         // =========================================================================
 
         async function fetchInitialData() {
-            try {
-                const [clientsRes, therapistsRes] = await Promise.all([
-                    axios.get(`${API_BASE_URL}/api/clients`),
-                    axios.get(`${API_BASE_URL}/api/therapists`)
-                ]);
+        try {
+            const [clientsRes, therapistsRes] = await Promise.all([
+                axios.get(`${API_BASE_URL}/api/clients?include_inactive=true`), // Pobierz też nieaktywnych dla historii
+                axios.get(`${API_BASE_URL}/api/therapists`)
+            ]);
 
-                allClients = clientsRes.data;
-                allTherapists = therapistsRes.data;
+            allClients = clientsRes.data;
+            allTherapists = therapistsRes.data;
 
-                // Uzupełnienie map do szybkiego wyszukiwania ID po nazwie
-                // Zakładamy, że pole ID klienta to 'client_id', a terapeuty 'id'
-                clientMap = allClients.reduce((acc, curr) => {
-                    // Konwersja na małe litery dla lepszego dopasowania
-                    acc[curr.full_name.toLowerCase()] = curr.client_id;
-                    return acc;
-                }, {});
+            // Uzupełnienie map do szybkiego wyszukiwania ID po nazwie dla CSV
+            clientMap = allClients.reduce((acc, curr) => {
+                acc[(curr.full_name || '').toLowerCase()] = curr.client_id; // Użyj client_id
+                return acc;
+            }, {});
 
-                therapistMap = allTherapists.reduce((acc, curr) => {
-                    acc[curr.full_name.toLowerCase()] = curr.id;
-                    return acc;
-                }, {});
+            therapistMap = allTherapists.reduce((acc, curr) => {
+                acc[(curr.full_name || '').toLowerCase()] = curr.id;
+                return acc;
+            }, {});
 
+            // === ZMIANA: Usuń populateSelect dla klientów ===
+            // populateSelect('client_id', allClients, 'client_id', 'full_name'); 
+            
+            // Wypełnij tylko terapeutów w formularzu
+            populateSelect('therapist_id', allTherapists, 'id', 'full_name');
 
-                populateSelect('client_id', allClients, 'client_id', 'full_name');
-                populateSelect('therapist_id', allTherapists, 'id', 'full_name');
+            // === ZMIANA: Wywołaj renderClientOptions, aby wypełnić OBA selektory klientów ===
+            renderClientOptions(); // Wypełni listy wszystkimi klientami na starcie
 
-                fetchJournalEntries();
+            fetchJournalEntries();
 
-            } catch (error) {
-                console.error("Błąd ładowania danych początkowych (klienci/terapeuci):", error);
-                document.getElementById('entries-tbody').innerHTML = '<tr><td colspan="5" style="color:red;">Nie udało się załadować klientów/terapeutów. Sprawdź, czy backend działa i zwraca dane.</td></tr>';
-            }
+        } catch (error) {
+            console.error("Błąd ładowania danych początkowych (klienci/terapeuci):", error);
+            document.getElementById('entries-tbody').innerHTML = '<tr><td colspan="5" style="color:red;">Nie udało się załadować klientów/terapeutów. Sprawdź, czy backend działa i zwraca dane.</td></tr>';
         }
+    }
 
         async function fetchJournalEntries() {
             const tbody = document.getElementById('entries-tbody');
@@ -657,12 +670,59 @@
             }
         }
 
+        function renderClientOptions(searchTerm = '') {
+      // Pobierz oba elementy <select>
+      const viewSelect = document.getElementById('clientSelect');
+      const formSelect = document.getElementById('client_id'); // Selektor w formularzu
+      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+
+      // Przefiltruj globalną listę allClients
+      const filteredClients = allClients.filter(client =>
+        (client.full_name || '').toLowerCase().includes(lowerCaseSearchTerm)
+      );
+
+      // Zapamiętaj aktualnie wybrane wartości (jeśli istnieją), aby ich nie zgubić
+      const selectedViewValue = viewSelect ? viewSelect.value : null;
+      const selectedFormValue = formSelect ? formSelect.value : null;
+
+      // Wyczyść oba selektory
+      if (viewSelect) viewSelect.innerHTML = '';
+      if (formSelect) formSelect.innerHTML = '';
+
+      // Dodaj opcję domyślną/placeholder
+      const defaultOptionText = filteredClients.length > 0 ? '-- Wybierz klienta --' : (searchTerm ? 'Brak pasujących' : 'Załaduj listę...');
+      if (viewSelect) viewSelect.innerHTML = `<option value="">${defaultOptionText}</option>`;
+      if (formSelect) formSelect.innerHTML = `<option value="">${defaultOptionText}</option>`;
+
+      // Sortuj alfabetycznie i dodaj opcje do OBU selektorów
+      filteredClients
+        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+        .forEach(client => {
+          const option = document.createElement('option');
+          // Użyj 'client_id' jako wartości - zgodnie z resztą kodu
+          option.value = client.client_id; 
+          option.textContent = client.full_name || 'Brak nazwy';
+
+          // Dodaj opcję do obu list
+          if (viewSelect) viewSelect.appendChild(option.cloneNode(true)); // Klonujemy dla drugiego selecta
+          if (formSelect) formSelect.appendChild(option);
+
+          // Przywróć zaznaczenie, jeśli było
+          if (viewSelect && option.value === selectedViewValue) {
+              viewSelect.value = selectedViewValue;
+          }
+          if (formSelect && option.value === selectedFormValue) {
+              formSelect.value = selectedFormValue;
+          }
+        });
+    }
         // --- INICJALIZACJA ---
         document.addEventListener('DOMContentLoaded', fetchInitialData);
     </script>
 </body>
 
 </html>
+
 
 
 
