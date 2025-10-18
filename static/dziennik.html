@@ -201,8 +201,8 @@
         async function fetchInitialData() {
             try {
                 const [clientsRes, therapistsRes] = await Promise.all([
-                    axios.get(`${API_BASE_URL}/clients`),
-                    axios.get(`${API_BASE_URL}/therapists`)
+                    axios.get(`${API_BASE_URL}/api/clients`),
+                    axios.get(`${API_BASE_URL}/api/therapists`)
                 ]);
 
                 allClients = clientsRes.data;
@@ -663,5 +663,6 @@
 </body>
 
 </html>
+
 
 
