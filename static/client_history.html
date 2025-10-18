@@ -8,6 +8,53 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="menu_fab.css">
   <link  rel="stylesheet" href="css/client_history.css">
+  <style type="text/css" media="print">
+    @media print {
+        
+        /* 1. Ukryj wszystko na stronie */
+        body > * {
+            display: none !important;
+        }
+
+        /* 2. Pokaż modal i jego zawartość */
+        #sessionDetailsModal,
+        #sessionDetailsModal * {
+            display: block !important;
+            visibility: visible !important;
+        }
+
+        /* 3. Ustaw modal, aby był zwykłym dokumentem (nie okienkiem) */
+        #sessionDetailsModal {
+            position: static !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: visible !important;
+        }
+
+        .modal-dialog {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+        }
+
+        .modal-content {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        /* 4. Ukryj przyciski modala (Drukuj, Edytuj, Zamknij) */
+        .modal-footer,
+        .modal-header .btn-close {
+            display: none !importan_t;
+        }
+
+        /* 5. Upewnij się, że tekst notatek się zawija */
+        pre {
+           white-space: pre-wrap !important; 
+           word-wrap: break-word !important;
+        }
+    }
+</style>
 
 </head>
 <body>
@@ -71,4 +118,5 @@
   <script src="fab-menu.js"></script>
   <script src="clinet_history.js"></script>
 </body>
+
 </html>
