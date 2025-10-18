@@ -738,6 +738,17 @@
         }
         // === KONIEC DODAWANIA ===
 
+       document.addEventListener('DOMContentLoaded', () => { // <-- Opening brace
+        fetchInitialData(); // Ładuje dane i wywołuje renderClientOptions()
+
+        // Listener for search input
+        const searchInput = document.getElementById('clientSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                renderClientOptions(searchInput.value);
+            });
+        }
+
         // Listener for the main client selector (#clientSelect) to filter the table
         const clientSelectView = document.getElementById('clientSelect');
         if (clientSelectView) {
@@ -745,10 +756,8 @@
                 const selectedClientId = clientSelectView.value;
                 console.log("Wybrano klienta do filtrowania tabeli:", selectedClientId);
 
-                // === CHANGE: Call fetchJournalEntries with the selected ID ===
-                // If no client is selected (value is ""), fetch all entries (clientId = null)
+                // Call fetchJournalEntries with the selected ID
                 fetchJournalEntries(selectedClientId || null);
-                // === END CHANGE ===
 
                 // Optional: Sync the selection with the form's client select
                 const formSelect = document.getElementById('client_id');
@@ -757,10 +766,12 @@
                 }
             });
         }
+    }); // <<<< THIS IS THE IMPORTANT CLOSING BRACE AND PARENTHESIS
     </script>
 </body>
 
 </html>
+
 
 
 
