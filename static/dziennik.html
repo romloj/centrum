@@ -237,7 +237,7 @@
             const tbody = document.getElementById('entries-tbody');
             tbody.innerHTML = '<tr><td colspan="5">Ładowanie wpisów...</td></tr>';
             try {
-                const response = await axios.get(`${API_BASE_URL}/journal`);
+                const response = await axios.get(`${API_BASE_URL}/api/journal`);
                 renderJournalEntries(response.data);
             } catch (error) {
                 console.error("Błąd ładowania dziennika:", error);
@@ -454,7 +454,7 @@
                     }
                 }
 
-                await axios.post(`${API_BASE_URL}/journal`, apiData);
+                await axios.post(`${API_BASE_URL}/api/journal`, apiData);
                 return true;
             } catch (error) {
                 console.error("Błąd zapisu wiersza CSV do API:", entry, error.response?.data);
@@ -499,7 +499,7 @@
 
         async function loadEntryForEdit(id) {
             try {
-                const response = await axios.get(`${API_BASE_URL}/journal/${id}`);
+                const response = await axios.get(`${API_BASE_URL}/api/journal/${id}`);
                 const entry = response.data;
 
                 document.getElementById('entry-id').value = entry.id;
@@ -519,7 +519,7 @@
                 return;
             }
             try {
-                await axios.delete(`${API_BASE_URL}/journal/${id}`);
+                await axios.delete(`${API_BASE_URL}/api/journal/${id}`);
                 alert("Wpis usunięty pomyślnie.");
                 fetchJournalEntries();
             } catch (error) {
@@ -589,11 +589,11 @@
             try {
                 if (isEditing) {
                     // Aktualizacja (PUT/PATCH)
-                    await axios.put(`${API_BASE_URL}/journal/${entryId}`, entryData);
+                    await axios.put(`${API_BASE_URL}/api/journal/${entryId}`, entryData);
                     alert("Wpis zaktualizowany pomyślnie.");
                 } else {
                     // Tworzenie (POST)
-                    await axios.post(`${API_BASE_URL}/journal`, entryData);
+                    await axios.post(`${API_BASE_URL}/api/journal`, entryData);
                     alert("Wpis dodany pomyślnie.");
                 }
 
@@ -663,6 +663,7 @@
 </body>
 
 </html>
+
 
 
 
