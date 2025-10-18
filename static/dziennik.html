@@ -738,45 +738,30 @@
         }
         // === KONIEC DODAWANIA ===
 
-        // Dodaj listener dla głównego selektora, jeśli ma filtrować tabelę (opcjonalnie)
+        // Listener for the main client selector (#clientSelect) to filter the table
         const clientSelectView = document.getElementById('clientSelect');
         if (clientSelectView) {
             clientSelectView.addEventListener('change', () => {
-                // Tutaj możesz dodać logikę filtrowania tabeli `journal-list`
-                // na podstawie `clientSelectView.value`
-                // Na razie zostawiamy to puste lub dodajemy console.log
-                console.log("Wybrano klienta (widok):", clientSelectView.value);
-                // Jeśli chcesz, aby wybór w tym selektorze ustawiał też ten w formularzu:
-                 const formSelect = document.getElementById('client_id');
-                 if (formSelect) {
-                      formSelect.value = clientSelectView.value;
-                 }
-                 // I opcjonalnie załaduj wpisy tylko dla tego klienta:
-                 // fetchJournalEntriesFiltered(clientSelectView.value); 
-            });
-        }
-    });
-        // Dodaj listener dla głównego selektora, jeśli ma filtrować tabelę (opcjonalnie)
-        const clientSelectView = document.getElementById('clientSelect');
-        if (clientSelectView) {
-            clientSelectView.addEventListener('change', () => {
-                // Tutaj możesz dodać logikę filtrowania tabeli `journal-list`
-                // na podstawie `clientSelectView.value`
-                // Na razie zostawiamy to puste lub dodajemy console.log
-                console.log("Wybrano klienta (widok):", clientSelectView.value);
-                // Jeśli chcesz, aby wybór w tym selektorze ustawiał też ten w formularzu:
-                 const formSelect = document.getElementById('client_id');
-                 if (formSelect) {
-                      formSelect.value = clientSelectView.value;
-                 }
-                 // I opcjonalnie załaduj wpisy tylko dla tego klienta:
-                 // fetchJournalEntriesFiltered(clientSelectView.value);
+                const selectedClientId = clientSelectView.value;
+                console.log("Wybrano klienta do filtrowania tabeli:", selectedClientId);
+
+                // === CHANGE: Call fetchJournalEntries with the selected ID ===
+                // If no client is selected (value is ""), fetch all entries (clientId = null)
+                fetchJournalEntries(selectedClientId || null);
+                // === END CHANGE ===
+
+                // Optional: Sync the selection with the form's client select
+                const formSelect = document.getElementById('client_id');
+                if (formSelect) {
+                    formSelect.value = selectedClientId;
+                }
             });
         }
     </script>
 </body>
 
 </html>
+
 
 
 
