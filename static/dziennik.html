@@ -246,17 +246,24 @@
         }
     }
 
-        async function fetchJournalEntries() {
-            const tbody = document.getElementById('entries-tbody');
-            tbody.innerHTML = '<tr><td colspan="5">Ładowanie wpisów...</td></tr>';
-            try {
-                const response = await axios.get(`${API_BASE_URL}/api/journal`);
-                renderJournalEntries(response.data);
-            } catch (error) {
-                console.error("Błąd ładowania dziennika:", error);
-                tbody.innerHTML = '<tr><td colspan="5" style="color:red;">Nie udało się załadować wpisów dziennika. Sprawdź, czy tabela `dziennik` ma poprawny schemat.</td></tr>';
+        async function fetchJournalEntries(clientId = null) { // Add clientId parameter
+        const tbody = document.getElementById('entries-tbody');
+        tbody.innerHTML = '<tr><td colspan="5">Ładowanie wpisów...</td></tr>';
+        try {
+            // === CHANGE: Add client_id query parameter if provided ===
+            let apiUrl = `${API_BASE_URL}/api/journal`;
+            if (clientId) {
+                apiUrl += `?client_id=${clientId}`; // Append the filter
             }
+            // === END CHANGE ===
+
+            const response = await axios.get(apiUrl); // Use the potentially modified URL
+            renderJournalEntries(response.data);
+        } catch (error) {
+            console.error("Błąd ładowania dziennika:", error);
+            tbody.innerHTML = '<tr><td colspan="5" style="color:red;">Nie udało się załadować wpisów dziennika.</td></tr>';
         }
+    }
 
         // =========================================================================
         // === LOGIKA IMPORTU CSV (POPRWIONA: Rozdzielenie Temat i Celów/Opisu) ===
@@ -749,10 +756,28 @@
             });
         }
     });
+        // Dodaj listener dla głównego selektora, jeśli ma filtrować tabelę (opcjonalnie)
+        const clientSelectView = document.getElementById('clientSelect');
+        if (clientSelectView) {
+            clientSelectView.addEventListener('change', () => {
+                // Tutaj możesz dodać logikę filtrowania tabeli `journal-list`
+                // na podstawie `clientSelectView.value`
+                // Na razie zostawiamy to puste lub dodajemy console.log
+                console.log("Wybrano klienta (widok):", clientSelectView.value);
+                // Jeśli chcesz, aby wybór w tym selektorze ustawiał też ten w formularzu:
+                 const formSelect = document.getElementById('client_id');
+                 if (formSelect) {
+                      formSelect.value = clientSelectView.value;
+                 }
+                 // I opcjonalnie załaduj wpisy tylko dla tego klienta:
+                 // fetchJournalEntriesFiltered(clientSelectView.value);
+            });
+        }
     </script>
 </body>
 
 </html>
+
 
 
 
