@@ -135,19 +135,27 @@
           });
           _state.rows = (await Promise.all(promises)).flat();
         } else {
-          const cid  = Number(_state.clientId);
-          const res  = await fetch(api(`/api/client/${cid}/packages?month=${encodeURIComponent(mk)}`));
-          const rows = await assertOkAndJSON(res);
-          _state.rows = rows
-            .filter(r => r.kind === "therapy")
-            .map(r => ({
-              ...r,
-              client_id: cid,
-              therapist_display: (r.therapist_name && r.therapist_name.trim())
-                ? r.therapist_name.trim()
-                : (r.therapist_id ? `ID ${r.therapist_id}` : "")
-            }));
-        }
+          const cid  = Number(_state.clientId);
+          
+          // === POCZĄTEK POPRAWKI ===
+          // Znajdź pełną nazwę klienta na podstawie jego ID
+          const client = _state.clients.find(c => c.id === cid);
+          const clientName = client ? client.full_name : `Klient #${cid}`;
+          // === KONIEC POPRAWKI ===
+
+          const res  = await fetch(api(`/api/client/${cid}/packages?month=${encodeURIComponent(mk)}`));
+          const rows = await assertOkAndJSON(res);
+          _state.rows = rows
+            .filter(r => r.kind === "therapy")
+            .map(r => ({
+              ...r,
+              client_id: cid,
+              client_name: clientName, // <-- DODANA LINIA
+              therapist_display: (r.therapist_name && r.therapist_name.trim())
+                ? r.therapist_name.trim()
+                : (r.therapist_id ? `ID ${r.therapist_id}` : "")
+            }));
+        }
 
         renderSchedule();
       } catch (err) {
@@ -432,4 +440,5 @@ function renderWeek() {
         fabMainBtn.addEventListener('click', () => {
             fabContainer.classList.toggle('open');
         });
+
     });
