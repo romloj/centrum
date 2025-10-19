@@ -61,6 +61,9 @@
       document.getElementById("btnNext").addEventListener("click", shiftNext);
       document.getElementById("btnToday").addEventListener("click", goToday);
       document.getElementById("btnPrint").addEventListener("click", printView);
+     // --- POCZĄTEK DODANEJ LINII ---
+    document.getElementById("clientSearch").addEventListener("input", filterVisibleEvents);
+    // --- KONIEC DODANEJ LINII ---
 
       reload();
     })();
@@ -181,6 +184,18 @@
 
         console.log("Renderowanie planu...");
         renderSchedule();
+       // --- POCZĄTEK DODANEGO BLOKU ---
+        const searchBox = document.getElementById("clientSearch");
+        if (_state.clientId === "all") {
+            // Tryb "Wszyscy": Pokaż pole i odpal filtr
+            searchBox.classList.remove("d-none");
+            filterVisibleEvents(); 
+        } else {
+            // Tryb "Jeden klient": Ukryj pole i wyczyść je
+            searchBox.classList.add("d-none");
+            searchBox.value = "";
+        }
+        // --- KONIEC DODANEGO BLOKU ---
       } catch (err) {
         host.innerHTML = `<div class="text-danger p-3">Błąd ładowania: ${err.message}</div>`;
         // === LOGOWANIE ===
@@ -257,6 +272,9 @@ function renderWeek() {
 
         const el = document.createElement("div");
         el.className = `cal-event ${r.status || "planned"}`;
+     // --- POCZĄTEK DODANEJ LINII ---
+        el.dataset.clientName = r.client_name || ""; // Dodajemy nazwę do atrybutu data-
+        // --- KONIEC DODANEJ LINII ---
         el.style.top = `${top}px`;
         el.style.height = `${height}px`;
 
@@ -311,8 +329,8 @@ function renderWeek() {
                     : r.status === "cancelled" ? "border-color:rgba(220,53,69,.35);background:rgba(220,53,69,.12);text-decoration:line-through"
                     : "border-color:rgba(13,110,253,.35);background:rgba(13,110,253,.12)";
           if (_state.clientId === "all") {
-            const c = colorForId(r.client_id || 0);
-            return `<span class="day-chip" style="${base};background:${c.bg};border-color:${c.border};color:${c.text}">
+            const c = colorForId(r.client_id || 0);
+            return `<span class="day-chip" data-client-name="${r.client_name || ''}" style="${base};background:${c.bg};border-color:${c.border};color:${c.text}">
               <span class="mini" style="opacity:.7">${fmtTime(r.starts_at)}–${fmtTime(r.ends_at)}</span> • ${initials(r.client_name||"")}
             </span>`;
           } else {
@@ -468,4 +486,32 @@ function renderWeek() {
         });
 
     });
+
+/**
+ * Filtruje widoczne eventy na podstawie pola clientSearch
+ */
+function filterVisibleEvents() {
+    const query = document.getElementById("clientSearch").value.toLowerCase().trim();
+
+    // Działamy tylko w trybie "wszyscy"
+    if (_state.clientId !== "all") return;
+
+    // Znajdź wszystkie bloczki wizyt (z tygodnia i miesiąca)
+    const events = document.querySelectorAll(".cal-event, .day-chip");
+
+    events.forEach(el => {
+        const clientName = (el.dataset.clientName || "").toLowerCase();
+        // Pokaż, jeśli pole szukania jest puste LUB nazwa pasuje
+        const matches = !query || clientName.includes(query);
+
+        if (el.classList.contains('day-chip')) {
+            // "Chips" w miesiącu mają display:inline-block
+            el.style.display = matches ? "inline-block" : "none";
+        } else {
+            // "Eventy" w tygodniu mają display:block
+            el.style.display = matches ? "block" : "none";
+        }
+    });
+}
+
 
