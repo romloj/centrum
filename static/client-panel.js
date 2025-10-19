@@ -103,65 +103,91 @@
     }
 
     // ===== RELOAD: pobranie /packages i przygotowanie therapist_display =====
-    async function reload(){
-      const host = document.getElementById("calendarHost");
-      host.innerHTML = `<div class="text-muted p-3">Ładowanie…</div>`;
+    // ===== RELOAD: pobranie /packages i przygotowanie therapist_display =====
+    async function reload(){
+      const host = document.getElementById("calendarHost");
+      host.innerHTML = `<div class="text-muted p-3">Ładowanie…</div>`;
 
-      _state.clientId = document.getElementById("clSelect").value || "all"; // <— tu była literówka
-      const ref = _state.mode === "week" ? _state.refDate : _state.refMonth;
-      const mk  = `${ref.getFullYear()}-${String(ref.getMonth()+1).padStart(2,"0")}`;
+      _state.clientId = document.getElementById("clSelect").value || "all"; 
+      const ref = _state.mode === "week" ? _state.refDate : _state.refMonth;
+      const mk  = `${ref.getFullYear()}-${String(ref.getMonth()+1).padStart(2,"0")}`;
 
-      try {
-        if (_state.clientId === "all") {
-          const promises = _state.clients.map(async (c) => {
-            try {
-              const res  = await fetch(api(`/api/client/${c.id}/packages?month=${encodeURIComponent(mk)}`));
-              const rows = await assertOkAndJSON(res);
-              const therapyRows = rows
-                .filter(r => r.kind === "therapy")
-                .map(r => ({
-                  ...r,
-                  client_id: c.id,
-                  client_name: c.full_name,
-                  therapist_display: (r.therapist_name && r.therapist_name.trim())
-                    ? r.therapist_name.trim()
-                    : (r.therapist_id ? `ID ${r.therapist_id}` : "")
-                }));
-              return therapyRows;
-            } catch (e) {
-              console.warn("Client packages fetch failed", c.id, e);
-              return [];
-            }
-          });
-          _state.rows = (await Promise.all(promises)).flat();
-        } else {
+      // === LOGOWANIE ===
+      console.clear(); // Czyści konsolę dla każdego przeładowania
+      console.log(`--- RELOAD (${new Date().toLocaleTimeString()}) ---`);
+      console.log(`Tryb klienta: ${_state.clientId}`);
+      console.log(`Miesiąc (mk): ${mk}`);
+      // === KONIEC LOGOWANIA ===
+
+      try {
+        if (_state.clientId === "all") {
+          console.log("Tryb: WSZYSCY. Pobieranie pakietów dla", _state.clients.length, "klientów.");
+          const promises = _state.clients.map(async (c) => {
+            try {
+              const url = api(`/api/client/${c.id}/packages?month=${encodeURIComponent(mk)}`);
+              const res  = await fetch(url);
+              const rows = await assertOkAndJSON(res);
+              const therapyRows = rows
+                .filter(r => r.kind === "therapy")
+                .map(r => ({
+                  ...r,
+                  client_id: c.id,
+                  client_name: c.full_name,
+                  therapist_display: (r.therapist_name && r.therapist_name.trim())
+                    ? r.therapist_name.trim()
+                    : (r.therapist_id ? `ID ${r.therapist_id}` : "")
+                }));
+              return therapyRows;
+            } catch (e) {
+              console.warn("Pobieranie dla klienta (all) nie powiodło się", c.id, e);
+              return [];
+            }
+          });
+          _state.rows = (await Promise.all(promises)).flat();
+          console.log(`Pobrano łącznie (wszyscy): ${_state.rows.length} wierszy terapii.`);
+        } else {
           const cid  = Number(_state.clientId);
-          
-          // === POCZĄTEK POPRAWKI ===
-          // Znajdź pełną nazwę klienta na podstawie jego ID
           const client = _state.clients.find(c => c.id === cid);
           const clientName = client ? client.full_name : `Klient #${cid}`;
-          // === KONIEC POPRAWKI ===
+          
+          // === LOGOWANIE ===
+          const url = api(`/api/client/${cid}/packages?month=${encodeURIComponent(mk)}`);
+          console.log(`Tryb: JEDEN KLIENT. Pobieranie dla ID: ${cid} (${clientName})`);
+          console.log(`URL: ${url}`);
+          // === KONIEC LOGOWANIA ===
 
-          const res  = await fetch(api(`/api/client/${cid}/packages?month=${encodeURIComponent(mk)}`));
+          const res  = await fetch(url);
           const rows = await assertOkAndJSON(res);
+
+          // === LOGOWANIE ===
+          console.log("Otrzymane surowe wiersze (przed filtrowaniem):", rows.length, rows);
+          // === KONIEC LOGOWANIA ===
+          
           _state.rows = rows
             .filter(r => r.kind === "therapy")
             .map(r => ({
               ...r,
               client_id: cid,
-              client_name: clientName, // <-- DODANA LINIA
+              client_name: clientName, 
               therapist_display: (r.therapist_name && r.therapist_name.trim())
                 ? r.therapist_name.trim()
                 : (r.therapist_id ? `ID ${r.therapist_id}` : "")
             }));
+          
+          // === LOGOWANIE ===
+          console.log(`Wiersze po filtrze 'therapy' (${_state.rows.length}):`, _state.rows);
+          // === KONIEC LOGOWANIA ===
         }
 
-        renderSchedule();
-      } catch (err) {
-        host.innerHTML = `<div class="text-danger p-3">Błąd ładowania: ${err.message}</div>`;
-      }
-    }
+        console.log("Renderowanie planu...");
+        renderSchedule();
+      } catch (err) {
+        host.innerHTML = `<div class="text-danger p-3">Błąd ładowania: ${err.message}</div>`;
+        // === LOGOWANIE ===
+        console.error("Błąd w funkcji reload:", err);
+        // === KONIEC LOGOWANIA ===
+      }
+    }
 
     // ===== RENDER (week/month) =====
     function renderSchedule(){
@@ -442,3 +468,4 @@ function renderWeek() {
         });
 
     });
+
