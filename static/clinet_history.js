@@ -103,11 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <table class="table table-striped table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 15%;">Data i Godzina</th>
-                                    <th style="width: 15%;">Typ / Terapeuta</th>
-                                    <th style="width: 25%;">Temat</th>
-                                    <th style="width: 35%;">Notatki</th>
-                                    <th style="width: 10%;">Akcje</th>
+                                    <th >Data i Godzina</th>
+                                    <th >Typ / Terapeuta</th>
+                                    <th >Temat</th>
+                                    <th >Notatki</th>
+                                    <th >Akcje</th>
                                 </tr>
                             </thead>
                             <tbody>`;
@@ -414,3 +414,4 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showSessionDetails = showSessionDetails;
     window.toggleEditMode = toggleEditMode;
     window.saveNoteEdit = saveNoteEdit;
+
