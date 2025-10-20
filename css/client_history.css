@@ -54,4 +54,18 @@
 
     .text-muted.p-5 {
       animation: pulse 1.5s ease-in-out infinite;
+
     }
+
+/* Zmniejsz górny padding w ciele karty zawierającej tabelę historii */
+#historyContainer .card-body {
+  padding-top: 0.5rem; /* Domyślnie jest to zwykle 1rem lub więcej, dostosuj tę wartość */
+  /* Możesz też ustawić padding tylko dla góry, zachowując resztę: */
+  /* padding: 0.5rem 1rem 1rem 1rem; */ /* góra | prawo | dół | lewo */
+}
+
+/* Opcjonalnie: Jeśli tabela lub div .table-responsive ma dodatkowy margines górny */
+#historyContainer .table-responsive,
+#historyContainer .table {
+  margin-top: 0; /* Usuń ewentualny margines górny */
+}
