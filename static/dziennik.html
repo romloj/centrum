@@ -724,53 +724,42 @@
         });
     }
         // --- INICJALIZACJA ---
-        // --- INICJALIZACJA ---
-    document.addEventListener('DOMContentLoaded', () => {
-        fetchInitialData(); // Ładuje dane i wywołuje renderClientOptions()
+    // --- INICJALIZACJA ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Pobierz dane i wypełnij listy
+            fetchInitialData(); 
 
-        // === DODAJ TEN FRAGMENT ===
-        const searchInput = document.getElementById('clientSearchInput');
-        if (searchInput) {
-            // Filtruj listy przy każdym wpisaniu znaku
-            searchInput.addEventListener('input', () => {
-                renderClientOptions(searchInput.value);
-            });
-        }
-        // === KONIEC DODAWANIA ===
+            // 2. Podłącz listener do wyszukiwarki
+            const searchInput = document.getElementById('clientSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    renderClientOptions(searchInput.value);
+                });
+            }
 
-       document.addEventListener('DOMContentLoaded', () => { // <-- Opening brace
-        fetchInitialData(); // Ładuje dane i wywołuje renderClientOptions()
+            // 3. Podłącz listener do głównego selektora klienta (do filtrowania tabeli)
+            const clientSelectView = document.getElementById('clientSelect');
+            if (clientSelectView) {
+                clientSelectView.addEventListener('change', () => {
+                    const selectedClientId = clientSelectView.value;
+                    console.log("Wybrano klienta do filtrowania tabeli:", selectedClientId);
 
-        // Listener for search input
-        const searchInput = document.getElementById('clientSearchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                renderClientOptions(searchInput.value);
-            });
-        }
+                    // Przeładuj listę wpisów w dzienniku dla wybranego klienta
+                    fetchJournalEntries(selectedClientId || null);
 
-        // Listener for the main client selector (#clientSelect) to filter the table
-        const clientSelectView = document.getElementById('clientSelect');
-        if (clientSelectView) {
-            clientSelectView.addEventListener('change', () => {
-                const selectedClientId = clientSelectView.value;
-                console.log("Wybrano klienta do filtrowania tabeli:", selectedClientId);
-
-                // Call fetchJournalEntries with the selected ID
-                fetchJournalEntries(selectedClientId || null);
-
-                // Optional: Sync the selection with the form's client select
-                const formSelect = document.getElementById('client_id');
-                if (formSelect) {
-                    formSelect.value = selectedClientId;
-                }
-            });
-        }
-    }); // <<<< THIS IS THE IMPORTANT CLOSING BRACE AND PARENTHESIS
+                    // Opcjonalnie: zsynchronizuj też selektor w formularzu
+                    const formSelect = document.getElementById('client_id');
+                    if (formSelect) {
+                        formSelect.value = selectedClientId;
+                    }
+                });
+            }
+        });// <<<< THIS IS THE IMPORTANT CLOSING BRACE AND PARENTHESIS
     </script>
 </body>
 
 </html>
+
 
 
 
