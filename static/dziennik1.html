@@ -253,35 +253,60 @@
 
         // ZMIANA: Zmiana parametru 'date' na 'month' dla jasności
         async function fetchJournalEntries(clientId = null, month = null) {
-        const tbody = document.getElementById('entries-tbody');
-        tbody.innerHTML = '<tr><td colspan="5">Ładowanie wpisów...</td></tr>';
-        try {
-            // === ZMIANA: Dodano obsługę clientId i miesiąca ===
-            let apiUrl = `${API_BASE_URL}/api/journal`;
-            const params = new URLSearchParams();
-            
-            if (clientId) {
-                params.append('client_id', clientId);
-            }
-            // ZMIANA: Wysyłamy parametr 'month' w formacie RRRR-MM
-            if (month) {
-                params.append('month', month); // Backend musi to obsłużyć
-            }
-            
-            const queryString = params.toString();
-            if (queryString) {
-                apiUrl += `?${queryString}`;
-            }
-            // === KONIEC ZMIANY ===
+            const tbody = document.getElementById('entries-tbody');
+            tbody.innerHTML = '<tr><td colspan="5">Ładowanie wpisów...</td></tr>';
+            try {
+                // === ZMIANA: Dodano obsługę clientId i miesiąca ===
+                let apiUrl = `${API_BASE_URL}/api/journal`;
+                const params = new URLSearchParams();
+                
+                if (clientId) {
+                    params.append('client_id', clientId);
+                }
+                // ZMIANA: Wysyłamy parametr 'month' w formacie RRRR-MM
+                if (month) {
+                    params.append('month', month); // Backend musi to obsłużyć
+                }
+                
+                const queryString = params.toString();
+                if (queryString) {
+                    apiUrl += `?${queryString}`;
+                }
+                // === KONIEC ZMIANY ===
 
-            const response = await axios.get(apiUrl); // Użyj zmodyfikowanego URL
-            renderJournalEntries(response.data);
-        } catch (error) {
-            console.error("Błąd ładowania dziennika:", error);
-            tbody.innerHTML = '<tr><td colspan="5" style="color:red;">Nie udało się załadować wpisów dziennika.</td></tr>';
+                const response = await axios.get(apiUrl); // Użyj zmodyfikowanego URL
+                renderJournalEntries(response.data);
+                
+            } catch (error) {
+                // ==========================================================
+                // === ZMIANA: Ulepszone logowanie błędów i poprawka HTML ===
+                // ==========================================================
+                console.error("Błąd ładowania dziennika. Pełny błąd axios:", error);
+                
+                let errorMsg = "Nie udało się załadować wpisów dziennika.";
+                
+                if (error.response) {
+                    // Błąd odpowiedzi z serwera (np. 404, 500, 400)
+                    console.error("Status błędu (HTTP):", error.response.status);
+                    console.error("Dane błędu (z serwera Flask):", error.response.data);
+                    errorMsg += ` (Błąd serwera: ${error.response.status}. Sprawdź konsolę Flaska.)`;
+                } else if (error.request) {
+                    // Żądanie zostało wysłane, ale nie było odpowiedzi
+                    console.error("Żądanie zostało wysłane, ale brak odpowiedzi:", error.request);
+                    errorMsg += " (Brak odpowiedzi z serwera. Sprawdź, czy backend działa.)";
+                } else {
+                    // Inny błąd (np. błąd konfiguracji axiosa lub błąd składni JS)
+                    console.error("Inny błąd:", error.message);
+                    errorMsg += ` (Błąd: ${error.message})`;
+                }
+
+                // ZMIANA: Poprawka literówki w HTML (było style.color:red; zamiast style="color:red;")
+                tbody.innerHTML = `<tr><td colspan="5" style="color:red;">${errorMsg}</td></tr>`;
+                // ==========================================================
+                // === KONIEC ZMIANY ===
+                // ==========================================================
+            }
         }
-    }
-
         // === ZMIANA: Funkcja czyta teraz z 'monthFilterInput' ===
         function applyFiltersAndFetch() {
             const selectedClientId = document.getElementById('clientSelect').value;
