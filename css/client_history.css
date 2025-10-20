@@ -51,9 +51,22 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
+/* Zmniejsz pionowy padding komórek w tabeli historii */
+#historyContainer .table td,
+#historyContainer .table th {
+  padding-top: 0.25rem;    /* Zmniejsz górny padding (domyślnie np. 0.5rem lub 0.75rem) */
+  padding-bottom: 0.25rem; /* Zmniejsz dolny padding */
+  vertical-align: top;     /* Dodatkowo wyrównaj zawartość komórki do góry */
+}
+
+/* Upewnij się, że nie ma dodatkowego odstępu między komórkami (Bootstrap zwykle to robi) */
+#historyContainer .table {
+  border-spacing: 0;
+}
 
     .text-muted.p-5 {
       animation: pulse 1.5s ease-in-out infinite;
 
     }
+
 
