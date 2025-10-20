@@ -6866,7 +6866,7 @@ def get_waiting_stats():
    #         return jsonify(results), 200
 
 
-@current_app.route('/api/journal', methods=['GET'])
+@app.route('/api/journal', methods=['GET'])
 def get_journal_entries():
     """
     Pobiera wpisy dziennika, opcjonalnie filtrując po client_id i/lub miesiącu (RRRR-MM).
@@ -7177,6 +7177,7 @@ def get_client_all_sessions(client_id: int):
 #    app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
