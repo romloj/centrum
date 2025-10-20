@@ -6866,7 +6866,7 @@ def get_waiting_stats():
    #         return jsonify(results), 200
 
 
-@app.route('/api/journal', methods=['GET'])
+@app.route('/api/journal', methods=['GET'])  # <-- POPRAWKA JEST TUTAJ
 def get_journal_entries():
     """
     Pobiera wpisy dziennika, opcjonalnie filtrując po client_id i/lub miesiącu (RRRR-MM).
@@ -6877,7 +6877,6 @@ def get_journal_entries():
     month_str = request.args.get('month') # Odbierze format "YYYY-MM"
 
     # 2. Budowanie bazowego zapytania SQL
-    # Używamy RealDictCursor, aby wyniki były słownikami, co ułatwia konwersję na JSON
     base_query = """
         SELECT 
             j.id, 
@@ -6898,8 +6897,11 @@ def get_journal_entries():
     params = {} # Słownik na parametry, aby uniknąć SQL Injection
 
     if client_id:
-        filters.append("j.client_id = %(client_id)s")
-        params['client_id'] = int(client_id) # Lepiej rzutować na int dla bezpieczeństwa
+        try:
+            filters.append("j.client_id = %(client_id)s")
+            params['client_id'] = int(client_id)
+        except ValueError:
+            pass # Ignoruj niepoprawny client_id
 
     # 4. Logika filtrowania miesięcznego
     if month_str:
@@ -6908,7 +6910,6 @@ def get_journal_entries():
             year, month = map(int, month_str.split('-'))
             
             # Używamy EXTRACT do filtrowania w PostgreSQL
-            # To jest bezpieczne, ponieważ rzutowaliśmy rok i miesiąc na int
             filters.append("EXTRACT(YEAR FROM j.data) = %(year)s AND EXTRACT(MONTH FROM j.data) = %(month)s")
             params['year'] = year
             params['month'] = month
@@ -6927,13 +6928,13 @@ def get_journal_entries():
     # 7. Wykonanie zapytania
     conn = None
     try:
-        conn = get_db_connection()
+        conn = get_db_connection() # Założenie, że masz tę funkcję
         # Używamy RealDictCursor, aby otrzymać wyniki jako słowniki
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(base_query, params)
             entries = cur.fetchall()
             
-            # Konwersja daty na string (opcjonalne, jsonify zwykle sobie radzi)
+            # Konwersja daty na string
             for entry in entries:
                 if 'data' in entry and entry['data']:
                     entry['data'] = entry['data'].isoformat() # Format RRRR-MM-DD
@@ -7177,6 +7178,7 @@ def get_client_all_sessions(client_id: int):
 #    app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
