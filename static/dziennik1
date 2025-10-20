@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dziennik Spotkań - Frontend</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #007bff;
+            border-bottom: 2px solid #f4f7f6;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        .action-buttons button {
+            margin-right: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+        }
+        .edit-btn { background-color: #ffc107; color: #333; }
+        .delete-btn { background-color: #dc3545; color: white; }
+        .add-btn, .import-btn { background-color: #28a745; color: white; margin-bottom: 20px; }
+        .import-btn { background-color: #17a2b8; margin-left: 10px; }
+
+        /* Form Styling */
+        #journalForm, #importSection {
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        #journalForm {
+            display: none; /* Ukryj domyślnie */
+        }
+        #importSection {
+            background-color: #e9f7f9;
+        }
+        #importSection p {
+            font-style: italic;
+            color: #6c757d;
+        }
+        #importSection input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        #journalForm label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        #journalForm input[type="date"],
+        #journalForm select,
+        #journalForm input[type="text"],
+        #journalForm textarea,
+        /* DODANA STYLIZACJA DLA FILTRA DATY */
+        #dateFilterInput { 
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        #formActions {
+            margin-top: 15px;
+        }
+        .error-message {
+            color: #dc3545;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        #importStatus {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Dziennik Spotkań (PostgreSQL + Flask)</h1>
+
+        <div id="importSection">
+            <h2>Import z pliku CSV</h2>
+            <p>Oczekiwany format nagłówków (kolejność nie jest ważna): <br>
+                **Data; Klient; Terapeuta; Temat; Cele** (użyj pełnej nazwy, ID zostanie dopasowane)
+            </p>
+            <input type="file" id="csvFile" accept=".csv" onchange="handleCSVUpload()">
+            <div id="importStatus">
+                Oczekiwanie na plik...
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label"><strong>Wyszukaj klienta</strong></label>
+            <input type="text" id="clientSearchInput" class="form-control mb-2" placeholder="Wpisz imię lub nazwisko...">
+            
+            <label class="form-label" for="clientSelect"><strong>Wybierz klienta</strong></label>
+            <select id="clientSelect" class="form-select">
+                <option value="">Najpierw wyszukaj lub załaduj...</option>
+            </select>
+
+            <label class="form-label" for="dateFilterInput" style="margin-top: 10px;"><strong>Filtruj wg daty</strong></label>
+            <input type="date" id="dateFilterInput" class="form-select"> </div>
+
+        <button class="add-btn" onclick="showForm()">Dodaj Nowy Wpis</button>
+
+        <div id="journalForm">
+            <h2>Dodaj / Edytuj Wpis</h2>
+            <form id="entry-form">
+                <input type="hidden" id="entry-id">
+
+                <label for="data">Data Spotkania:</label>
+                <input type="date" id="data" required>
+
+                <label for="client_id">Klient:</label>
+                <select id="client_id" required>
+                    <option value="">Wybierz Klienta</option>
+                </select>
+
+                <label for="therapist_id">Terapeuta:</label>
+                <select id="therapist_id" required>
+                    <option value="">Wybierz Terapeutę</option>
+                </select>
+
+                <label for="temat">Temat:</label>
+                <input type="text" id="temat" placeholder="Krótki opis tematu sesji">
+
+                <label for="cele">Cele / Notatki:</label>
+                <textarea id="cele" rows="5" placeholder="Szczegółowy opis celów sesji lub podsumowanie"></textarea>
+
+                <p id="form-error" class="error-message"></p>
+
+                <div id="formActions">
+                    <button type="submit" id="save-btn" class="add-btn">Zapisz Wpis</button>
+                    <button type="button" onclick="hideForm()" style="background-color: #6c757d; color: white;">Anuluj</button>
+                </div>
+            </form>
+        </div>
+
+        <h2>Lista Wpisów</h2>
+        <div id="journal-list">
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)">Data</th>
+                        <th onclick="sortTable(1)">Klient</th>
+                        <th onclick="sortTable(2)">Terapeuta</th>
+                        <th onclick="sortTable(3)">Temat</th>
+                        <th>Akcje</th>
+                    </tr>
+                </thead>
+                <tbody id="entries-tbody">
+                    <tr><td colspan="5">Ładowanie danych...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        // --- KONFIGURACJA ---
+        //const API_BASE_URL = 'http://localhost:5000/api';
+        const API_BASE_URL = window.location.origin;
+         // --- GLOBALNE ZMIENNE ---
+         let allClients = [];
+         let allTherapists = [];
+
+        // Mapy do szybkiego wyszukiwania ID po pełnej nazwie
+         let clientMap = {};
+         let therapistMap = {};
+
+        // =========================================================================
+        // === FUNKCJE API I INICJALIZACJA ===
+        // =========================================================================
+
+        async function fetchInitialData() {
+        try {
+            const [clientsRes, therapistsRes] = await Promise.all([
+                axios.get(`${API_BASE_URL}/api/clients?include_inactive=true`), // Pobierz też nieaktywnych dla historii
+                axios.get(`${API_BASE_URL}/api/therapists`)
+            ]);
+
+            allClients = clientsRes.data;
+            allTherapists = therapistsRes.data;
+
+            // Uzupełnienie map do szybkiego wyszukiwania ID po nazwie dla CSV
+            clientMap = allClients.reduce((acc, curr) => {
+                acc[(curr.full_name || '').toLowerCase()] = curr.client_id; // Użyj client_id
+                return acc;
+            }, {});
+
+            therapistMap = allTherapists.reduce((acc, curr) => {
+                acc[(curr.full_name || '').toLowerCase()] = curr.id;
+                return acc;
+            }, {});
+
+            // === ZMIANA: Usuń populateSelect dla klientów ===
+            // populateSelect('client_id', allClients, 'client_id', 'full_name'); 
+            
+            // Wypełnij tylko terapeutów w formularzu
+            populateSelect('therapist_id', allTherapists, 'id', 'full_name');
+
+            // === ZMIANA: Wywołaj renderClientOptions, aby wypełnić OBA selektory klientów ===
+            renderClientOptions(); // Wypełni listy wszystkimi klientami na starcie
+
+            fetchJournalEntries();
+
+        } catch (error) {
+            console.error("Błąd ładowania danych początkowych (klienci/terapeuci):", error);
+            document.getElementById('entries-tbody').innerHTML = '<tr><td colspan="5" style="color:red;">Nie udało się załadować klientów/terapeutów. Sprawdź, czy backend działa i zwraca dane.</td></tr>';
+        }
+    }
+
+        // ZMIANA: Dodano parametr 'date'
+        async function fetchJournalEntries(clientId = null, date = null) {
+        const tbody = document.getElementById('entries-tbody');
+        tbody.innerHTML = '<tr><td colspan="5">Ładowanie wpisów...</td></tr>';
+        try {
+            // === ZMIANA: Dodano obsługę clientId i daty ===
+            let apiUrl = `${API_BASE_URL}/api/journal`;
+            const params = new URLSearchParams();
+            
+            if (clientId) {
+                params.append('client_id', clientId);
+            }
+            if (date) {
+                params.append('data', date); // Dodaj parametr daty
+            }
+            
+            const queryString = params.toString();
+            if (queryString) {
+                apiUrl += `?${queryString}`;
+            }
+            // === KONIEC ZMIANY ===
+
+            const response = await axios.get(apiUrl); // Użyj zmodyfikowanego URL
+            renderJournalEntries(response.data);
+        } catch (error) {
+            console.error("Błąd ładowania dziennika:", error);
+            tbody.innerHTML = '<tr><td colspan="5" style="color:red;">Nie udało się załadować wpisów dziennika.</td></tr>';
+        }
+    }
+
+        // === DODANO: Nowa funkcja do obsługi filtrów ===
+        function applyFiltersAndFetch() {
+            const selectedClientId = document.getElementById('clientSelect').value;
+            const selectedDate = document.getElementById('dateFilterInput').value;
+            
+            // Przeładuj listę wpisów z oboma filtrami
+            // Przekazujemy null, jeśli wartość jest pusta (np. "" lub undefined)
+            fetchJournalEntries(selectedClientId || null, selectedDate || null);
+        }
+        // =======================================
+
+        // =========================================================================
+        // === LOGIKA IMPORTU CSV (POPRWIONA: Rozdzielenie Temat i Celów/Opisu) ===
+        // =========================================================================
+
+        /**
+         * Ujednolica nazwę nagłówka na klucz oczekiwany w JS/API.
+         */
+        function normalizeHeader(header) {
+            if (!header) return null;
+            const clean = header.trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+            switch (clean) {
+                case 'data': return 'data';
+
+                // MAPOWANIE KLIENTA: full_name z CSV na klient_name w JS
+                case 'fullname':
+                case 'klient': return 'klient_name';
+
+                // MAPOWANIE TERAPEUTY
+                case 'terapeuta': return 'terapeuta_name';
+
+                // MAPOWANIE TEMATU (JEST OSOBNO)
+                case 'temat': return 'temat';
+
+                // MAPOWANIE CELÓW/OPISÓW (Oba pola z CSV mapujemy na osobne klucze,
+                // ale zostaną połączone w 'cele' przed wysłaniem do API)
+                case 'cele': return 'cele_csv'; // Używamy unikalnej nazwy tymczasowej
+                case 'opis': return 'opis_csv'; // Używamy unikalnej nazwy tymczasowej
+
+                case 'notatki': return 'cele_csv';
+                default: return null;
+            }
+        }
+
+        /**
+         * Obsługuje plik wybrany przez użytkownika i uruchamia Papa Parse.
+         * (Bez zmian w stosunku do poprzedniej wersji)
+         */
+        function handleCSVUpload() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            const statusDiv = document.getElementById('importStatus');
+
+            if (!file) {
+                statusDiv.innerHTML = "Wybierz plik CSV.";
+                return;
+            }
+
+            statusDiv.innerHTML = `Ładowanie pliku: **${file.name}**...`;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                delimiter: ';',
+                error: function(err) {
+                    statusDiv.innerHTML = `<span style="color:red;">Błąd parsowania CSV: ${err.message}</span>`;
+                },
+                complete: function(results) {
+                    if (results.errors.length > 0 && results.meta.delimiter !== ',') {
+                        Papa.parse(file, {
+                            header: true,
+                            skipEmptyLines: true,
+                            delimiter: ',',
+                            complete: function(results) {
+                                processCSVData(results.data, results.meta.fields);
+                            }
+                        });
+                    } else {
+                         processCSVData(results.data, results.meta.fields);
+                    }
+                }
+            });
+        }
+
+        /**
+         * Przetwarza dane z Papa Parse i wysyła je do API.
+         */
+        async function processCSVData(data, rawHeaders) {
+            const statusDiv = document.getElementById('importStatus');
+            statusDiv.innerHTML = "Przetwarzanie danych...";
+
+            // 1. Zmapowanie nagłówków
+            const headerMap = {};
+            rawHeaders.forEach(raw => {
+                const normalized = normalizeHeader(raw);
+                if (normalized) {
+                    headerMap[raw] = normalized;
+                }
+            });
+
+            // 2. Walidacja nagłówków
+            // Wymagane są: data, klient_name, terapeuta_name i temat.
+            const requiredHeaders = ['data', 'klient_name', 'terapeuta_name', 'temat'];
+            const foundHeaders = Object.values(headerMap);
+            const missingHeaders = requiredHeaders.filter(h => !foundHeaders.includes(h));
+
+            if (missingHeaders.length > 0) {
+                statusDiv.innerHTML = `<span style="color:red;">Błąd: Brak wymaganych kolumn w pliku. Brakuje klucza dla: ${missingHeaders.join(', ')}.</span>`;
+                return;
+            }
+
+            // 3. Proces importu
+            let totalProcessed = 0;
+            let totalSaved = 0;
+            let errors = [];
+
+            for (const row of data) {
+                totalProcessed++;
+
+                // Mapowanie surowych danych na format zdefiniowany w normalizeHeader
+                const entry = {};
+                for (const rawKey in row) {
+                    const mappedKey = headerMap[rawKey];
+                    if (mappedKey) {
+                        entry[mappedKey] = row[rawKey] ? row[rawKey].trim() : '';
+                    }
+                }
+
+                // KLUCZOWE: Łączenie Cele i Opis w jedno pole 'cele' (zgodnie z API)
+                let combinedCele = '';
+                if (entry.cele_csv) {
+                    combinedCele += `Cele: ${entry.cele_csv}\n`;
+                }
+                if (entry.opis_csv) {
+                    combinedCele += `Opis: ${entry.opis_csv}\n`;
+                }
+                // Użyjemy pola 'cele' do wysłania połączonego opisu.
+                entry.cele = combinedCele.trim();
+
+
+                // Wyszukanie ID kluczy obcych na podstawie nazw (konwersja na małe litery)
+                const clientNameLower = entry.klient_name ? entry.klient_name.toLowerCase() : '';
+                const therapistNameLower = entry.terapeuta_name ? entry.terapeuta_name.toLowerCase() : '';
+
+                const clientId = clientMap[clientNameLower]; // Wyszukiwanie ID klienta po nazwisku!
+                const therapistId = therapistMap[therapistNameLower];
+
+                if (!clientId || !therapistId) {
+                    let msg = '';
+                    if (!clientId) msg += `Klient "${entry.klient_name}" nie znaleziony w bazie. `;
+                    if (!therapistId) msg += `Terapeuta "${entry.terapeuta_name}" nie znaleziony w bazie.`;
+                    errors.push(`Wiersz ${totalProcessed}: ${msg} (wpis pominięty).`);
+                    continue;
+                }
+
+                // Próba zaimportowania
+                try {
+                    const success = await uploadEntryToAPI(entry, clientId, therapistId);
+                    if (success) {
+                        totalSaved++;
+                    } else {
+                        errors.push(`Wiersz ${totalProcessed}: Błąd API podczas zapisu (sprawdź konsolę).`);
+                    }
+                } catch (e) {
+                    errors.push(`Wiersz ${totalProcessed}: Błąd sieci/serwera: ${e.message || e}`);
+                }
+
+                statusDiv.innerHTML = `Przetwarzanie... ${totalSaved}/${totalProcessed} zapisano.`;
+                await new Promise(r => setTimeout(r, 10)); // Mała pauza
+            }
+
+            // 4. Podsumowanie
+            statusDiv.innerHTML = `
+                <span style="color:${errors.length > 0 ? 'orange' : 'green'}; font-weight:bold;">
+                    IMPORT ZAKOŃCZONY. Zapisano ${totalSaved} z ${totalProcessed} wierszy.
+                </span><br>
+                ${errors.length > 0 ? `Błędy/Ostrzeżenia: ${errors.length}.` : 'Brak błędów.'}
+            `;
+            if (errors.length > 0) {
+                console.error("Błędy importu CSV:", errors);
+                statusDiv.innerHTML += `<div style="max-height: 200px; overflow-y: scroll; border: 1px solid #fae3e3; margin-top: 5px; color:#dc3545; padding:5px;">${errors.join('<br>')}</div>`;
+            }
+
+            fetchJournalEntries(); // Odświeżenie listy głównej
+            document.getElementById('csvFile').value = ''; // Wyczyść pole pliku
+        }
+
+        /**
+         * Wysyła jeden wpis do endpointu API.
+         * (Bez zmian w stosunku do poprzedniej wersji)
+         */
+        async function uploadEntryToAPI(entry, clientId, therapistId) {
+            // W tym miejscu entry.temat to temat, a entry.cele to połączone cele/opisy
+            const apiData = {
+                data: entry.data,
+                client_id: clientId,
+                therapist_id: therapistId,
+                temat: entry.temat, // Temat z CSV
+                cele: entry.cele    // Połączone cele i opisy z CSV
+            };
+
+            try {
+                // Wymuś format daty RRRR-MM-DD
+                let dateStr = apiData.data;
+                let dateParts = dateStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); // RRRR-MM-DD
+
+                if (!dateParts) {
+                    // Próba formatu DD.MM.RRRR lub DD/MM/RRRR
+                    dateParts = dateStr.match(/(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{4})/);
+                    if (dateParts && dateParts.length === 4) {
+                        const day = dateParts[1].padStart(2, '0');
+                        const month = dateParts[2].padStart(2, '0');
+                        const year = dateParts[3];
+                        apiData.data = `${year}-${month}-${day}`; // Konwersja na RRRR-MM-DD
+                    } else {
+                         // Jeśli nadal nie działa, Flask może spróbować to przetworzyć, ale lepiej jest, gdy jest poprawny
+                         throw new Error(`Nieznany format daty: ${dateStr}`);
+                    }
+                }
+
+                await axios.post(`${API_BASE_URL}/api/journal`, apiData);
+                return true;
+            } catch (error) {
+                console.error("Błąd zapisu wiersza CSV do API:", entry, error.response?.data);
+                return false;
+            }
+        }
+
+        // =========================================================================
+        // === FUNKCJE POMOCNICZE WIDOKU (wzięte z poprzedniej wersji) ===
+        // =========================================================================
+
+        function populateSelect(selectId, data, idKey, nameKey) {
+            const select = document.getElementById(selectId);
+            select.innerHTML = select.innerHTML.split('</option>')[0] + '</option>';
+            data.forEach(item => {
+                const option = document.createElement('option');
+                // UWAGA: Używamy 'client_id' lub 'id' w zależności od mapowania
+                const valueKey = selectId === 'client_id' ? 'client_id' : 'id';
+                option.value = item[valueKey];
+                option.textContent = item[nameKey];
+                select.appendChild(option);
+            });
+        }
+
+        function showForm(entryId = null) {
+            document.getElementById('journalForm').style.display = 'block';
+            document.getElementById('entry-form').reset();
+            document.getElementById('entry-id').value = '';
+            document.getElementById('form-error').textContent = '';
+
+            if (entryId) {
+                document.getElementById('save-btn').textContent = 'Zapisz Zmiany';
+                loadEntryForEdit(entryId);
+            } else {
+                document.getElementById('save-btn').textContent = 'Zapisz Wpis';
+            }
+        }
+
+        function hideForm() {
+            document.getElementById('journalForm').style.display = 'none';
+        }
+
+        async function loadEntryForEdit(id) {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/api/journal/${id}`);
+                const entry = response.data;
+
+                document.getElementById('entry-id').value = entry.id;
+                document.getElementById('data').value = entry.data;
+                document.getElementById('client_id').value = entry.client_id;
+                document.getElementById('therapist_id').value = entry.therapist_id;
+                document.getElementById('temat').value = entry.temat || '';
+                document.getElementById('cele').value = entry.cele || '';
+            } catch (error) {
+                console.error("Błąd ładowania wpisu:", error);
+                document.getElementById('form-error').textContent = 'Nie udało się załadować danych do edycji.';
+            }
+        }
+
+        async function deleteEntry(id) {
+            if (!confirm("Czy na pewno chcesz usunąć ten wpis?")) {
+                return;
+            }
+            try {
+                await axios.delete(`${API_BASE_URL}/api/journal/${id}`);
+                alert("Wpis usunięty pomyślnie.");
+                
+                // ZMIANA: Odśwież listę z uwzględnieniem aktywnych filtrów
+                applyFiltersAndFetch();
+            } catch (error) {
+                console.error("Błąd usuwania wpisu:", error);
+                alert("Nie udało się usunąć wpisu.");
+            }
+        }
+
+        function renderJournalEntries(entries) {
+            const tbody = document.getElementById('entries-tbody');
+            tbody.innerHTML = '';
+
+            if (entries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">Brak wpisów w dzienniku dla wybranych kryteriów.</td></tr>';
+                return;
+            }
+
+            entries.forEach(entry => {
+                const row = tbody.insertRow();
+
+                // Data
+                const dateCell = row.insertCell();
+                dateCell.textContent = new Date(entry.data).toLocaleDateString();
+
+                // Klient
+                row.insertCell().textContent = entry.klient || 'N/A';
+
+                // Terapeuta
+                row.insertCell().textContent = entry.terapeuta || 'N/A';
+
+                // Temat (skrócony)
+                const tematCell = row.insertCell();
+                const shortTemat = entry.temat ? entry.temat.substring(0, 50) + (entry.temat.length > 50 ? '...' : '') : 'Brak';
+                tematCell.title = entry.cele; // Użyj 'cele' jako podpowiedzi
+                tematCell.textContent = shortTemat;
+
+                // Akcje
+                const actionsCell = row.insertCell();
+                actionsCell.className = 'action-buttons';
+                actionsCell.innerHTML = `
+                    <button class="edit-btn" onclick="showForm(${entry.id})">Edytuj</button>
+                    <button class="delete-btn" onclick="deleteEntry(${entry.id})">Usuń</button>
+                `;
+            });
+        }
+
+        document.getElementById('entry-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const entryId = document.getElementById('entry-id').value;
+            const isEditing = !!entryId;
+
+            const entryData = {
+                data: document.getElementById('data').value,
+                client_id: document.getElementById('client_id').value,
+                therapist_id: document.getElementById('therapist_id').value,
+                temat: document.getElementById('temat').value,
+                cele: document.getElementById('cele').value,
+            };
+
+            // Prosta walidacja
+            if (!entryData.data || !entryData.client_id || !entryData.therapist_id) {
+                document.getElementById('form-error').textContent = 'Pola Data, Klient i Terapeuta są wymagane.';
+                return;
+            }
+
+            try {
+                if (isEditing) {
+                    // Aktualizacja (PUT/PATCH)
+                    await axios.put(`${API_BASE_URL}/api/journal/${entryId}`, entryData);
+                    alert("Wpis zaktualizowany pomyślnie.");
+                } else {
+                    // Tworzenie (POST)
+                    await axios.post(`${API_BASE_URL}/api/journal`, entryData);
+                    alert("Wpis dodany pomyślnie.");
+                }
+
+                hideForm();
+                
+                // ZMIANA: Odśwież listę z uwzględnieniem aktywnych filtrów
+                applyFiltersAndFetch();
+
+            } catch (error) {
+                console.error("Błąd zapisu/edycji:", error);
+                const msg = error.response?.data?.error || 'Wystąpił nieznany błąd serwera.';
+                document.getElementById('form-error').textContent = msg;
+            }
+        });
+
+        // --- SORTOWANIE TABELI (proste, tekstowe) ---
+        function sortTable(n) {
+            let table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+            table = document.getElementById("entries-tbody").parentNode;
+            switching = true;
+            dir = "asc"; 
+
+            while (switching) {
+                switching = false;
+                rows = table.rows;
+
+                for (i = 1; i < (rows.length - 1); i++) {
+                    shouldSwitch = false;
+                    x = rows[i].getElementsByTagName("TD")[n];
+                    y = rows[i + 1].getElementsByTagName("TD")[n];
+
+                    let xContent = x.textContent.toLowerCase();
+                    let yContent = y.textContent.toLowerCase();
+
+                    // Specjalne sortowanie dla daty (n=0)
+                    if (n === 0) {
+                        // Próba parsowania daty DD.MM.RRRR
+                        let xDate = xContent.split('.').reverse().join('-');
+                        let yDate = yContent.split('.').reverse().join('-');
+                        
+                        xContent = new Date(xDate).getTime();
+                        yContent = new Date(yDate).getTime();
+                    }
+
+
+                    if (dir == "asc") {
+                        if (xContent > yContent) {
+                            shouldSwitch= true;
+                            break;
+                        }
+                    } else if (dir == "desc") {
+                        if (xContent < yContent) {
+                            shouldSwitch= true;
+                            break;
+                        }
+                    }
+                }
+                if (shouldSwitch) {
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                    switchcount ++; 
+                } else {
+                    if (switchcount == 0 && dir == "asc") {
+                        dir = "desc";
+                        switching = true;
+                    }
+                }
+            }
+        }
+
+        function renderClientOptions(searchTerm = '') {
+      // Pobierz oba elementy <select>
+      const viewSelect = document.getElementById('clientSelect');
+      const formSelect = document.getElementById('client_id'); // Selektor w formularzu
+      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+
+      // Przefiltruj globalną listę allClients
+      const filteredClients = allClients.filter(client =>
+        (client.full_name || '').toLowerCase().includes(lowerCaseSearchTerm)
+      );
+
+      // Zapamiętaj aktualnie wybrane wartości (jeśli istnieją), aby ich nie zgubić
+      const selectedViewValue = viewSelect ? viewSelect.value : null;
+      const selectedFormValue = formSelect ? formSelect.value : null;
+
+      // Wyczyść oba selektory
+      if (viewSelect) viewSelect.innerHTML = '';
+      if (formSelect) formSelect.innerHTML = '';
+
+      // Dodaj opcję domyślną/placeholder
+      const defaultOptionText = filteredClients.length > 0 ? '-- Wybierz klienta --' : (searchTerm ? 'Brak pasujących' : 'Załaduj listę...');
+      if (viewSelect) viewSelect.innerHTML = `<option value="">${defaultOptionText}</option>`;
+      if (formSelect) formSelect.innerHTML = `<option value="">${defaultOptionText}</option>`;
+
+      // Sortuj alfabetycznie i dodaj opcje do OBU selektorów
+      filteredClients
+        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+        .forEach(client => {
+          const option = document.createElement('option');
+          // Użyj 'client_id' jako wartości - zgodnie z resztą kodu
+          option.value = client.client_id; 
+          option.textContent = client.full_name || 'Brak nazwy';
+
+          // Dodaj opcję do obu list
+          if (viewSelect) viewSelect.appendChild(option.cloneNode(true)); // Klonujemy dla drugiego selecta
+          if (formSelect) formSelect.appendChild(option);
+
+          // Przywróć zaznaczenie, jeśli było
+          if (viewSelect && option.value === selectedViewValue) {
+              viewSelect.value = selectedViewValue;
+          }
+          if (formSelect && option.value === selectedFormValue) {
+              formSelect.value = selectedFormValue;
+          }
+        });
+    }
+        // --- INICJALIZACJA ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Pobierz dane i wypełnij listy
+            fetchInitialData(); 
+
+            // 2. Podłącz listener do wyszukiwarki
+            const searchInput = document.getElementById('clientSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    renderClientOptions(searchInput.value);
+                });
+            }
+
+            // 3. Podłącz listener do głównego selektora klienta (do filtrowania tabeli)
+            const clientSelectView = document.getElementById('clientSelect');
+            if (clientSelectView) {
+                // ZMIANA: Użyj nowej funkcji obsługującej oba filtry
+                clientSelectView.addEventListener('change', () => {
+                    applyFiltersAndFetch();
+                    
+                    // Opcjonalnie: zsynchronizuj też selektor w formularzu
+                    const formSelect = document.getElementById('client_id');
+                    if (formSelect) {
+                        formSelect.value = clientSelectView.value;
+                    }
+                });
+            }
+
+            // 4. DODANO: Podłącz listener do filtra daty
+            const dateFilter = document.getElementById('dateFilterInput');
+            if (dateFilter) {
+                dateFilter.addEventListener('change', applyFiltersAndFetch);
+            }
+        });
+    </script>
+</body>
+
+</html>
