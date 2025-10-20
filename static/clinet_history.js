@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // === KOD DLA POJEDYNCZEGO KLIENTA (BEZ ZMIAN) ===
             historyContainer.innerHTML = '<p class="text-center text-muted p-5">Ładowanie historii...</p>';
             try {
+                // Pobieramy dane dla konkretnego ID
                 const allSessions = await fetchJSON(`${API}/api/clients/${clientId}/all-sessions`);
                 const tusHistory = await fetchJSON(`${API}/api/clients/${clientId}/history`).then(res => res.tus_group || []);
                 
@@ -82,14 +83,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // === NOWY KOD DLA WIDOKU "WSZYSCY KLIENCI" ===
             historyContainer.innerHTML = '<p class="text-center text-muted p-5">Ładowanie historii wszystkich klientów...</p>';
             try {
-                // 1. POTRZEBUJESZ NOWEGO ENDPOINTU W API!
+                // [WAŻNE] POTRZEBUJESZ NOWEGO ENDPOINTU W API!
                 // Ten endpoint musi zwracać dane tak jak /all-sessions, ALE DODATKOWO
                 // musi zawierać 'client_name' i 'client_id' w każdym obiekcie sesji.
-                const allSessions = await fetchJSON(`${API}/api/journal/all-history`); // <--- PRZYKŁADOWY NOWY ENDPOINT
+                const allSessions = await fetchJSON(`${API}/api/journal/all-history`); // <--- UPEWNIJ SIĘ, ŻE TEN ENDPOINT ISTNIEJE!
                 
-                // Widok "Wszyscy" prawdopodobnie nie pokazuje TUS, 
-                // chyba że masz też do tego globalny endpoint
-                const tusHistory = []; 
+                const tusHistory = []; // Widok globalny nie ładuje TUS (chyba, że też masz taki endpoint)
 
                 // Przekazujemy 'true' dla widoku "wszyscy"
                 renderHistory(allSessions, tusHistory, true);
@@ -237,7 +236,6 @@ function renderHistory(allSessions, tusHistory, isAllClientsView = false) {
 
     historyContainer.innerHTML = html;
 }
-
     clientSelector.addEventListener('change', loadClientHistory);
     searchInput.addEventListener('input', () => {
         renderClientOptions(searchInput.value);
@@ -449,5 +447,6 @@ function renderHistory(allSessions, tusHistory, isAllClientsView = false) {
     window.toggleEditMode = toggleEditMode;
 
     window.saveNoteEdit = saveNoteEdit;
+
 
 
