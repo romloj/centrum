@@ -103,11 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <table class="table table-striped table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    <th >Data i Godzina</th>
-                                    <th >Typ / Terapeuta</th>
-                                    <th >Temat</th>
-                                    <th >Notatki</th>
-                                    <th >Akcje</th>
+                                    <th style="width:15%">Data i Godzina</th>
+                                    <th style="width:15%">Typ / Terapeuta</th>
+                                    <th style="width:25%">Temat</th>
+                                    <th style="width:25%" >Notatki</th>
+                                    <th style="width:20%">Akcje</th>
                                 </tr>
                             </thead>
                             <tbody>`;
