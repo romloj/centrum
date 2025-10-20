@@ -62,26 +62,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadClientHistory() {
-        const clientId = clientSelector.value;
-        currentClientId = clientId; // Ustaw aktualnie wybranego klienta
+        const clientId = clientSelector.value;
+        currentClientId = clientId; 
 
-        if (!clientId) {
-            historyContainer.innerHTML = '<p class="text-center text-muted p-5">Wybierz klienta, aby zobaczyć jego historię.</p>';
-            return;
-        }
+        // ZMIENIONA LOGIKA
+        if (clientId) {
+            // === KOD DLA POJEDYNCZEGO KLIENTA (BEZ ZMIAN) ===
+            historyContainer.innerHTML = '<p class="text-center text-muted p-5">Ładowanie historii...</p>';
+            try {
+                const allSessions = await fetchJSON(`${API}/api/clients/${clientId}/all-sessions`);
+                const tusHistory = await fetchJSON(`${API}/api/clients/${clientId}/history`).then(res => res.tus_group || []);
+                
+                // Przekazujemy 'false' dla widoku indywidualnego
+                renderHistory(allSessions, tusHistory, false); 
+            } catch (error) {
+                historyContainer.innerHTML = `<div class="alert alert-danger">Wystąpił błąd ładowania historii: ${error.message}</div>`;
+            }
+        } else {
+            // === NOWY KOD DLA WIDOKU "WSZYSCY KLIENCI" ===
+            historyContainer.innerHTML = '<p class="text-center text-muted p-5">Ładowanie historii wszystkich klientów...</p>';
+            try {
+                // 1. POTRZEBUJESZ NOWEGO ENDPOINTU W API!
+                // Ten endpoint musi zwracać dane tak jak /all-sessions, ALE DODATKOWO
+                // musi zawierać 'client_name' i 'client_id' w każdym obiekcie sesji.
+                const allSessions = await fetchJSON(`${API}/api/journal/all-history`); // <--- PRZYKŁADOWY NOWY ENDPOINT
+                
+                // Widok "Wszyscy" prawdopodobnie nie pokazuje TUS, 
+                // chyba że masz też do tego globalny endpoint
+                const tusHistory = []; 
 
-        historyContainer.innerHTML = '<p class="text-center text-muted p-5">Ładowanie historii...</p>';
-        try {
-            // NOWY ENDPOINT ŁĄCZĄCY DZIENNIK I SESJE
-            const allSessions = await fetchJSON(`${API}/api/clients/${clientId}/all-sessions`);
-            // Stary endpoint TUS (potrzebny oddzielnie, jeśli nie jest zunifikowany)
-            const tusHistory = await fetchJSON(`${API}/api/clients/${clientId}/history`).then(res => res.tus_group || []);
-
-            renderHistory(allSessions, tusHistory);
-        } catch (error) {
-            historyContainer.innerHTML = `<div class="alert alert-danger">Wystąpił błąd ładowania historii: ${error.message}</div>`;
-        }
-    }
+                // Przekazujemy 'true' dla widoku "wszyscy"
+                renderHistory(allSessions, tusHistory, true);
+            } catch (error) {
+                historyContainer.innerHTML = `<div class="alert alert-danger">Wystąpił błąd ładowania historii: ${error.message}</div>`;
+            }
+        }
+    }
 
     function truncateText(text, maxLength = 100) {
         if (!text) return '-';
@@ -89,86 +105,102 @@ document.addEventListener('DOMContentLoaded', () => {
         return text.substring(0, maxLength) + '...';
     }
 
-    // ZMIENIONA FUNKCJA renderHistory
-    function renderHistory(allSessions, tusHistory) {
+    /**
+ * Renderuje historię sesji na stronie.
+ * @param {Array} allSessions - Tablica sesji indywidualnych i wpisów dziennika.
+ * @param {Array} tusHistory - Tablica sesji grupowych TUS.
+ * @param {boolean} isAllClientsView - Flaga określająca, czy renderować widok dla wszystkich klientów.
+ */
+function renderHistory(allSessions, tusHistory, isAllClientsView = false) {
 
-        const individualAndJournalSessions = allSessions.filter(s => s.source_type !== 'tus');
+    const individualAndJournalSessions = allSessions.filter(s => s.source_type !== 'tus');
 
-        let html = `
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Wszystkie Sesje Indywidualne i Wpisy Dziennika</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 15%;">Data i Godzina</th>
-                                    <th style="width: 15%;">Typ / Terapeuta</th>
-                                    <th style="width: 25%;">Temat</th>
-                                    <th style="width: 35%;">Notatki</th>
-                                    <th style="width: 10%;">Akcje</th>
-                                </tr>
-                            </thead>
-                            <tbody>`;
+    // Definicja nagłówka kolumny klienta
+    const clientColumnHeader = isAllClientsView ? '<th style="width: 15%;">Klient</th>' : '';
+    
+    let html = `
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-calendar-check"></i> 
+                    ${isAllClientsView ? 'Historia wszystkich klientów' : 'Wszystkie Sesje Indywidualne i Wpisy Dziennika'}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 15%;">Data i Godzina</th>
+                                ${clientColumnHeader}
+                                <th style="width: 15%;">Typ / Terapeuta</th>
+                                <th style="width: 20%;">Temat</th>
+                                <th style="width: 25%;">Notatki</th>
+                                <th style="width: 10%;">Akcje</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
 
-        if (individualAndJournalSessions && individualAndJournalSessions.length > 0) {
-            individualAndJournalSessions.forEach(session => {
-                // Ujednolicone pola: topic_or_temat, notes, therapist_name
-                const date = session.starts_at;
-                const notes = session.notes || '';
-                const truncatedNotes = truncateText(notes, 80);
-                const isJournal = session.source_type === 'journal';
+    if (individualAndJournalSessions && individualAndJournalSessions.length > 0) {
+        individualAndJournalSessions.forEach(session => {
+            // Ujednolicone pola
+            const date = session.starts_at;
+            const notes = session.notes || '';
+            const truncatedNotes = truncateText(notes, 80);
+            const isJournal = session.source_type === 'journal';
 
-                const typeLabel = isJournal ?
-                    `<span class="badge bg-info text-dark">Dziennik</span>` :
-                    `<span class="badge bg-secondary">Indywidualna</span>`;
+            const typeLabel = isJournal ?
+                `<span class="badge bg-info text-dark">Dziennik</span>` :
+                `<span class="badge bg-secondary">Indywidualna</span>`;
 
-                const topic = session.topic_or_temat || 'Bez tematu';
-                const therapist = session.therapist_name || 'Nieznany';
+            const topic = session.topic_or_temat || 'Bez tematu';
+            const therapist = session.therapist_name || 'Nieznany';
+            
+            // Definicja komórki klienta (wymaga, aby API zwracało client_name w widoku globalnym)
+            const clientCell = isAllClientsView ? 
+                `<td><strong>${session.client_name || 'Brak'}</strong></td>` : '';
 
-                // Użyj unikalnego ID dla detali
-                const detailId = `${session.source_type}_${session.source_id}`;
+            // Przygotowanie danych do modalu
+            const modalData = {
+                date: date,
+                therapist: therapist,
+                topic: topic,
+                notes: notes,
+                place: session.place || 'N/A',
+                duration: session.duration_minutes || 60,
+                note_id: session.note_id || null,
+                source_type: session.source_type,
+                source_id: session.source_id 
+            };
 
-                // Przygotowanie danych do modalu
-                const modalData = {
-                    date: date,
-                    therapist: therapist,
-                    topic: topic,
-                    notes: notes,
-                    place: session.place || 'N/A',
-                    duration: session.duration_minutes || 60,
-                    note_id: session.note_id || null, // Używaj note_id z tabeli client_notes tylko dla typu 'individual'
-                    source_type: session.source_type
-                };
+            html += `
+                <tr>
+                    <td>${new Date(date).toLocaleString('pl-PL', {
+                        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                    })}</td>
+                    ${clientCell}
+                    <td>${typeLabel}<br><span class="small">${therapist}</span></td>
+                    <td><strong>${topic}</strong></td>
+                    <td>
+                        ${notes ? `<div class="text-muted small">${truncatedNotes}</div>` : '<span class="text-muted fst-italic">Brak notatek</span>'}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary"
+                            data-session='${JSON.stringify(modalData).replace(/'/g, "&apos;")}'
+                            onclick="showSessionDetails(this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+    } else {
+        // Używamy dynamicznego colspan w zależności od widoku
+        html += `<tr><td colspan="${isAllClientsView ? 6 : 5}" class="text-center text-muted">Brak wpisów w historii.</td></tr>`;
+    }
+    html += `</tbody></table></div></div></div>`;
 
-                html += `
-                    <tr>
-                        <td>${new Date(date).toLocaleString('pl-PL', {
-                            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-                        })}</td>
-                        <td>${typeLabel}<br><span class="small">${therapist}</span></td>
-                        <td><strong>${topic}</strong></td>
-                        <td>
-                            ${notes ? `<div class="text-muted small">${truncatedNotes}</div>` : '<span class="text-muted fst-italic">Brak notatek</span>'}
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary"
-                                data-session='${JSON.stringify(modalData).replace(/'/g, "&apos;")}'
-                                onclick="showSessionDetails(this)">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-        } else {
-            html += '<tr><td colspan="5" class="text-center text-muted">Brak wpisów w historii indywidualnej lub dzienniku.</td></tr>';
-        }
-        html += `</tbody></table></div></div></div>`;
-
-        // Sekcja spotkań TUS (bez zmian, używamy danych z osobnego endpointu)
+    // Sekcja spotkań TUS (renderuj tylko w widoku pojedynczego klienta)
+    if (!isAllClientsView) {
         html += `
             <div class="card">
                 <div class="card-header bg-success text-white">
@@ -201,9 +233,10 @@ document.addEventListener('DOMContentLoaded', () => {
             html += '<tr><td colspan="3" class="text-center text-muted">Brak sesji TUS w historii.</td></tr>';
         }
         html += `</tbody></table></div></div></div>`;
-
-        historyContainer.innerHTML = html;
     }
+
+    historyContainer.innerHTML = html;
+}
 
     clientSelector.addEventListener('change', loadClientHistory);
     searchInput.addEventListener('input', () => {
@@ -416,4 +449,5 @@ document.addEventListener('DOMContentLoaded', () => {
     window.toggleEditMode = toggleEditMode;
 
     window.saveNoteEdit = saveNoteEdit;
+
 
