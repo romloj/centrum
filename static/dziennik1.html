@@ -87,8 +87,8 @@
         #journalForm select,
         #journalForm input[type="text"],
         #journalForm textarea,
-        /* DODANA STYLIZACJA DLA FILTRA DATY */
-        #dateFilterInput { 
+        /* ZMIANA: Aktualizacja selektora ID dla filtra miesiąca */
+        #monthFilterInput { 
             width: 100%;
             padding: 8px;
             margin-top: 5px;
@@ -138,8 +138,9 @@
                 <option value="">Najpierw wyszukaj lub załaduj...</option>
             </select>
 
-            <label class="form-label" for="dateFilterInput" style="margin-top: 10px;"><strong>Filtruj wg daty</strong></label>
-            <input type="date" id="dateFilterInput" class="form-select"> </div>
+            <label class="form-label" for="monthFilterInput" style="margin-top: 10px;"><strong>Filtruj wg miesiąca</strong></label>
+            <input type="month" id="monthFilterInput" class="form-select">
+            </div>
 
         <button class="add-btn" onclick="showForm()">Dodaj Nowy Wpis</button>
 
@@ -250,20 +251,21 @@
         }
     }
 
-        // ZMIANA: Dodano parametr 'date'
-        async function fetchJournalEntries(clientId = null, date = null) {
+        // ZMIANA: Zmiana parametru 'date' na 'month' dla jasności
+        async function fetchJournalEntries(clientId = null, month = null) {
         const tbody = document.getElementById('entries-tbody');
         tbody.innerHTML = '<tr><td colspan="5">Ładowanie wpisów...</td></tr>';
         try {
-            // === ZMIANA: Dodano obsługę clientId i daty ===
+            // === ZMIANA: Dodano obsługę clientId i miesiąca ===
             let apiUrl = `${API_BASE_URL}/api/journal`;
             const params = new URLSearchParams();
             
             if (clientId) {
                 params.append('client_id', clientId);
             }
-            if (date) {
-                params.append('data', date); // Dodaj parametr daty
+            // ZMIANA: Wysyłamy parametr 'month' w formacie RRRR-MM
+            if (month) {
+                params.append('month', month); // Backend musi to obsłużyć
             }
             
             const queryString = params.toString();
@@ -280,54 +282,39 @@
         }
     }
 
-        // === DODANO: Nowa funkcja do obsługi filtrów ===
+        // === ZMIANA: Funkcja czyta teraz z 'monthFilterInput' ===
         function applyFiltersAndFetch() {
             const selectedClientId = document.getElementById('clientSelect').value;
-            const selectedDate = document.getElementById('dateFilterInput').value;
+            // ZMIANA: Pobieranie wartości z filtra miesiąca
+            const selectedMonth = document.getElementById('monthFilterInput').value; 
             
             // Przeładuj listę wpisów z oboma filtrami
             // Przekazujemy null, jeśli wartość jest pusta (np. "" lub undefined)
-            fetchJournalEntries(selectedClientId || null, selectedDate || null);
+            // ZMIANA: Przekazanie selectedMonth
+            fetchJournalEntries(selectedClientId || null, selectedMonth || null);
         }
         // =======================================
 
         // =========================================================================
-        // === LOGIKA IMPORTU CSV (POPRWIONA: Rozdzielenie Temat i Celów/Opisu) ===
+        // === LOGIKA IMPORTU CSV (Bez zmian) ===
         // =========================================================================
 
-        /**
-         * Ujednolica nazwę nagłówka na klucz oczekiwany w JS/API.
-         */
         function normalizeHeader(header) {
             if (!header) return null;
             const clean = header.trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
             switch (clean) {
                 case 'data': return 'data';
-
-                // MAPOWANIE KLIENTA: full_name z CSV na klient_name w JS
                 case 'fullname':
                 case 'klient': return 'klient_name';
-
-                // MAPOWANIE TERAPEUTY
                 case 'terapeuta': return 'terapeuta_name';
-
-                // MAPOWANIE TEMATU (JEST OSOBNO)
                 case 'temat': return 'temat';
-
-                // MAPOWANIE CELÓW/OPISÓW (Oba pola z CSV mapujemy na osobne klucze,
-                // ale zostaną połączone w 'cele' przed wysłaniem do API)
-                case 'cele': return 'cele_csv'; // Używamy unikalnej nazwy tymczasowej
-                case 'opis': return 'opis_csv'; // Używamy unikalnej nazwy tymczasowej
-
+                case 'cele': return 'cele_csv'; 
+                case 'opis': return 'opis_csv'; 
                 case 'notatki': return 'cele_csv';
                 default: return null;
             }
         }
 
-        /**
-         * Obsługuje plik wybrany przez użytkownika i uruchamia Papa Parse.
-         * (Bez zmian w stosunku do poprzedniej wersji)
-         */
         function handleCSVUpload() {
             const fileInput = document.getElementById('csvFile');
             const file = fileInput.files[0];
@@ -364,14 +351,10 @@
             });
         }
 
-        /**
-         * Przetwarza dane z Papa Parse i wysyła je do API.
-         */
         async function processCSVData(data, rawHeaders) {
             const statusDiv = document.getElementById('importStatus');
             statusDiv.innerHTML = "Przetwarzanie danych...";
 
-            // 1. Zmapowanie nagłówków
             const headerMap = {};
             rawHeaders.forEach(raw => {
                 const normalized = normalizeHeader(raw);
@@ -380,8 +363,6 @@
                 }
             });
 
-            // 2. Walidacja nagłówków
-            // Wymagane są: data, klient_name, terapeuta_name i temat.
             const requiredHeaders = ['data', 'klient_name', 'terapeuta_name', 'temat'];
             const foundHeaders = Object.values(headerMap);
             const missingHeaders = requiredHeaders.filter(h => !foundHeaders.includes(h));
@@ -391,7 +372,6 @@
                 return;
             }
 
-            // 3. Proces importu
             let totalProcessed = 0;
             let totalSaved = 0;
             let errors = [];
@@ -399,7 +379,6 @@
             for (const row of data) {
                 totalProcessed++;
 
-                // Mapowanie surowych danych na format zdefiniowany w normalizeHeader
                 const entry = {};
                 for (const rawKey in row) {
                     const mappedKey = headerMap[rawKey];
@@ -408,7 +387,6 @@
                     }
                 }
 
-                // KLUCZOWE: Łączenie Cele i Opis w jedno pole 'cele' (zgodnie z API)
                 let combinedCele = '';
                 if (entry.cele_csv) {
                     combinedCele += `Cele: ${entry.cele_csv}\n`;
@@ -416,15 +394,12 @@
                 if (entry.opis_csv) {
                     combinedCele += `Opis: ${entry.opis_csv}\n`;
                 }
-                // Użyjemy pola 'cele' do wysłania połączonego opisu.
                 entry.cele = combinedCele.trim();
 
-
-                // Wyszukanie ID kluczy obcych na podstawie nazw (konwersja na małe litery)
                 const clientNameLower = entry.klient_name ? entry.klient_name.toLowerCase() : '';
                 const therapistNameLower = entry.terapeuta_name ? entry.terapeuta_name.toLowerCase() : '';
 
-                const clientId = clientMap[clientNameLower]; // Wyszukiwanie ID klienta po nazwisku!
+                const clientId = clientMap[clientNameLower]; 
                 const therapistId = therapistMap[therapistNameLower];
 
                 if (!clientId || !therapistId) {
@@ -435,7 +410,6 @@
                     continue;
                 }
 
-                // Próba zaimportowania
                 try {
                     const success = await uploadEntryToAPI(entry, clientId, therapistId);
                     if (success) {
@@ -451,7 +425,6 @@
                 await new Promise(r => setTimeout(r, 10)); // Mała pauza
             }
 
-            // 4. Podsumowanie
             statusDiv.innerHTML = `
                 <span style="color:${errors.length > 0 ? 'orange' : 'green'}; font-weight:bold;">
                     IMPORT ZAKOŃCZONY. Zapisano ${totalSaved} z ${totalProcessed} wierszy.
@@ -463,39 +436,31 @@
                 statusDiv.innerHTML += `<div style="max-height: 200px; overflow-y: scroll; border: 1px solid #fae3e3; margin-top: 5px; color:#dc3545; padding:5px;">${errors.join('<br>')}</div>`;
             }
 
-            fetchJournalEntries(); // Odświeżenie listy głównej
-            document.getElementById('csvFile').value = ''; // Wyczyść pole pliku
+            fetchJournalEntries(); 
+            document.getElementById('csvFile').value = ''; 
         }
 
-        /**
-         * Wysyła jeden wpis do endpointu API.
-         * (Bez zmian w stosunku do poprzedniej wersji)
-         */
         async function uploadEntryToAPI(entry, clientId, therapistId) {
-            // W tym miejscu entry.temat to temat, a entry.cele to połączone cele/opisy
             const apiData = {
                 data: entry.data,
                 client_id: clientId,
                 therapist_id: therapistId,
-                temat: entry.temat, // Temat z CSV
-                cele: entry.cele    // Połączone cele i opisy z CSV
+                temat: entry.temat,
+                cele: entry.cele   
             };
 
             try {
-                // Wymuś format daty RRRR-MM-DD
                 let dateStr = apiData.data;
-                let dateParts = dateStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); // RRRR-MM-DD
+                let dateParts = dateStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); 
 
                 if (!dateParts) {
-                    // Próba formatu DD.MM.RRRR lub DD/MM/RRRR
                     dateParts = dateStr.match(/(\d{1,2})[\.\/](\d{1,2})[\.\/](\d{4})/);
                     if (dateParts && dateParts.length === 4) {
                         const day = dateParts[1].padStart(2, '0');
                         const month = dateParts[2].padStart(2, '0');
                         const year = dateParts[3];
-                        apiData.data = `${year}-${month}-${day}`; // Konwersja na RRRR-MM-DD
+                        apiData.data = `${year}-${month}-${day}`;
                     } else {
-                         // Jeśli nadal nie działa, Flask może spróbować to przetworzyć, ale lepiej jest, gdy jest poprawny
                          throw new Error(`Nieznany format daty: ${dateStr}`);
                     }
                 }
@@ -509,7 +474,7 @@
         }
 
         // =========================================================================
-        // === FUNKCJE POMOCNICZE WIDOKU (wzięte z poprzedniej wersji) ===
+        // === FUNKCJE POMOCNICZE WIDOKU (Bez zmian) ===
         // =========================================================================
 
         function populateSelect(selectId, data, idKey, nameKey) {
@@ -517,7 +482,6 @@
             select.innerHTML = select.innerHTML.split('</option>')[0] + '</option>';
             data.forEach(item => {
                 const option = document.createElement('option');
-                // UWAGA: Używamy 'client_id' lub 'id' w zależności od mapowania
                 const valueKey = selectId === 'client_id' ? 'client_id' : 'id';
                 option.value = item[valueKey];
                 option.textContent = item[nameKey];
@@ -568,7 +532,7 @@
                 await axios.delete(`${API_BASE_URL}/api/journal/${id}`);
                 alert("Wpis usunięty pomyślnie.");
                 
-                // ZMIANA: Odśwież listę z uwzględnieniem aktywnych filtrów
+                // Odśwież listę z uwzględnieniem aktywnych filtrów
                 applyFiltersAndFetch();
             } catch (error) {
                 console.error("Błąd usuwania wpisu:", error);
@@ -587,24 +551,15 @@
 
             entries.forEach(entry => {
                 const row = tbody.insertRow();
-
-                // Data
                 const dateCell = row.insertCell();
                 dateCell.textContent = new Date(entry.data).toLocaleDateString();
-
-                // Klient
                 row.insertCell().textContent = entry.klient || 'N/A';
-
-                // Terapeuta
                 row.insertCell().textContent = entry.terapeuta || 'N/A';
-
-                // Temat (skrócony)
                 const tematCell = row.insertCell();
                 const shortTemat = entry.temat ? entry.temat.substring(0, 50) + (entry.temat.length > 50 ? '...' : '') : 'Brak';
-                tematCell.title = entry.cele; // Użyj 'cele' jako podpowiedzi
+                tematCell.title = entry.cele; 
                 tematCell.textContent = shortTemat;
 
-                // Akcje
                 const actionsCell = row.insertCell();
                 actionsCell.className = 'action-buttons';
                 actionsCell.innerHTML = `
@@ -628,7 +583,6 @@
                 cele: document.getElementById('cele').value,
             };
 
-            // Prosta walidacja
             if (!entryData.data || !entryData.client_id || !entryData.therapist_id) {
                 document.getElementById('form-error').textContent = 'Pola Data, Klient i Terapeuta są wymagane.';
                 return;
@@ -636,18 +590,16 @@
 
             try {
                 if (isEditing) {
-                    // Aktualizacja (PUT/PATCH)
                     await axios.put(`${API_BASE_URL}/api/journal/${entryId}`, entryData);
                     alert("Wpis zaktualizowany pomyślnie.");
                 } else {
-                    // Tworzenie (POST)
                     await axios.post(`${API_BASE_URL}/api/journal`, entryData);
                     alert("Wpis dodany pomyślnie.");
                 }
 
                 hideForm();
                 
-                // ZMIANA: Odśwież listę z uwzględnieniem aktywnych filtrów
+                // Odśwież listę z uwzględnieniem aktywnych filtrów
                 applyFiltersAndFetch();
 
             } catch (error) {
@@ -657,7 +609,7 @@
             }
         });
 
-        // --- SORTOWANIE TABELI (proste, tekstowe) ---
+        // --- SORTOWANIE TABELI (Bez zmian) ---
         function sortTable(n) {
             let table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
             table = document.getElementById("entries-tbody").parentNode;
@@ -676,16 +628,13 @@
                     let xContent = x.textContent.toLowerCase();
                     let yContent = y.textContent.toLowerCase();
 
-                    // Specjalne sortowanie dla daty (n=0)
                     if (n === 0) {
-                        // Próba parsowania daty DD.MM.RRRR
                         let xDate = xContent.split('.').reverse().join('-');
                         let yDate = yContent.split('.').reverse().join('-');
                         
                         xContent = new Date(xDate).getTime();
                         yContent = new Date(yDate).getTime();
                     }
-
 
                     if (dir == "asc") {
                         if (xContent > yContent) {
@@ -712,52 +661,45 @@
             }
         }
 
+        // --- WYSZUKIWANIE KLIENTA (Bez zmian) ---
         function renderClientOptions(searchTerm = '') {
-      // Pobierz oba elementy <select>
-      const viewSelect = document.getElementById('clientSelect');
-      const formSelect = document.getElementById('client_id'); // Selektor w formularzu
-      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+            const viewSelect = document.getElementById('clientSelect');
+            const formSelect = document.getElementById('client_id'); 
+            const lowerCaseSearchTerm = searchTerm.toLowerCase();
 
-      // Przefiltruj globalną listę allClients
-      const filteredClients = allClients.filter(client =>
-        (client.full_name || '').toLowerCase().includes(lowerCaseSearchTerm)
-      );
+            const filteredClients = allClients.filter(client =>
+                (client.full_name || '').toLowerCase().includes(lowerCaseSearchTerm)
+            );
 
-      // Zapamiętaj aktualnie wybrane wartości (jeśli istnieją), aby ich nie zgubić
-      const selectedViewValue = viewSelect ? viewSelect.value : null;
-      const selectedFormValue = formSelect ? formSelect.value : null;
+            const selectedViewValue = viewSelect ? viewSelect.value : null;
+            const selectedFormValue = formSelect ? formSelect.value : null;
 
-      // Wyczyść oba selektory
-      if (viewSelect) viewSelect.innerHTML = '';
-      if (formSelect) formSelect.innerHTML = '';
+            if (viewSelect) viewSelect.innerHTML = '';
+            if (formSelect) formSelect.innerHTML = '';
 
-      // Dodaj opcję domyślną/placeholder
-      const defaultOptionText = filteredClients.length > 0 ? '-- Wybierz klienta --' : (searchTerm ? 'Brak pasujących' : 'Załaduj listę...');
-      if (viewSelect) viewSelect.innerHTML = `<option value="">${defaultOptionText}</option>`;
-      if (formSelect) formSelect.innerHTML = `<option value="">${defaultOptionText}</option>`;
+            const defaultOptionText = filteredClients.length > 0 ? '-- Wybierz klienta --' : (searchTerm ? 'Brak pasujących' : 'Załaduj listę...');
+            if (viewSelect) viewSelect.innerHTML = `<option value="">${defaultOptionText}</option>`;
+            if (formSelect) formSelect.innerHTML = `<option value="">${defaultOptionText}</option>`;
 
-      // Sortuj alfabetycznie i dodaj opcje do OBU selektorów
-      filteredClients
-        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
-        .forEach(client => {
-          const option = document.createElement('option');
-          // Użyj 'client_id' jako wartości - zgodnie z resztą kodu
-          option.value = client.client_id; 
-          option.textContent = client.full_name || 'Brak nazwy';
+            filteredClients
+                .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+                .forEach(client => {
+                const option = document.createElement('option');
+                option.value = client.client_id; 
+                option.textContent = client.full_name || 'Brak nazwy';
 
-          // Dodaj opcję do obu list
-          if (viewSelect) viewSelect.appendChild(option.cloneNode(true)); // Klonujemy dla drugiego selecta
-          if (formSelect) formSelect.appendChild(option);
+                if (viewSelect) viewSelect.appendChild(option.cloneNode(true)); 
+                if (formSelect) formSelect.appendChild(option);
 
-          // Przywróć zaznaczenie, jeśli było
-          if (viewSelect && option.value === selectedViewValue) {
-              viewSelect.value = selectedViewValue;
-          }
-          if (formSelect && option.value === selectedFormValue) {
-              formSelect.value = selectedFormValue;
-          }
-        });
-    }
+                if (viewSelect && option.value === selectedViewValue) {
+                    viewSelect.value = selectedViewValue;
+                }
+                if (formSelect && option.value === selectedFormValue) {
+                    formSelect.value = selectedFormValue;
+                }
+            });
+        }
+
         // --- INICJALIZACJA ---
         document.addEventListener('DOMContentLoaded', () => {
             // 1. Pobierz dane i wypełnij listy
@@ -771,14 +713,13 @@
                 });
             }
 
-            // 3. Podłącz listener do głównego selektora klienta (do filtrowania tabeli)
+            // 3. Podłącz listener do głównego selektora klienta
             const clientSelectView = document.getElementById('clientSelect');
             if (clientSelectView) {
-                // ZMIANA: Użyj nowej funkcji obsługującej oba filtry
                 clientSelectView.addEventListener('change', () => {
                     applyFiltersAndFetch();
                     
-                    // Opcjonalnie: zsynchronizuj też selektor w formularzu
+                    // Synchronizacja selektora w formularzu
                     const formSelect = document.getElementById('client_id');
                     if (formSelect) {
                         formSelect.value = clientSelectView.value;
@@ -786,13 +727,12 @@
                 });
             }
 
-            // 4. DODANO: Podłącz listener do filtra daty
-            const dateFilter = document.getElementById('dateFilterInput');
-            if (dateFilter) {
-                dateFilter.addEventListener('change', applyFiltersAndFetch);
+            // 4. ZMIANA: Podłącz listener do filtra miesiąca
+            const monthFilter = document.getElementById('monthFilterInput'); // ZMIANA ID
+            if (monthFilter) {
+                monthFilter.addEventListener('change', applyFiltersAndFetch);
             }
         });
     </script>
 </body>
-
 </html>
