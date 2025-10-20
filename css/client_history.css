@@ -54,8 +54,8 @@
 /* Zmniejsz pionowy padding komórek w tabeli historii */
 #historyContainer .table td,
 #historyContainer .table th {
-  padding-top: 0.25rem;    /* Zmniejsz górny padding (domyślnie np. 0.5rem lub 0.75rem) */
-  padding-bottom: 0.25rem; /* Zmniejsz dolny padding */
+  padding-top: 0.15rem;    /* Zmniejsz górny padding (domyślnie np. 0.5rem lub 0.75rem) */
+  padding-bottom: 0.50rem; /* Zmniejsz dolny padding */
   vertical-align: top;     /* Dodatkowo wyrównaj zawartość komórki do góry */
 }
 
@@ -68,5 +68,6 @@
       animation: pulse 1.5s ease-in-out infinite;
 
     }
+
 
 
