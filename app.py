@@ -6827,43 +6827,127 @@ def get_waiting_stats():
 
     # === DZIENNIK ENDPOINTS ===
 
-@app.get("/api/journal")
-def get_journal_entries():
-        """Pobiera wszystkie wpisy z dziennika z pełnymi nazwami"""
+#@app.get("/api/journal")
+#def get_journal_entries():
+#        """Pobiera wszystkie wpisy z dziennika z pełnymi nazwami"""
 
         # Opcjonalny filtr na klienta
-        client_id = request.args.get('client_id', type=int)
+#        client_id = request.args.get('client_id', type=int)
 
-        with session_scope() as db_session:
-            query = db_session.query(JournalEntry).options(
-                joinedload(JournalEntry.client),
-                joinedload(JournalEntry.therapist)
-            )
+#        with session_scope() as db_session:
+#            query = db_session.query(JournalEntry).options(
+#                joinedload(JournalEntry.client),
+#                joinedload(JournalEntry.therapist)
+#            )
 
-            if client_id:
-                query = query.filter(JournalEntry.client_id == client_id)
+ #           if client_id:
+ #               query = query.filter(JournalEntry.client_id == client_id)
 
-            entries = query.order_by(JournalEntry.data.desc(), JournalEntry.id.desc()).all()
+  #          entries = query.order_by(JournalEntry.data.desc(), JournalEntry.id.desc()).all()
 
-            results = []
-            for e in entries:
+  #          results = []
+  #          for e in entries:
                 # Upewnij się, że używasz bezpiecznego dostępu do relacji
-                client_name = e.client.full_name if e.client else 'Nieznany Klient'
-                therapist_name = e.therapist.full_name if e.therapist else 'Nieznany Terapeuta'
+  #              client_name = e.client.full_name if e.client else 'Nieznany Klient'
+  #              therapist_name = e.therapist.full_name if e.therapist else 'Nieznany Terapeuta'
 
-                results.append({
-                    "id": e.id,
-                    "data": e.data.isoformat(),
-                    "client_id": e.client_id,
-                    "klient": client_name,
-                    "therapist_id": e.therapist_id,
-                    "terapeuta": therapist_name,
-                    "temat": e.temat,
-                    "cele": e.cele,
-                    "created_at": e.created_at.isoformat() if e.created_at else None
-                })
+  #              results.append({
+  #                  "id": e.id,
+  #                  "data": e.data.isoformat(),
+  #                  "client_id": e.client_id,
+  #                  "klient": client_name,
+  #                  "therapist_id": e.therapist_id,
+  #                  "terapeuta": therapist_name,
+  #                  "temat": e.temat,
+  #                  "cele": e.cele,
+  #                  "created_at": e.created_at.isoformat() if e.created_at else None
+  #              })
 
-            return jsonify(results), 200
+   #         return jsonify(results), 200
+
+
+@current_app.route('/api/journal', methods=['GET'])
+def get_journal_entries():
+    """
+    Pobiera wpisy dziennika, opcjonalnie filtrując po client_id i/lub miesiącu (RRRR-MM).
+    """
+    
+    # 1. Pobranie parametrów zapytania (query parameters)
+    client_id = request.args.get('client_id')
+    month_str = request.args.get('month') # Odbierze format "YYYY-MM"
+
+    # 2. Budowanie bazowego zapytania SQL
+    # Używamy RealDictCursor, aby wyniki były słownikami, co ułatwia konwersję na JSON
+    base_query = """
+        SELECT 
+            j.id, 
+            j.data, 
+            c.full_name AS klient, 
+            t.full_name AS terapeuta, 
+            j.temat, 
+            j.cele, 
+            j.client_id, 
+            j.therapist_id
+        FROM journal_entries j
+        LEFT JOIN clients c ON j.client_id = c.client_id
+        LEFT JOIN therapists t ON j.therapist_id = t.id
+    """
+    
+    # 3. Dynamiczne budowanie filtrów
+    filters = []
+    params = {} # Słownik na parametry, aby uniknąć SQL Injection
+
+    if client_id:
+        filters.append("j.client_id = %(client_id)s")
+        params['client_id'] = int(client_id) # Lepiej rzutować na int dla bezpieczeństwa
+
+    # 4. Logika filtrowania miesięcznego
+    if month_str:
+        try:
+            # Sprawdzenie formatu RRRR-MM i rozbicie go
+            year, month = map(int, month_str.split('-'))
+            
+            # Używamy EXTRACT do filtrowania w PostgreSQL
+            # To jest bezpieczne, ponieważ rzutowaliśmy rok i miesiąc na int
+            filters.append("EXTRACT(YEAR FROM j.data) = %(year)s AND EXTRACT(MONTH FROM j.data) = %(month)s")
+            params['year'] = year
+            params['month'] = month
+        except (ValueError, TypeError):
+            # Ignoruj niepoprawny format miesiąca
+            pass 
+
+    # 5. Łączenie filtrów z zapytaniem
+    if filters:
+        # Dodajemy klauzulę WHERE i łączymy wszystkie filtry za pomocą 'AND'
+        base_query += " WHERE " + " AND ".join(filters)
+        
+    # 6. Sortowanie
+    base_query += " ORDER BY j.data DESC, j.id DESC"
+
+    # 7. Wykonanie zapytania
+    conn = None
+    try:
+        conn = get_db_connection()
+        # Używamy RealDictCursor, aby otrzymać wyniki jako słowniki
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(base_query, params)
+            entries = cur.fetchall()
+            
+            # Konwersja daty na string (opcjonalne, jsonify zwykle sobie radzi)
+            for entry in entries:
+                if 'data' in entry and entry['data']:
+                    entry['data'] = entry['data'].isoformat() # Format RRRR-MM-DD
+
+        return jsonify(entries), 200
+
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(f"Błąd podczas pobierania dziennika: {error}")
+        # Logowanie błędu
+        return jsonify({"error": "Wystąpił błąd serwera podczas pobierania danych."}), 500
+        
+    finally:
+        if conn:
+            conn.close()
 
 @app.post("/api/journal")
 def create_journal_entry():
@@ -7084,11 +7168,15 @@ def get_client_all_sessions(client_id: int):
         return jsonify({"error": str(e)}), 500
 
 
+
+
+
     # Wywołaj przy starcie aplikacji
-if __name__ == '__main__':
-    init_documents_table()  # Dodaj tę linię
-    app.run(debug=True, host='0.0.0.0', port=5000)
+#if __name__ == '__main__':
+#    init_documents_table()  # Dodaj tę linię
+#    app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
