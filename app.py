@@ -7173,11 +7173,12 @@ def get_client_all_sessions(client_id: int):
 
 
     # Wywołaj przy starcie aplikacji
-#if __name__ == '__main__':
-#    init_documents_table()  # Dodaj tę linię
-#    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    init_documents_table()  # Dodaj tę linię
+    app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
