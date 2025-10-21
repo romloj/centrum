@@ -1211,37 +1211,40 @@ async function openGroupDetails(groupId) {
         const sid = parseInt($('#scoringSessionId').val(), 10);
         const gid = parseInt($('#scoringGroupId').val(), 10);
         
-        // --- ZMIANA: Dodano tablicę 'attendance' do payloadu ---
         const payload = { scores: [], attendance: [] };
 
         $('#scoringBody tbody tr').each(function() {
           const client_id = parseInt($(this).data('cid'), 10);
           
-          // --- NOWA SEKCJA: Zbieranie danych o obecności ---
+          // Zbieranie danych o obecności (zawsze)
           const is_present = $(this).find('.attendance-check').is(':checked');
           payload.attendance.push({ client_id, is_present });
-          // --- KONIEC NOWEJ SEKCJI ---
 
-          // Zbieranie punktów (bez zmian)
+          // Zbieranie punktów (tylko jeśli istnieją inputy ocen)
           const items = [];
-          $(this).find('.score-input').each(function() {
-            items.push({
-              behavior_id: parseInt($(this).data('bid'), 10),
-              points: parseInt($(this).val(), 10) || 0
+          const $scoreInputs = $(this).find('.score-input');
+
+          if ($scoreInputs.length > 0) {
+            $scoreInputs.each(function() {
+              items.push({
+                behavior_id: parseInt($(this).data('bid'), 10),
+                points: parseInt($(this).val(), 10) || 0
+              });
             });
-          });
-          payload.scores.push({ client_id, items });
+            payload.scores.push({ client_id, items });
+          }
         });
 
         try {
+          // Logika zapisu jest taka sama, backend obsłuży pustą tablicę 'scores'
           await fetchJSON(`${API_BASE}/api/tus/sessions/${sid}/scores`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload) // Wysyła zarówno 'scores' jak i 'attendance'
+            body: JSON.stringify(payload)
           });
           scoringModal.hide();
           alert('✅ Punktacja i obecność zostały zapisane.');
-          await openGroupDetails(gid); // Odśwież widok
+          await openGroupDetails(gid);
         } catch (e) {
           alert('Nie udało się zapisać punktacji: ' + e.message);
         }
@@ -1365,5 +1368,6 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
 
 
