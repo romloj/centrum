@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Wszystkie Sesje Indywidualne i Wpisy Dziennika</h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body" style="padding-top: 0.5rem;">
                   <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                    
                         <table class="table table-striped table-hover">
@@ -415,6 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showSessionDetails = showSessionDetails;
     window.toggleEditMode = toggleEditMode;
     window.saveNoteEdit = saveNoteEdit;
+
 
 
 
