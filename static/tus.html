@@ -648,7 +648,7 @@ async function openGroupDetails(groupId) {
             } catch (e) {
                 console.error('Błąd formatowania daty:', e);
                 whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time : ''}`;
-            }
+e           }
             return `<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2"><span>${whenLabel} — ${s.topic_title || 'bez tematu'}</span><div class="btn-group btn-group-sm"><button class="btn btn-outline-success bonus-session-btn" data-session-id="${s.id}">Bonusy sesji</button><button class="btn btn-outline-primary score-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Oceń</button><button class="btn btn-outline-danger delete-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Usuń</button></div></li>`;
         }).join('') || '<li class="list-group-item text-muted">Brak sesji</li>';
         const bonusTableRowsHtml = (g.members || []).map(member => {
@@ -669,14 +669,20 @@ async function openGroupDetails(groupId) {
               <li class="nav-item" role="presentation"><button class="nav-link" id="goals-tab" data-bs-toggle="tab" data-bs-target="#goals-panel" type="button" role="tab">Cele i Postępy</button></li>
             </ul>
             <div class="tab-content pt-3">
-                            <div class="tab-pane fade show active" id="sessions-panel" role="tabpanel">
-                <form id="addSessionForm" data-group-id="${g.id}">
-                  <div class="row">
+              <div class="tab-pane fade show active" id="sessions-panel" role="tabpanel">
+
+                                <h6>Lista Sesji</h6>
+                <ul class="list-group mb-3">${sessionsListHtml}</ul>
+                <hr>
+
+                                <form id="addSessionForm" data-group-id="${g.id}">
+                  <div class="row g-4">
                                         <div class="col-lg-5">
-                      <h6>Uczestnicy</h6>
-                      <ul class="list-unstyled">${membersListHtml}</ul>
-                      <div id="sessionCalendar" class="mt-4"></div>
-                      <div class="d-grid mt-2"><button id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button></div>
+                      <h6>Uczestnicy (lista)</h6>
+                      <ul class="list-unstyled small">${membersListHtml}</ul>
+                      
+                      <div id="sessionCalendar" class="mt-3"></div>
+                      <div class="d-grid mt-2"><button type="button" id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button></div>
                       
                                             <div class="mt-3">
                         <label class="form-label mb-1 fw-bold">Obecność (dla nowej sesji):</label>
@@ -684,14 +690,12 @@ async function openGroupDetails(groupId) {
                           ${membersChecklistHtml}
                         </div>
                       </div>
-                                          </div>
+                    </div>
                                         <div class="col-lg-7">
-                      <h6>Lista Sesji</h6>
-                      <ul class="list-group mb-3">${sessionsListHtml}</ul>
                       <div class="card">
                         <div class="card-body">
                           <h6 class="card-title">Dodaj nową sesję</h6>
-                                                    <div class="row g-2">
+                          <div class="row g-2">
                             <div class="col-6">
                               <label for="sessionDateInput" class="form-label">Data</label>
                               <input type="date" class="form-control" name="date" id="sessionDateInput" required>
@@ -712,7 +716,7 @@ async function openGroupDetails(groupId) {
                           <div class="col-12 mt-3">
                             <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
                           </div>
-                                                  </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -747,6 +751,9 @@ async function openGroupDetails(groupId) {
         }
         const saveScheduleBtn = document.getElementById('saveScheduleBtn');
         if (saveScheduleBtn) {
+            // WAŻNA POPRAWKA: Przycisk zapisu harmonogramu nie może być typu "submit"
+            // (bo jest teraz wewnątrz formularza #addSessionForm)
+            saveScheduleBtn.setAttribute('type', 'button'); 
             saveScheduleBtn.addEventListener('click', async () => {
                 try {
                     const payload = { schedule_days: Array.from(selectedDates) };
@@ -754,9 +761,21 @@ async function openGroupDetails(groupId) {
                     showAlert('Harmonogram został zapisany!', 'success');
                 } catch (err) {
                     showAlert(`Błąd zapisu harmonogramu: ${err.message}`, 'danger');
-                }
+             }
             });
         }
+
+        const behaviors = await fetchJSON(`${API_BASE}/api/tus/behaviors`);
+        const $behaviorSelect = $('#sessionBehaviorsSelect').empty();
+        (behaviors || []).forEach(b => $behaviorSelect.append(new Option(`${b.title} (max ${b.default_max_points ?? 3})`, String(b.id))));
+        $behaviorSelect.select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Wybierz do 4 zachowań', maximumSelectionLength: 4, dropdownParent: $('#groupDetailsModal') });
+
+        groupDetailsModal.show();
+    } catch (e) {
+        console.error(e);
+        alert(`Nie udało się otworzyć szczegółów grupy: ${e.message}`);
+    }
+}
 
         const behaviors = await fetchJSON(`${API_BASE}/api/tus/behaviors`);
         const $behaviorSelect = $('#sessionBehaviorsSelect').empty();
@@ -1393,6 +1412,7 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
 
 
 
