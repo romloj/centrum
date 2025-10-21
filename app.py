@@ -1987,13 +1987,13 @@ def update_tus_group(group_id):
 @app.post("/api/tus/sessions")
 def create_tus_session():
     data = request.get_json(silent=True) or {}
-    print(f"=== ROZPOCZĘCIE TWORZENIA SESJI (NOWA LOGIKA TEMATU) ===")
+    print(f"=== ROZPOCZĘCIE TWORZENIA SESJI (NOWA LOGIKA TEMATU I OBECNOŚCI) ===")
     print(f"Otrzymane dane: {data}")
 
     try:
         group_id = int(data["group_id"])
 
-        # ZMIANA: Pobieramy tytuł tematu zamiast ID
+        # Pobieramy tytuł tematu zamiast ID
         topic_title = (data.get("topic_title") or "").strip()
         if not topic_title:
             return jsonify({"error": "Pole 'topic_title' jest wymagane."}), 400
@@ -2011,28 +2011,32 @@ def create_tus_session():
         behavior_ids = [int(bid) for bid in data.get("behavior_ids", []) if bid]
         if len(behavior_ids) > 4:
             return jsonify({"error": "Można wybrać maksymalnie 4 zachowania."}), 400
+            
+        # --- NOWA SEKCJA 1: Pobranie listy obecności ---
+        # Tworzymy zbiór (set) dla szybszego sprawdzania
+        present_client_ids_list = [int(cid) for cid in data.get("present_client_ids", []) if cid]
+        present_client_ids_set = set(present_client_ids_list)
+        print(f"Otrzymano ID {len(present_client_ids_set)} obecnych uczestników.")
+        # --- KONIEC NOWEJ SEKCJI 1 ---
 
         with session_scope() as db_session:
-            # ZMIANA: Logika znajdowania lub tworzenia tematu
-            # Sprawdzamy temat bez względu na wielkość liter, aby uniknąć duplikatów
+            # Logika znajdowania lub tworzenia tematu
             topic = db_session.query(TUSTopic).filter(func.lower(TUSTopic.title) == func.lower(topic_title)).first()
 
             if not topic:
-                # Jeśli temat nie istnieje, tworzymy nowy
                 print(f"Temat '{topic_title}' nie istnieje. Tworzę nowy wpis.")
                 topic = TUSTopic(title=topic_title)
                 db_session.add(topic)
-                db_session.flush()  # Ważne, aby uzyskać ID nowego tematu od razu
+                db_session.flush()  
             else:
                 print(f"Znaleziono istniejący temat: ID={topic.id}, Tytuł='{topic.title}'")
 
-            # Pobieramy ID tematu (istniejącego lub nowo utworzonego)
             topic_id_for_session = topic.id
 
-            # Tworzymy główny obiekt sesji z poprawnym topic_id
+            # Tworzymy główny obiekt sesji
             new_session = TUSSession(
                 group_id=group_id,
-                topic_id=topic_id_for_session,  # Używamy znalezionego/utworzonego ID
+                topic_id=topic_id_for_session,
                 session_date=sess_date,
                 session_time=sess_time,
             )
@@ -2051,6 +2055,37 @@ def create_tus_session():
                         max_points=behaviors_map.get(b_id, 3)
                     )
                     db_session.add(session_behavior)
+                    
+            # --- NOWA SEKCJA 2: Zapisywanie obecności ---
+            # Pobieramy wszystkich członków, którzy SĄ przypisani do tej grupy
+            all_group_members = db_session.query(TUSGroupMember).filter(TUSGroupMember.group_id == group_id).all()
+            
+            if not all_group_members:
+                print(f"Ostrzeżenie: Grupa ID={group_id} nie ma żadnych członków. Nie można zapisać obecności.")
+            else:
+                print(f"Znaleziono {len(all_group_members)} członków w grupie. Zapisuję obecność...")
+                
+            attendance_records = []
+            # Tworzymy wpis obecności dla KAŻDEGO członka grupy
+            for member_link in all_group_members:
+                is_present = member_link.client_id in present_client_ids_set
+                
+                new_attendance_record = TUSSessionAttendance(
+                    session_id=new_session.id,
+                    client_id=member_link.client_id,
+                    is_present=is_present  # Zapisz True lub False
+                )
+                attendance_records.append(new_attendance_record)
+                
+                if is_present:
+                    print(f"  -> Uczestnik ID={member_link.client_id} OBECNY")
+                else:
+                    print(f"  -> Uczestnik ID={member_link.client_id} NIEOBECNY")
+
+            if attendance_records:
+                db_session.add_all(attendance_records)
+                print("Zapisano obecność dla wszystkich członków grupy.")
+            # --- KONIEC NOWEJ SEKCJI 2 ---
 
             print(
                 f"UTWORZONO SESJĘ: ID={new_session.id}, Data={new_session.session_date}, Czas={new_session.session_time}, TopicID={topic_id_for_session}")
@@ -7156,6 +7191,7 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
