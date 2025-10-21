@@ -604,7 +604,7 @@ async function openGroupDetails(groupId) {
             calendarEl.innerHTML = `<div class="session-calendar">${headerHtml}${gridHtml}</div>`;
         }
 
-        // --- RESZTA FUNKCJI (z drobnymi zmianami) ---
+        // --- PRZYGOTOWANIE DANYCH (jak wcześniej) ---
         const currentYear = new Date().getFullYear();
         let schoolYearOptionsHtml = '';
         for (let i = 0; i < 5; i++) {
@@ -613,8 +613,8 @@ async function openGroupDetails(groupId) {
             schoolYearOptionsHtml += `<option value="${yearStart}">${yearStart}/${yearEnd}</option>`;
         }
         const membersListHtml = (g.members || []).map(m => `<li>${m.full_name}</li>`).join('') || '<li class="text-muted">Brak uczestników</li>';
-        
-        // --- NOWA SEKCJA: HTML dla listy obecności w formularzu ---
+
+        // --- HTML dla listy obecności (do wstawienia w lewej kolumnie) ---
         const membersChecklistHtml = (g.members || []).length > 0
             ? (g.members || []).map(m => `
                 <div class="form-check">
@@ -622,9 +622,9 @@ async function openGroupDetails(groupId) {
                   <label class="form-check-label" for="att-new-${m.id}">${m.full_name}</label>
                 </div>
             `).join('')
-            : '<p class="text-muted small">Brak uczestników w grupie, aby dodać obecność.</p>';
-        // --- KONIEC NOWEJ SEKCJI ---
+            : '<p class="text-muted small">Brak uczestników w grupie.</p>';
 
+        // --- Reszta danych (sesje, bonusy itd.) ---
         const sessionsMap = new Map();
         (g.sessions || []).forEach(session => {
             if (session.id && !sessionsMap.has(session.id)) {
@@ -661,6 +661,7 @@ async function openGroupDetails(groupId) {
             return `<li class="list-group-item d-flex justify-content-between align-items-center"><div><strong>${h.client_name}</strong> otrzymał <strong>${h.points} pkt.</strong><br><small class="text-muted">Powód: ${h.reason || 'Brak'}</small></div><span class="badge bg-secondary rounded-pill">${date}</span></li>`;
         }).join('') : '<li class="list-group-item text-muted">Brak przyznanych bonusów ogólnych.</li>';
 
+        // --- GŁÓWNA ZMIANA UKŁADU (LAYOUT) ---
         $('#groupDetailsBody').html(`
             <ul class="nav nav-tabs" id="groupTabs" role="tablist">
               <li class="nav-item" role="presentation"><button class="nav-link active" id="sessions-tab" data-bs-toggle="tab" data-bs-target="#sessions-panel" type="button" role="tab">Sesje i Uczestnicy</button></li>
@@ -668,54 +669,56 @@ async function openGroupDetails(groupId) {
               <li class="nav-item" role="presentation"><button class="nav-link" id="goals-tab" data-bs-toggle="tab" data-bs-target="#goals-panel" type="button" role="tab">Cele i Postępy</button></li>
             </ul>
             <div class="tab-content pt-3">
-              <div class="tab-pane fade show active" id="sessions-panel" role="tabpanel">
-                <div class="row">
-                  <div class="col-lg-5">
-                    <h6>Uczestnicy</h6><ul class="list-unstyled">${membersListHtml}</ul>
-                    <div id="sessionCalendar" class="mt-4"></div>
-                    <div class="d-grid mt-2"><button id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button></div>
-                  </div>
-                  <div class="col-lg-7">
-                    <h6>Lista Sesji</h6><ul class="list-group mb-3">${sessionsListHtml}</ul>
-                    <div class="card">
-                      <div class="card-body">
-                        <h6 class="card-title">Dodaj nową sesję</h6>
-                        <form id="addSessionForm" data-group-id="${g.id}">
-                           <div class="row g-2">
-                                <div class="col-6">
-                                    <label for="sessionDateInput" class="form-label">Data</label>
-                                    <input type="date" class="form-control" name="date" id="sessionDateInput" required>
-                                </div>
-                                <div class="col-6">
-                                    <label for="sessionTimeInput" class="form-label">Godzina</label>
-                                    <input type="time" class="form-control" name="time" id="sessionTimeInput" required>
-                                </div>
-                                <div class="col-12">
-                                    <label for="sessionTopicInput" class="form-label">Temat</label>
-                                    <input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required>
-J                             </div>
-                                <div class="col-12">
-                                    <label for="sessionBehaviorsSelect" class="form-label">Zachowania do modelowania (max 4)</label>
-                                    <select id="sessionBehaviorsSelect" class="form-select" multiple></select>
-                                </div>
-
-                                                                <div class="col-12 mt-2">
-                                    <label class="form-label mb-1">Obecność (zaznacz obecnych):</label>
-                                    <div class="p-2 border rounded bg-light" style="max-height: 150px; overflow-y: auto;">
-                                      ${membersChecklistHtml}
-                                    </div>
-                                </div>
-                                                                <div class="col-12 mt-3">
-                                    <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
-                                </div>
-                           </div>
-                        </form>
+                            <div class="tab-pane fade show active" id="sessions-panel" role="tabpanel">
+                <form id="addSessionForm" data-group-id="${g.id}">
+                  <div class="row">
+                                        <div class="col-lg-5">
+                      <h6>Uczestnicy</h6>
+                      <ul class="list-unstyled">${membersListHtml}</ul>
+                      <div id="sessionCalendar" class="mt-4"></div>
+                      <div class="d-grid mt-2"><button id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button></div>
+                      
+                                            <div class="mt-3">
+                        <label class="form-label mb-1 fw-bold">Obecność (dla nowej sesji):</label>
+                        <div class="p-2 border rounded bg-white" style="max-height: 160px; overflow-y: auto;">
+                          ${membersChecklistHtml}
+                        </div>
+                      </div>
+                                          </div>
+                                        <div class="col-lg-7">
+                      <h6>Lista Sesji</h6>
+                      <ul class="list-group mb-3">${sessionsListHtml}</ul>
+                      <div class="card">
+                        <div class="card-body">
+                          <h6 class="card-title">Dodaj nową sesję</h6>
+                                                    <div class="row g-2">
+                            <div class="col-6">
+                              <label for="sessionDateInput" class="form-label">Data</label>
+                              <input type="date" class="form-control" name="date" id="sessionDateInput" required>
+                            </div>
+                            <div class="col-6">
+                              <label for="sessionTimeInput" class="form-label">Godzina</label>
+                              <input type="time" class="form-control" name="time" id="sessionTimeInput" required>
+                            </div>
+                            <div class="col-12">
+                              <label for="sessionTopicInput" class="form-label">Temat</label>
+                              <input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required>
+                            </div>
+                            <div class="col-12">
+                              <label for="sessionBehaviorsSelect" class="form-label">Zachowania do modelowania (max 4)</label>
+                              <select id="sessionBehaviorsSelect" class="form-select" multiple></select>
+                            </div>
+                          </div>
+                          <div class="col-12 mt-3">
+                            <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
+                          </div>
+                                                  </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </form>
               </div>
-              <div class="tab-pane fade" id="bonuses-panel" role="tabpanel">
+                            <div class="tab-pane fade" id="bonuses-panel" role="tabpanel">
                 <h5>Zbiorcza punktacja</h5><div class="table-responsive mb-4"><table class="table table-bordered table-striped"><thead class="table-light"><tr><th>Uczestnik</th><th class="text-center border-end">Pkt. za zachowania</th><th class="text-center">Bonusy z sesji</th><th class="text-center">Super bonusy</th><th class="text-center">SUMA PUNKTÓW</th></tr></thead><tbody>${bonusTableRowsHtml}</tbody></table></div><hr/>
                 <h5>Przyznaj bonus ogólny</h5><form id="awardGeneralBonusForm" class="row g-2 align-items-end" data-group-id="${g.id}"><div class="col-md-5"><label for="bonusClientSelect" class="form-label">Uczestnik</label><select id="bonusClientSelect" name="client_id" class="form-select" required>${memberOptionsHtml}</select></div><div class="col-md-2"><label for="bonusPointsInput" class="form-label">Punkty</label><input type="number" id="bonusPointsInput" name="points" class="form-control" min="1" required></div><div class="col-md-5"><label for="bonusReasonInput" class="form-label">Powód (wymagany)</label><input type="text" id="bonusReasonInput" name="reason" class="form-control" placeholder="Np. Pomoc koledze" required></div><div class="col-12"><button type="submit" class="btn btn-success">Przyznaj punkty</button></div></form><hr class="my-4"/>
                 <div class="accordion" id="bonusHistoryAccordion"><div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistory">Pokaż / Ukryj historię bonusów ogólnych</button></h2><div id="collapseHistory" class="accordion-collapse collapse" data-bs-parent="#bonusHistoryAccordion"><div class="accordion-body p-0"><ul class="list-group list-group-flush">${bonusHistoryHtml}</ul></div></div></div></div>
@@ -726,6 +729,7 @@ J                             </div>
               </div>
             </div>
         `);
+        // --- KONIEC GŁÓWNEJ ZMIANY ---
 
         renderSessionCalendar();
         function fmtYYYYMMDD(date) { return date ? date.toISOString().split('T')[0] : ""; }
@@ -1389,6 +1393,7 @@ J                             </div>
 </body>
 
 </html>
+
 
 
 
