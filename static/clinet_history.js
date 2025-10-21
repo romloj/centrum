@@ -106,8 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <th style="width:15%">Data i Godzina</th>
                                     <th style="width:15%">Typ / Terapeuta</th>
                                     <th style="width:25%">Temat</th>
-                                    <th style="width:35%" >Notatki</th>
-                                    <th style="width:10%">Akcje</th>
+                                    <th style="width:45%" >Notatki</th>
+                                    <th style="width:5%">Akcje</th>
                                 </tr>
                             </thead>
                             <tbody>`;
@@ -414,5 +414,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showSessionDetails = showSessionDetails;
     window.toggleEditMode = toggleEditMode;
     window.saveNoteEdit = saveNoteEdit;
+
 
 
