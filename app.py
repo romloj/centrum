@@ -35,7 +35,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy import (Column, DateTime, ForeignKey, Integer, String, Table,
                         Boolean, Float, Time, create_engine, func, text, bindparam, TIMESTAMP, Date, desc,
-                        UniqueConstraint, select, ARRAY, Enum, TEXT)
+                        UniqueConstraint, select, ARRAY, Enum, TEXT,extract)
 from sqlalchemy.orm import declarative_base, selectinload
 from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base, relationship, joinedload, aliased
 from sqlalchemy.exc import IntegrityError
@@ -7156,6 +7156,7 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
