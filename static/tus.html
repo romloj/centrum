@@ -750,7 +750,7 @@ async function openGroupDetails(groupId) {
             });
         }
         const saveScheduleBtn = document.getElementById('saveScheduleBtn');
-        if (saveScheduleBtn) {
+      if (saveScheduleBtn) {
             // Przycisk zapisu harmonogramu nie może być typu "submit"
             saveScheduleBtn.setAttribute('type', 'button'); 
             saveScheduleBtn.addEventListener('click', async () => {
@@ -759,7 +759,6 @@ async function openGroupDetails(groupId) {
                     await fetchJSON(`/api/tus/groups/${groupId}/schedule`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     showAlert('Harmonogram został zapisany!', 'success');
                 } catch (err) {
-                    // POPRAWKA BŁĘDU (brakujący backtick)
                     showAlert(`Błąd zapisu harmonogramu: ${err.message}`, 'danger');
                 }
             });
@@ -1412,6 +1411,7 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
 
 
 
