@@ -99,7 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Wszystkie Sesje Indywidualne i Wpisy Dziennika</h5>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
+                  <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                   
                         <table class="table table-striped table-hover">
                             <thead class="table-light">
                                 <tr>
@@ -414,6 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showSessionDetails = showSessionDetails;
     window.toggleEditMode = toggleEditMode;
     window.saveNoteEdit = saveNoteEdit;
+
 
 
 
