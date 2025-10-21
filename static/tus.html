@@ -648,7 +648,7 @@ async function openGroupDetails(groupId) {
             } catch (e) {
                 console.error('Błąd formatowania daty:', e);
                 whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time : ''}`;
-e           }
+            }
             return `<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2"><span>${whenLabel} — ${s.topic_title || 'bez tematu'}</span><div class="btn-group btn-group-sm"><button class="btn btn-outline-success bonus-session-btn" data-session-id="${s.id}">Bonusy sesji</button><button class="btn btn-outline-primary score-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Oceń</button><button class="btn btn-outline-danger delete-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Usuń</button></div></li>`;
         }).join('') || '<li class="list-group-item text-muted">Brak sesji</li>';
         const bonusTableRowsHtml = (g.members || []).map(member => {
@@ -661,7 +661,7 @@ e           }
             return `<li class="list-group-item d-flex justify-content-between align-items-center"><div><strong>${h.client_name}</strong> otrzymał <strong>${h.points} pkt.</strong><br><small class="text-muted">Powód: ${h.reason || 'Brak'}</small></div><span class="badge bg-secondary rounded-pill">${date}</span></li>`;
         }).join('') : '<li class="list-group-item text-muted">Brak przyznanych bonusów ogólnych.</li>';
 
-        // --- GŁÓWNA ZMIANA UKŁADU (LAYOUT) ---
+        // --- POPRAWIONY UKŁAD HTML ---
         $('#groupDetailsBody').html(`
             <ul class="nav nav-tabs" id="groupTabs" role="tablist">
               <li class="nav-item" role="presentation"><button class="nav-link active" id="sessions-tab" data-bs-toggle="tab" data-bs-target="#sessions-panel" type="button" role="tab">Sesje i Uczestnicy</button></li>
@@ -751,8 +751,7 @@ e           }
         }
         const saveScheduleBtn = document.getElementById('saveScheduleBtn');
         if (saveScheduleBtn) {
-            // WAŻNA POPRAWKA: Przycisk zapisu harmonogramu nie może być typu "submit"
-            // (bo jest teraz wewnątrz formularza #addSessionForm)
+            // Przycisk zapisu harmonogramu nie może być typu "submit"
             saveScheduleBtn.setAttribute('type', 'button'); 
             saveScheduleBtn.addEventListener('click', async () => {
                 try {
@@ -760,8 +759,9 @@ e           }
                     await fetchJSON(`/api/tus/groups/${groupId}/schedule`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     showAlert('Harmonogram został zapisany!', 'success');
                 } catch (err) {
+                    // POPRAWKA BŁĘDU (brakujący backtick)
                     showAlert(`Błąd zapisu harmonogramu: ${err.message}`, 'danger');
-             }
+                }
             });
         }
 
@@ -1412,6 +1412,7 @@ e           }
 </body>
 
 </html>
+
 
 
 
