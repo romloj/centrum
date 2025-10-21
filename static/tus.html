@@ -604,7 +604,7 @@ async function openGroupDetails(groupId) {
             calendarEl.innerHTML = `<div class="session-calendar">${headerHtml}${gridHtml}</div>`;
         }
 
-        // --- PRZYGOTOWANIE DANYCH (jak wcześniej) ---
+        // --- PRZYGOTOWANIE DANYCH ---
         const currentYear = new Date().getFullYear();
         let schoolYearOptionsHtml = '';
         for (let i = 0; i < 5; i++) {
@@ -614,7 +614,7 @@ async function openGroupDetails(groupId) {
         }
         const membersListHtml = (g.members || []).map(m => `<li>${m.full_name}</li>`).join('') || '<li class="text-muted">Brak uczestników</li>';
 
-        // --- HTML dla listy obecności (do wstawienia w lewej kolumnie) ---
+        // --- HTML dla listy obecności ---
         const membersChecklistHtml = (g.members || []).length > 0
             ? (g.members || []).map(m => `
                 <div class="form-check">
@@ -750,7 +750,7 @@ async function openGroupDetails(groupId) {
             });
         }
         const saveScheduleBtn = document.getElementById('saveScheduleBtn');
-      if (saveScheduleBtn) {
+        if (saveScheduleBtn) {
             // Przycisk zapisu harmonogramu nie może być typu "submit"
             saveScheduleBtn.setAttribute('type', 'button'); 
             saveScheduleBtn.addEventListener('click', async () => {
@@ -767,19 +767,7 @@ async function openGroupDetails(groupId) {
         const behaviors = await fetchJSON(`${API_BASE}/api/tus/behaviors`);
         const $behaviorSelect = $('#sessionBehaviorsSelect').empty();
         (behaviors || []).forEach(b => $behaviorSelect.append(new Option(`${b.title} (max ${b.default_max_points ?? 3})`, String(b.id))));
-        $behaviorSelect.select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Wybierz do 4 zachowań', maximumSelectionLength: 4, dropdownParent: $('#groupDetailsModal') });
-
-        groupDetailsModal.show();
-    } catch (e) {
-        console.error(e);
-        alert(`Nie udało się otworzyć szczegółów grupy: ${e.message}`);
-    }
-}
-
-        const behaviors = await fetchJSON(`${API_BASE}/api/tus/behaviors`);
-        const $behaviorSelect = $('#sessionBehaviorsSelect').empty();
-        (behaviors || []).forEach(b => $behaviorSelect.append(new Option(`${b.title} (max ${b.default_max_points ?? 3})`, String(b.id))));
-        $behaviorSelect.select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Wybierz do 4 zachowań', maximumSelectionLength: 4, dropdownParent: $('#groupDetailsModal') });
+  Examples.select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Wybierz do 4 zachowań', maximumSelectionLength: 4, dropdownParent: $('#groupDetailsModal') });
 
         groupDetailsModal.show();
     } catch (e) {
@@ -1411,6 +1399,7 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
 
 
 
