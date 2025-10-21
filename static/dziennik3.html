@@ -595,9 +595,10 @@
         let foundCount = 0;
 
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-            const dateStr = d.toISOString().split('T')[0];
+            d.setHours(12, 0, 0, 0); // <-- DODANA LINIA: Unikamy problemu stref czasowych
+            const dateStr = d.toISOString().split('T')[0];
 
-            try {
+            try {
                 const url = `${API_URL}/api/attendance?date=${dateStr}&client_id=${clientId}`;
                 console.log(`   📡 Zapytanie: ${url}`);
 
@@ -695,9 +696,10 @@
       }
 
       for (let day = 1; day <= lastDay.getDate(); day++) {
-        const date = new Date(year, month, day);
-        const dateStr = date.toISOString().split('T')[0];
-        const record = attendanceData[dateStr];
+        // Ustawiamy godzinę na 12:00, aby uniknąć problemów ze strefą czasową
+        const date = new Date(year, month, day, 12, 0, 0); 
+        const dateStr = date.toISOString().split('T')[0];
+        const record = attendanceData[dateStr];
 
         const dayDiv = document.createElement('div');
         dayDiv.className = 'calendar-day';
@@ -806,3 +808,4 @@
 </body>
 
 </html>
+
