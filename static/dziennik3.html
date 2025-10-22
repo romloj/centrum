@@ -480,6 +480,7 @@
     let allClients = [];
     let attendanceData = {};
     let currentChart = null;
+    const { jsPDF } = window.jspdf;
 
     document.addEventListener('DOMContentLoaded', () => {
       setupEventListeners();
@@ -504,6 +505,9 @@
           fabContainer.classList.remove('open');
         });
       }
+      // Listener dla wyszukiwarki klientów
+      document.getElementById('clientSearch').addEventListener('input', filterClients);
+    }
 
       document.querySelectorAll('.fab-button').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -784,9 +788,66 @@
       });
     }
 
-    function exportReport() {
-      showAlert('Funkcja eksportu do PDF będzie dostępna wkrótce', 'info');
-    }
+    // Zaktualizowana funkcja eksportu do PDF
+    async function exportPDF() {
+        const reportElement = document.getElementById('reportContent');
+        if (reportElement.style.display === 'none') {
+            showAlert('Najpierw wygeneruj raport, aby go wyeksportować.', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('exportPdfBtn');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Generowanie...`;
+
+        try {
+            // Pobranie nazwy klienta i daty do nazwy pliku
+            const clientName = document.getElementById('clientName').textContent.replace(/ /g, '_');
+            const monthText = document.getElementById('monthSelect').options[document.getElementById('monthSelect').selectedIndex].text;
+            const year = document.getElementById('yearSelect').value;
+            const fileName = `Raport_Obecnosci_${clientName}_${monthText}_${year}.pdf`;
+
+            // Użyj html2canvas do zrobienia "zrzutu" elementu
+            const canvas = await html2canvas(reportElement, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            const margin = 10; // 10mm marginesu
+            const imgWidth = pdfWidth - margin * 2;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            let heightLeft = imgHeight;
+            let position = margin;
+
+            // Dodaj pierwszy obraz
+            pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+            heightLeft -= (pdfHeight - margin * 2); 
+
+            // Dodawaj kolejne strony, jeśli obraz jest za wysoki
+            while (heightLeft > 0) {
+                position = margin - (imgHeight - heightLeft); 
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+                heightLeft -= (pdfHeight - margin * 2);
+            }
+
+            // Zapisz plik
+            pdf.save(fileName);
+            showAlert('Raport PDF został wygenerowany!', 'success');
+
+        } catch (error) {
+            console.error("Błąd podczas generowania PDF:", error);
+            showAlert('Wystąpił błąd podczas generowania PDF.', 'danger');
+        } finally {
+            // Przywróć przycisk do stanu pierwotnego
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
 
     function showAlert(message, type) {
       const alertBox = document.getElementById('alertBox');
@@ -808,3 +869,4 @@
 </body>
 
 </html>
+
