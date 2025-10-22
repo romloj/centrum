@@ -580,31 +580,7 @@
       // Ustaw poprawną widoczność pól PRZED pokazaniem modala
       toggleClientGroupFields();
 
-      // Załaduj klientów
-      console.log('Loading clients...');
-      const clients = await loadClients();
-      console.log('Clients loaded:', clients.length);
-      console.log('First 3 clients:', clients.slice(0, 3));
-
-      const clientSelect = document.getElementById('addClient');
-
-      const activeClients = clients.filter(c => c.active !== false);
-      console.log('Active clients:', activeClients.length);
-
-      const sortedClients = activeClients.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
-      console.log('Sorted clients:', sortedClients.length);
-
-      const options = '<option value="">-- wybierz klienta --</option>' +
-        sortedClients.map(c => {
-          const id = c.id || c.client_id;
-          const name = c.full_name || `Klient #${id}`;
-          console.log(`Creating option: value="${id}" text="${name}"`);
-          return `<option value="${id}">${name}</option>`;
-        }).join('');
-
-      clientSelect.innerHTML = options;
-      console.log('Select innerHTML set, total options:', clientSelect.options.length);
-
+      
       const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
       modal.show();
     }
@@ -1052,6 +1028,7 @@
 
       document.getElementById('tpAddVisit').addEventListener('click', openAddModal);
       document.getElementById('createEventBtn').addEventListener('click', createNewEvent);
+      document.getElementById('addType').addEventListener('change', toggleClientGroupFields);
       document.getElementById('addDate').addEventListener('change', checkCollisionOnAdd);
       document.getElementById('addStartTime').addEventListener('change', checkCollisionOnAdd);
       document.getElementById('addEndTime').addEventListener('change', checkCollisionOnAdd);
@@ -1562,98 +1539,13 @@
     }
 
 
-  function createNewEvent(eventDetails) {
-    // 1. Zbuduj obiekt danych na podstawie wejściowych detali wydarzenia
-    const payload = {
-        // Pamiętaj, aby wartości były dynamiczne i pobrane z eventDetails/formularza
-        "client_id": eventDetails.clientId, 
-        "status": "planned", // Stała wartość lub z formularza
-        
-        "therapy": { 
-            "therapist_id": eventDetails.therapistId, // Użyj ID wybranego terapeuty
-            // BARDZO WAŻNE: Daty muszą być w formacie ISO8601, z uwzględnieniem daty i czasu
-            "starts_at": eventDetails.start.toISOString().slice(0, 19), 
-            "ends_at": eventDetails.end.toISOString().slice(0, 19),
-            "place": "Poradnia" 
-        }
-        // Opcjonalnie: "pickup": null, "dropoff": null 
-    };
-
-    // 2. Wyślij żądanie POST na prawidłowy endpoint
-    fetch("/api/schedule", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        // W tym miejscu wstawiasz swoje dane JSON, skonwertowane na string
-        body: JSON.stringify(payload)
-    })
-    .then(response => {
-    // Krok 1: Obsługa Błędów HTTP (np. 400, 500)
-    if (!response.ok) {
-        // Rzucenie błędu, aby przejść do bloku .catch, ale z zachowaniem odpowiedzi
-        return response.json().then(errorData => {
-            const status = response.status;
-            // W przypadku błędu 400, odczytaj szczegóły zwrócone przez serwer (z aliasu POST)
-            const errorMsg = errorData.error || 'Wystąpił nieznany błąd serwera.';
-            throw new Error(`Błąd ${status}: ${errorMsg}`);
-        });
-    }
-    return response.json(); // Kontynuuj przetwarzanie JSON
-})
-.then(data => {
-    console.log("Wizyta dodana pomyślnie:", data);
-
-    // Załóżmy, że eventDetails jest dostępne z funkcji nadrzędnej (callback)
-    const newEvent = {
-        // Użyj ID zwróconego z serwera, np. group_id
-        id: data.group_id, 
-        title: eventDetails.title || eventDetails.clientName || 'Nowa wizyta',
-        start: eventDetails.start, // Obiekt Date (lub ISO string, zależy od kalendarza)
-        end: eventDetails.end, 
-        resourceId: eventDetails.therapistId, // Jeśli używasz widoku zasobów
-        // ... inne potrzebne pola
-    };
-    
-    // 1. Dodanie wydarzenia do instancji kalendarza (lub ponowne pobranie danych)
-    if (typeof calendar !== 'undefined' && typeof calendar.addEvent === 'function') {
-        calendar.addEvent(newEvent);
-    } else {
-        // Jeśli nie można dodać, wymuś pełne odświeżenie (mniej optymalne)
-        calendar.refetchEvents();
-    }
-
-    // 2. Wyświetlenie komunikatu sukcesu (załóżmy, że to prosta funkcja)
-    displayToast('✅ Wizyta dodana pomyślnie!', 'success');
-
-    // 3. Opcjonalnie: Zamknięcie modala/reset formularza
-    // closeModalOrForm(); 
-})
-.catch(error => {
-    console.error("Błąd dodawania wizyty:", error);
-
-    // 1. Ustalenie komunikatu błędu
-    let userMessage;
-    if (error.message.includes('Błąd 400')) {
-        // Użyj precyzyjnej wiadomości z serwera, np. "Brak wymaganych pól..."
-        userMessage = error.message; 
-    } else if (error.message.includes('Network')) {
-        // Błąd sieci lub problem z CORS
-        userMessage = '❌ Błąd połączenia z serwerem. Sprawdź sieć.';
-    } else {
-        // Ogólny błąd (np. 404, 500 lub błąd parowania)
-        userMessage = '❌ Wystąpił nieoczekiwany błąd. Szczegóły w konsoli.';
-    }
-
-    // 2. Wyświetlenie komunikatu błędu użytkownikowi
-    displayToast(userMessage, 'error');
-});
-}
+  
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>
+
 
 
 
