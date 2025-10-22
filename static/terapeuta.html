@@ -313,6 +313,11 @@
       font-weight: bold;
     }
 
+    /* PDF Specific Styles */
+    .pdf-only {
+      display: none;
+    }
+
     /* Print Styles */
     @media print {
       body {
@@ -332,7 +337,8 @@
       .controls-section,
       .fab-container,
       .fab-backdrop,
-      .alert {
+      .alert,
+      .screen-only {
         display: none !important;
       }
       .stats-card {
@@ -351,6 +357,9 @@
       .calendar-day:hover {
         transform: none !important;
         box-shadow: none !important;
+      }
+      .pdf-only {
+        display: block !important;
       }
     }
 
@@ -528,8 +537,8 @@
         </div>
       </div>
 
-      <!-- Wykres - alternatywa dla PDF -->
-      <div class="stats-card">
+      <!-- Wykres - tylko dla ekranu -->
+      <div class="stats-card screen-only">
         <h5 class="mb-3"><i class="bi bi-pie-chart-fill"></i> Wykres obecności</h5>
         <div class="chart-container">
           <canvas id="attendanceChart"></canvas>
@@ -537,7 +546,7 @@
       </div>
 
       <!-- Alternatywny wykres dla PDF -->
-      <div class="stats-card d-none" id="chartAlternative">
+      <div class="stats-card pdf-only" id="chartAlternative">
         <h5 class="mb-3"><i class="bi bi-pie-chart-fill"></i> Statystyki obecności</h5>
         <div class="row text-center">
           <div class="col-3">
@@ -565,10 +574,13 @@
             </div>
           </div>
         </div>
+        <div class="mt-4 text-center">
+          <h5>Frekwencja: <span id="altAttendanceRate" class="text-primary">0%</span></h5>
+        </div>
       </div>
 
       <!-- Tabela szczegółów -->
-      <div class="stats-card d-none" id="detailedTableSection">
+      <div class="stats-card pdf-only" id="detailedTableSection">
         <h5 class="mb-3"><i class="bi bi-table"></i> Szczegółowy wykaz obecności</h5>
         <div class="table-responsive">
           <table class="table table-striped table-bordered" id="detailedTable">
@@ -919,6 +931,7 @@
       const totalScheduled = stats.obecny + stats.nieobecny + stats.spóźniony + stats.usprawiedliwiony;
       const rate = totalScheduled > 0 ? Math.round((stats.obecny / totalScheduled) * 100) : 0;
       document.getElementById('attendanceRate').textContent = rate + '%';
+      document.getElementById('altAttendanceRate').textContent = rate + '%';
 
       const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
                           'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
@@ -972,16 +985,16 @@
 
         if (record && record.status) {
           dayDiv.classList.add(`status-${record.status}`);
-          // Używamy tekstu zamiast emoji dla lepszej kompatybilności z PDF
+          // Używamy prostych symboli tekstowych
           const statusText = {
-            'obecny': '✓',
-            'nieobecny': '✗',
-            'spóźniony': '⌚',
-            'usprawiedliwiony': '📋'
+            'obecny': 'O',
+            'nieobecny': 'N',
+            'spóźniony': 'S',
+            'usprawiedliwiony': 'U'
           };
           dayDiv.innerHTML = `
             <div class="day-number">${day}</div>
-            <div class="day-status">${statusText[record.status] || ''}</div>
+            <div class="day-status" style="font-size: 1rem; font-weight: bold;">${statusText[record.status] || ''}</div>
           `;
           dayDiv.title = `${day} - ${record.status}${record.notes ? '\n' + record.notes : ''}`;
         } else {
@@ -1058,11 +1071,8 @@
       tableBody.innerHTML = '';
 
       if (Object.keys(attendanceData).length === 0) {
-        tableSection.classList.add('d-none');
         return;
       }
-
-      tableSection.classList.remove('d-none');
 
       // Sortuj daty
       const sortedDates = Object.keys(attendanceData).sort();
@@ -1084,17 +1094,10 @@
           'usprawiedliwiony': 'Usprawiedliwiony'
         };
 
-        const statusColors = {
-          'obecny': 'text-success',
-          'nieobecny': 'text-danger',
-          'spóźniony': 'text-warning',
-          'usprawiedliwiony': 'text-info'
-        };
-
         const row = document.createElement('tr');
         row.innerHTML = `
           <td><strong>${formattedDate}</strong></td>
-          <td><span class="${statusColors[record.status]}">${statusLabels[record.status] || record.status}</span></td>
+          <td>${statusLabels[record.status] || record.status}</td>
           <td>${record.notes || '-'}</td>
           <td>${record.time || '-'}</td>
         `;
@@ -1112,8 +1115,8 @@
 
       showAlert('Generowanie PDF...', 'info');
 
-      // Przygotuj widok dla PDF
-      prepareForPDF();
+      // Utwórz czystą kopię raportu bez problematycznych elementów
+      const pdfContent = createPDFContent();
 
       const options = {
         margin: [10, 10, 10, 10],
@@ -1121,9 +1124,8 @@
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
           scale: 2,
-          useCORS: true,
+          useCORS: false,
           logging: false,
-          allowTaint: true,
           backgroundColor: '#ffffff'
         },
         jsPDF: { 
@@ -1134,54 +1136,212 @@
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
 
-      // Pobierz element do eksportu (bez kontrolek)
-      const element = document.querySelector('.main-container');
-
       html2pdf()
         .set(options)
-        .from(element)
+        .from(pdfContent)
         .save()
         .then(() => {
           showAlert('PDF został wygenerowany pomyślnie', 'success');
-          // Przywróć normalny widok
-          restoreAfterPDF();
+          // Usuń tymczasowy element
+          pdfContent.remove();
         })
         .catch(error => {
           console.error('Błąd generowania PDF:', error);
-          showAlert('Błąd podczas generowania PDF: ' + error.message, 'danger');
-          // Przywróć normalny widok nawet w przypadku błędu
-          restoreAfterPDF();
+          showAlert('Błąd podczas generowania PDF', 'danger');
+          // Usuń tymczasowy element nawet w przypadku błędu
+          if (pdfContent.parentNode) {
+            pdfContent.remove();
+          }
         });
     }
 
-    function prepareForPDF() {
-      // Ukryj wykres Canvas (problematyczny dla PDF)
-      document.getElementById('attendanceChart').closest('.stats-card').classList.add('d-none');
-      // Pokaż alternatywny wykres
-      document.getElementById('chartAlternative').classList.remove('d-none');
-      // Pokaż tabelę szczegółów
-      document.getElementById('detailedTableSection').classList.remove('d-none');
-      
-      // Ukryj elementy interfejsu niepotrzebne w PDF
-      document.querySelector('.controls-section').style.display = 'none';
-      document.querySelector('.fab-container').style.display = 'none';
-      document.querySelector('.fab-backdrop').style.display = 'none';
+    function createPDFContent() {
+      // Utwórz czysty kontener PDF bez żadnych obrazów
+      const pdfContainer = document.createElement('div');
+      pdfContainer.style.cssText = `
+        background: white;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+      `;
+
+      const stats = calculateStats();
+      const totalScheduled = stats.obecny + stats.nieobecny + stats.spóźniony + stats.usprawiedliwiony;
+      const rate = totalScheduled > 0 ? Math.round((stats.obecny / totalScheduled) * 100) : 0;
+      const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
+                         'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+
+      const initials = (currentClient.full_name || 'K').charAt(0).toUpperCase();
+
+      pdfContainer.innerHTML = `
+        <div style="text-align: center; background: #2c3e50; color: white; padding: 20px; margin-bottom: 20px; border-radius: 10px;">
+          <h1 style="margin: 0 0 10px 0;">Zestawienie Miesięcznej Obecności</h1>
+          <p style="margin: 0;">Raport obecności dla wybranego klienta</p>
+        </div>
+
+        <div style="background: #667eea; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="width: 80px; height: 80px; border-radius: 50%; background: #5569c5; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; border: 3px solid white;">
+              ${initials}
+            </div>
+            <div style="flex: 1;">
+              <h2 style="margin: 0 0 5px 0;">${currentClient.full_name}</h2>
+              <p style="margin: 0;">Tel: ${currentClient.phone || 'Brak'} | Email: ${currentClient.email || 'Brak'}</p>
+            </div>
+            <div style="text-align: right;">
+              <small>Wygenerowano: ${new Date().toLocaleDateString('pl-PL')}</small>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 20px;">
+          <h3 style="margin-top: 0;">📊 Podsumowanie obecności</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+            <div style="background: #d4edda; color: #155724; padding: 15px; text-align: center; border-radius: 8px;">
+              <div style="font-size: 24px; font-weight: bold;">${stats.obecny}</div>
+              <small><strong>Obecny</strong></small>
+            </div>
+            <div style="background: #f8d7da; color: #721c24; padding: 15px; text-align: center; border-radius: 8px;">
+              <div style="font-size: 24px; font-weight: bold;">${stats.nieobecny}</div>
+              <small><strong>Nieobecny</strong></small>
+            </div>
+            <div style="background: #fff3cd; color: #856404; padding: 15px; text-align: center; border-radius: 8px;">
+              <div style="font-size: 24px; font-weight: bold;">${stats.spóźniony}</div>
+              <small><strong>Spóźniony</strong></small>
+            </div>
+            <div style="background: #d1ecf1; color: #0c5460; padding: 15px; text-align: center; border-radius: 8px;">
+              <div style="font-size: 24px; font-weight: bold;">${stats.usprawiedliwiony}</div>
+              <small><strong>Usprawiedliwiony</strong></small>
+            </div>
+          </div>
+          <div style="text-align: center;">
+            <h4>Frekwencja: <span style="color: #007bff;">${rate}%</span></h4>
+            <small style="color: #6c757d;">Procent obecności względem zaplanowanych zajęć</small>
+          </div>
+        </div>
+
+        <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 20px;">
+          <h3 style="margin-top: 0;">📅 Kalendarz obecności - ${monthNames[currentMonth]} ${currentYear}</h3>
+          ${generateCalendarHTML(currentMonth, currentYear)}
+        </div>
+
+        ${Object.keys(attendanceData).length > 0 ? `
+        <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 20px;">
+          <h3 style="margin-top: 0;">📋 Szczegółowy wykaz obecności</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #343a40; color: white;">
+                <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left;">Data</th>
+                <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left;">Status</th>
+                <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left;">Notatki</th>
+                <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left;">Godzina</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${generateTableRowsHTML()}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+      `;
+
+      document.body.appendChild(pdfContainer);
+      return pdfContainer;
     }
 
-    function restoreAfterPDF() {
-      // Przywróć normalny widok
-      document.getElementById('attendanceChart').closest('.stats-card').classList.remove('d-none');
-      document.getElementById('chartAlternative').classList.add('d-none');
+    function generateCalendarHTML(month, year) {
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
       
-      // Ukryj tabelę szczegółów jeśli nie ma danych
-      if (Object.keys(attendanceData).length === 0) {
-        document.getElementById('detailedTableSection').classList.add('d-none');
+      let dayOfWeek = firstDay.getDay();
+      dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+      let calendarHTML = `
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin: 10px 0;">
+          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Pn</div>
+          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Wt</div>
+          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Śr</div>
+          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Cz</div>
+          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Pt</div>
+          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">So</div>
+          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Nd</div>
+      `;
+
+      // Puste dni na początku
+      for (let i = 0; i < dayOfWeek; i++) {
+        calendarHTML += '<div style="aspect-ratio: 1;"></div>';
       }
-      
-      // Przywróć elementy interfejsu
-      document.querySelector('.controls-section').style.display = 'block';
-      document.querySelector('.fab-container').style.display = 'flex';
-      document.querySelector('.fab-backdrop').style.display = 'block';
+
+      // Dni miesiąca
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(year, month, day, 12, 0, 0);
+        const dateStr = date.toISOString().split('T')[0];
+        const record = attendanceData[dateStr];
+
+        let dayStyle = 'aspect-ratio: 1; border: 2px solid #e9ecef; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px;';
+        
+        if (record && record.status) {
+          const statusColors = {
+            'obecny': 'background: #d4edda; border-color: #28a745;',
+            'nieobecny': 'background: #f8d7da; border-color: #dc3545;',
+            'spóźniony': 'background: #fff3cd; border-color: #ffc107;',
+            'usprawiedliwiony': 'background: #d1ecf1; border-color: #17a2b8;'
+          };
+          dayStyle += statusColors[record.status] || '';
+        } else {
+          dayStyle += 'background: #f8f9fa;';
+        }
+
+        const statusText = {
+          'obecny': 'O',
+          'nieobecny': 'N',
+          'spóźniony': 'S',
+          'usprawiedliwiony': 'U'
+        };
+
+        calendarHTML += `
+          <div style="${dayStyle}">
+            <div style="font-weight: bold; font-size: 14px;">${day}</div>
+            <div style="font-size: 12px; font-weight: bold;">${record && record.status ? statusText[record.status] || '' : ''}</div>
+          </div>
+        `;
+      }
+
+      calendarHTML += '</div>';
+      return calendarHTML;
+    }
+
+    function generateTableRowsHTML() {
+      const sortedDates = Object.keys(attendanceData).sort();
+      let rowsHTML = '';
+
+      sortedDates.forEach(dateStr => {
+        const record = attendanceData[dateStr];
+        const date = new Date(dateStr);
+        const formattedDate = date.toLocaleDateString('pl-PL', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+
+        const statusLabels = {
+          'obecny': 'Obecny',
+          'nieobecny': 'Nieobecny',
+          'spóźniony': 'Spóźniony',
+          'usprawiedliwiony': 'Usprawiedliwiony'
+        };
+
+        rowsHTML += `
+          <tr>
+            <td style="padding: 8px; border: 1px solid #dee2e6;"><strong>${formattedDate}</strong></td>
+            <td style="padding: 8px; border: 1px solid #dee2e6;">${statusLabels[record.status] || record.status}</td>
+            <td style="padding: 8px; border: 1px solid #dee2e6;">${record.notes || '-'}</td>
+            <td style="padding: 8px; border: 1px solid #dee2e6;">${record.time || '-'}</td>
+          </tr>
+        `;
+      });
+
+      return rowsHTML;
     }
 
     function printReport() {
@@ -1192,14 +1352,7 @@
         return;
       }
 
-      // Przygotuj widok dla druku
-      prepareForPDF();
-      
-      // Drukuj
       window.print();
-      
-      // Przywróć normalny widok po drukowaniu
-      setTimeout(restoreAfterPDF, 500);
     }
 
     function showAlert(message, type) {
