@@ -670,55 +670,63 @@ async function openGroupDetails(groupId) {
             </ul>
             <div class="tab-content pt-3">
               <div class="tab-pane fade show active" id="sessions-panel" role="tabpanel">
+    <h6>Lista Sesji</h6>
+    <ul class="list-group mb-3">${sessionsListHtml}</ul>
+    <hr>
 
-                                <h6>Lista Sesji</h6>
-                <ul class="list-group mb-3">${sessionsListHtml}</ul>
-                <hr>
-
-                                <form id="addSessionForm" data-group-id="${g.id}">
-                                    <div class="row g-4">
-                                        <div class="col-lg-3 col-md-4">
-                        <label class="form-label mb-1 fw-bold">Obecność (dla nowej sesji):</label>
-                        <div class="p-2 border rounded bg-white" style="max-height: 250px; overflow-y: auto;">
-                          ${membersChecklistHtml}
-                        </div>
-                    </div>
-                                        <div class="col-lg-4 col-md-4">
-                        <label class="form-label mb-1 fw-bold">Szablon dni:</label>
-                        <div id="sessionCalendar"></div>
-                        <div class="d-grid mt-2"><button type="button" id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button></div>
-                    </div>
-                                        <div class="col-lg-5 col-md-4">
-                        <div class="card h-100">
-                          <div class="card-body">
-                            <h6 class="card-title">Dodaj nową sesję</h6>
-                            <div class="row g-2">
-                              <div class="col-6">
-                                <label for="sessionDateInput" class="form-label">Data</label>
-                                <input type="date" class="form-control" name="date" id="sessionDateInput" required>
-                              </div>
-                              <div class="col-6">
-                                <label for="sessionTimeInput" class="form-label">Godzina</label>
-                                <input type="time" class="form-control" name="time" id="sessionTimeInput" required>
-                              </div>
-                              <div class="col-12">
-                                <label for="sessionTopicInput" class="form-label">Temat</label>
-                                <input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required>
-                              </div>
-                              <div class="col-12">
-                                <label for="sessionBehaviorsSelect" class="form-label">Zachowania do modelowania (max 4)</label>
-                                <select id="sessionBehaviorsSelect" class="form-select" multiple></select>
-                              </div>
-                            </div>
-                            <div class="col-12 mt-3">
-                              <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
-                            </div>
-                          </div>
-                        </div>
-                    </div>
-                  </div>
-                </form>
-              </div>
+    <form id="addSessionForm" data-group-id="${g.id}">
+        <!-- ZMIENIONA SEKCJA - ELEMENTY OBOK SIEBIE -->
+        <div class="row g-3">
+            <!-- Lewa kolumna - Obecność -->
+            <div class="col-lg-3 col-md-4">
+                <label class="form-label mb-1 fw-bold">Obecność (dla nowej sesji):</label>
+                <div class="p-2 border rounded bg-white" style="max-height: 250px; overflow-y: auto;">
+                    ${membersChecklistHtml}
+                </div>
+            </div>
+            
+            <!-- Środkowa kolumna - Kalendarz -->
+            <div class="col-lg-4 col-md-4">
+                <label class="form-label mb-1 fw-bold">Szablon dni:</label>
+                <div id="sessionCalendar"></div>
+                <div class="d-grid mt-2">
+                    <button type="button" id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button>
+                </div>
+            </div>
+            
+            <!-- Prawa kolumna - Formularz sesji -->
+            <div class="col-lg-5 col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">Dodaj nową sesję</h6>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label for="sessionDateInput" class="form-label">Data</label>
+                                <input type="date" class="form-control" name="date" id="sessionDateInput" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="sessionTimeInput" class="form-label">Godzina</label>
+                                <input type="time" class="form-control" name="time" id="sessionTimeInput" required>
+                            </div>
+                            <div class="col-12">
+                                <label for="sessionTopicInput" class="form-label">Temat</label>
+                                <input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required>
+                            </div>
+                            <div class="col-12">
+                                <label for="sessionBehaviorsSelect" class="form-label">Zachowania do modelowania (max 4)</label>
+                                <select id="sessionBehaviorsSelect" class="form-select" multiple></select>
+                            </div>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- KONIEC ZMIENIONEJ SEKCJI -->
+    </form>
+</div>
                             <div class="tab-pane fade" id="bonuses-panel" role="tabpanel">
                 <h5>Zbiorcza punktacja</h5><div class="table-responsive mb-4"><table class="table table-bordered table-striped"><thead class="table-light"><tr><th>Uczestnik</th><th class="text-center border-end">Pkt. za zachowania</th><th class="text-center">Bonusy z sesji</th><th class="text-center">Super bonusy</th><th class="text-center">SUMA PUNKTÓW</th></tr></thead><tbody>${bonusTableRowsHtml}</tbody></table></div><hr/>
                 <h5>Przyznaj bonus ogólny</h5><form id="awardGeneralBonusForm" class="row g-2 align-items-end" data-group-id="${g.id}"><div class="col-md-5"><label for="bonusClientSelect" class="form-label">Uczestnik</label><select id="bonusClientSelect" name="client_id" class="form-select" required>${memberOptionsHtml}</select></div><div class="col-md-2"><label for="bonusPointsInput" class="form-label">Punkty</label><input type="number" id="bonusPointsInput" name="points" class="form-control" min="1" required></div><div class="col-md-5"><label for="bonusReasonInput" class="form-label">Powód (wymagany)</label><input type="text" id="bonusReasonInput" name="reason" class="form-control" placeholder="Np. Pomoc koledze" required></div><div class="col-12"><button type="submit" class="btn btn-success">Przyznaj punkty</button></div></form><hr class="my-4"/>
@@ -1395,6 +1403,7 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
 
 
 
