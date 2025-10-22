@@ -590,19 +590,22 @@ async function openGroupDetails(groupId) {
             DOW_SHORT.forEach(day => gridHtml += `<div class="session-calendar-dow">${day}</div>`);
             for (let i = 0; i < startDay; i++) { gridHtml += `<div class="session-calendar-day other-month"></div>`; }
 
-            for (let i = 1; i <= lastOfMonth.getDate(); i++) {
-                const dayDate = new Date(year, month, i);
-                const dateString = fmtYYYYMMDD(dayDate);
-                const isScheduled = scheduledDates.has(dateString);
-                const isSelected = selectedDates.has(dateString);
-                let classes = 'session-calendar-day';
-                if (isScheduled) classes += ' scheduled';
-                if (isSelected) classes += ' is-selected-day';
-                gridHtml += `<div class="${classes}" data-date="${dateString}">${i}</div>`;
-            }
-            gridHtml += `</div>`;
-            calendarEl.innerHTML = `<div class="session-calendar">${headerHtml}${gridHtml}</div>`;
-        }
+                  for (let i = 1; i <= lastOfMonth.getDate(); i++) {
+                const dayDate = new Date(year, month, i);
+                
+                // UŻYJ TEGO SAMEGO FORMATU CO W LIŚCIE SESJI
+                const dateString = dayDate.toISOString().split('T')[0]; // Format YYYY-MM-DD
+                const isScheduled = scheduledDates.has(dateString);
+                const isSelected = selectedDates.has(dateString);
+                
+                let classes = 'session-calendar-day';
+                if (isScheduled) classes += ' scheduled';
+                if (isSelected) classes += ' is-selected-day';
+                gridHtml += `<div class="${classes}" data-date="${dateString}">${i}</div>`;
+                    }
+                    gridHtml += `</div>`;
+                    calendarEl.innerHTML = `<div class="session-calendar">${headerHtml}${gridHtml}</div>`;
+              }
 
         // --- PRZYGOTOWANIE DANYCH ---
         const currentYear = new Date().getFullYear();
@@ -634,21 +637,26 @@ async function openGroupDetails(groupId) {
         const uniqueSessions = Array.from(sessionsMap.values());
         uniqueSessions.sort((a, b) => new Date(b.session_date) - new Date(a.session_date));
         const sessionsListHtml = uniqueSessions.map(s => {
-            let whenLabel = 'Błędna data';
-            try {
-                if (s.session_date) {
-                    const dateObj = new Date(s.session_date);
-                    if (!isNaN(dateObj.getTime())) {
-                        const timePart = s.session_time ? ` ${s.session_time.substring(0, 5)}` : '';
-                        whenLabel = dateObj.toLocaleDateString('pl-PL') + timePart;
-                    } else {
-                        whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time.substring(0,5) : ''}`;
-                    }
-                }
-            } catch (e) {
-                console.error('Błąd formatowania daty:', e);
-                whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time : ''}`;
-            }
+          let whenLabel = 'Błędna data';
+          try {
+              if (s.session_date) {
+                  const dateObj = new Date(s.session_date);
+                  if (!isNaN(dateObj.getTime())) {
+                      // UŻYJ TEGO SAMEGO FORMATU CO W KALENDARZU
+                      const dateString = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+                      const timePart = s.session_time ? ` ${s.session_time.substring(0, 5)}` : '';
+                      whenLabel = dateObj.toLocaleDateString('pl-PL') + timePart;
+                      
+                      // DODATKOWO: Zapisz datę w tym samym formacie do scheduledDates
+                      scheduledDates.add(dateString);
+                  } else {
+                      whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time.substring(0,5) : ''}`;
+                  }
+              }
+          } catch (e) {
+              console.error('Błąd formatowania daty:', e);
+              whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time : ''}`;
+          }
             return `<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2"><span>${whenLabel} — ${s.topic_title || 'bez tematu'}</span><div class="btn-group btn-group-sm"><button class="btn btn-outline-success bonus-session-btn" data-session-id="${s.id}">Bonusy sesji</button><button class="btn btn-outline-primary score-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Oceń</button><button class="btn btn-outline-danger delete-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Usuń</button></div></li>`;
         }).join('') || '<li class="list-group-item text-muted">Brak sesji</li>';
         const bonusTableRowsHtml = (g.members || []).map(member => {
@@ -1403,6 +1411,7 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
 
 
 
