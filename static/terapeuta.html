@@ -545,12 +545,41 @@
         therapistSelect.required = false;
       }
 
+     async function openAddModal() {
+      console.log('=== OPENING ADD MODAL ===');
+
+      // Resetuj formularz
+      document.getElementById('addClient').value = '';
+      document.getElementById('addNewClientName').value = '';
+      document.getElementById('addDate').value = fmtYYYYMMDD(new Date());
+      document.getElementById('addStartTime').value = '10:00';
+      document.getElementById('addEndTime').value = '11:00';
+      document.getElementById('addPlace').value = '';
+      document.getElementById('addType').value = 'therapy'; // Domyślnie indywidualna
+      document.getElementById('addCollisionWarning').classList.add('d-none');
+      document.getElementById('addGroup').value = '';
+
+      // Jeśli oglądamy konkretnego terapeutę, ukryj wybór terapeuty
+      const therapistGroup = document.getElementById('addTherapistGroup');
+      const therapistSelect = document.getElementById('addTherapist');
+
+      if (_state.therapistId === 'all') {
+        therapistGroup.classList.remove('d-none');
+        therapistSelect.innerHTML = '<option value="">-- wybierz terapeutę --</option>' +
+          _state.therapists.map(t => `<option value="${t.id}">${t.full_name}${t.specialization ? ` – ${t.specialization}` : ''}</option>`).join('');
+        therapistSelect.required = true;
+      } else {
+        therapistGroup.classList.add('d-none');
+        therapistSelect.value = _state.therapistId;
+        therapistSelect.required = false;
+      }
+
       // --- ZMODYFIKOWANY BLOK ŁADOWANIA DANYCH ---
 
       // Uruchom ładowanie klientów i grup równolegle
       const [clients, groups] = await Promise.all([
           loadClients(),
-          loadGroups() 
+          loadGroups()
       ]);
 
       // 1. Wypełnij listę klientów
@@ -581,7 +610,10 @@
       // Ustaw poprawną widoczność pól PRZED pokazaniem modala
       toggleClientGroupFields();
 
-      
+
+      // ***** USUNIĘTY ZDUPLIKOWANY BLOK KODU (BYŁ TUTAJ) *****
+
+
       const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
       modal.show();
     }
@@ -1546,6 +1578,7 @@
 </body>
 
 </html>
+
 
 
 
