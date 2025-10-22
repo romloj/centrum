@@ -1,811 +1,918 @@
 <!doctype html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
-  <title>Zestawienie Miesięcznej Obecności</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <meta charset="utf-8" />
+  <title>Zestawienie Miesięcznej Obecności</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibjNQVX1cDxCSGGhQXVMA9zVRvIeGzSA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSZnIDU4pRNTJBt+OhJPKVhDNGgLfTmqgmEqgAkU+S9iUcbZUkPETEzXFsFaiA+wDsLmwzmbQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  
   <style>
-    body {
-      padding: 1rem;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-    }
-    .main-container {
-      background-color: #fff;
-      border-radius: 15px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-      overflow: hidden;
-      margin-bottom: 2rem;
-    }
-    .header-section {
-      background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-      color: white;
-      padding: 2rem;
-    }
-    .controls-section {
-      background: #f8f9fa;
-      padding: 1.5rem;
-      border-bottom: 2px solid #e9ecef;
-    }
-    .stats-card {
-      background: white;
-      border-radius: 10px;
-      padding: 1.5rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      margin-bottom: 1.5rem;
-    }
-    .stat-box {
-      text-align: center;
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-    }
-    .stat-present { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); color: #155724; }
-    .stat-absent { background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); color: #721c24; }
-    .stat-late { background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); color: #856404; }
-    .stat-excused { background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); color: #0c5460; }
+    /* ... (wszystkie Twoje style CSS pozostają bez zmian) ... */
+    body {
+      padding: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .main-container {
+      background-color: #fff;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    .header-section {
+      background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+      color: white;
+      padding: 2rem;
+    }
+    .controls-section {
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-bottom: 2px solid #e9ecef;
+    }
+    .stats-card {
+      background: white;
+      border-radius: 10px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+    }
+    .stat-box {
+      text-align: center;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    .stat-present { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); color: #155724; }
+    .stat-absent { background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); color: #721c24; }
+    .stat-late { background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); color: #856404; }
+    .stat-excused { background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); color: #0c5460; }
 
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 0.5rem;
-      margin: 1rem 0;
-    }
-    .calendar-header {
-      text-align: center;
-      font-weight: bold;
-      padding: 0.5rem;
-      background: #f8f9fa;
-      border-radius: 5px;
-    }
-    .calendar-day {
-      aspect-ratio: 1;
-      border: 2px solid #e9ecef;
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 0.5rem;
-      transition: all 0.3s ease;
-      cursor: pointer;
-      position: relative;
-    }
-    .calendar-day:hover {
-      transform: scale(1.05);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    .calendar-day.empty {
-      border: none;
-      cursor: default;
-    }
-    .calendar-day.empty:hover {
-      transform: none;
-      box-shadow: none;
-    }
-    .day-number {
-      font-weight: bold;
-      font-size: 1.1rem;
-      margin-bottom: 0.25rem;
-    }
-    .day-status {
-      font-size: 1.5rem;
-    }
-    .status-obecny {
-      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-      border-color: #28a745;
-    }
-    .status-nieobecny {
-      background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-      border-color: #dc3545;
-    }
-    .status-spóźniony {
-      background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-      border-color: #ffc107;
-    }
-    .status-usprawiedliwiony {
-      background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
-      border-color: #17a2b8;
-    }
-    .status-no-data {
-      background: #f8f9fa;
-      border-color: #dee2e6;
-    }
-    .client-info {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 1.5rem;
-      border-radius: 10px;
-      margin-bottom: 1.5rem;
-    }
-    .client-photo-large {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid white;
-    }
-    .chart-container {
-      position: relative;
-      height: 250px;
-      margin: 1rem 0;
-    }
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      margin-top: 1rem;
-      padding: 1rem;
-      background: #f8f9fa;
-      border-radius: 8px;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .legend-color {
-      width: 20px;
-      height: 20px;
-      border-radius: 4px;
-    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+    .calendar-header {
+      text-align: center;
+      font-weight: bold;
+      padding: 0.5rem;
+      background: #f8f9fa;
+      border-radius: 5px;
+    }
+    .calendar-day {
+      aspect-ratio: 1;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+    }
+    .calendar-day:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .calendar-day.empty {
+      border: none;
+      cursor: default;
+    }
+    .calendar-day.empty:hover {
+      transform: none;
+      box-shadow: none;
+    }
+    .day-number {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-bottom: 0.25rem;
+    }
+    .day-status {
+      font-size: 1.5rem;
+    }
+    .status-obecny {
+      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+      border-color: #28a745;
+    }
+    .status-nieobecny {
+      background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+      border-color: #dc3545;
+    }
+    .status-spóźniony {
+      background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+      border-color: #ffc107;
+    }
+    .status-usprawiedliwiony {
+      background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+      border-color: #17a2b8;
+    }
+    .status-no-data {
+      background: #f8f9fa;
+      border-color: #dee2e6;
+    }
+    .client-info {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 10px;
+      margin-bottom: 1.5rem;
+    }
+    .client-photo-large {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid white;
+    }
+    .chart-container {
+      position: relative;
+      height: 250px;
+      margin: 1rem 0;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+    }
 
-    /* FAB Menu */
-    .fab-container {
-      position: fixed;
-      bottom: 2rem;
-      right: 2rem;
-      z-index: 1050;
-      display: flex;
-      flex-direction: column-reverse;
-      align-items: center;
-      gap: 1rem;
-    }
-    .fab-main {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.8rem;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-      z-index: 2;
-    }
-    .fab-main:hover {
-      transform: scale(1.1);
-      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
-    }
-    .fab-main i {
-      transition: transform 0.3s ease;
-    }
-    .fab-container.open .fab-main i {
-      transform: rotate(45deg);
-    }
-    .fab-menu {
-      display: flex;
-      flex-direction: column-reverse;
-      gap: 0.75rem;
-      opacity: 0;
-      transform: translateY(20px) scale(0.8);
-      pointer-events: none;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .fab-container.open .fab-menu {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-      pointer-events: all;
-    }
-    .fab-item {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      transition: all 0.3s ease;
-    }
-    .fab-label {
-      background: white;
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      font-size: 0.875rem;
-      font-weight: 500;
-      white-space: nowrap;
-      opacity: 0;
-      transform: translateX(10px);
-      transition: all 0.3s ease;
-      pointer-events: none;
-    }
-    .fab-container.open .fab-label {
-      opacity: 1;
-      transform: translateX(0);
-    }
-    .fab-button {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: white;
-      color: #667eea;
-      border: 2px solid #667eea;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.3rem;
-      text-decoration: none;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
-      transition: all 0.3s ease;
-    }
-    .fab-button:hover {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      transform: scale(1.15);
-      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-    }
-    .fab-backdrop {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.3);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-      z-index: 1049;
-    }
-    .fab-container.open ~ .fab-backdrop {
-      opacity: 1;
-      pointer-events: all;
-    }
+    /* ... (style FAB Menu - bez zmian) ... */
+    .fab-container {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 1050;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      gap: 1rem;
+    }
+    .fab-main {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      z-index: 2;
+    }
+    .fab-main:hover {
+      transform: scale(1.1);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+    }
+    .fab-main i {
+      transition: transform 0.3s ease;
+    }
+    .fab-container.open .fab-main i {
+      transform: rotate(45deg);
+    }
+    .fab-menu {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 0.75rem;
+      opacity: 0;
+      transform: translateY(20px) scale(0.8);
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .fab-container.open .fab-menu {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: all;
+    }
+    .fab-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: all 0.3s ease;
+    }
+    .fab-label {
+      background: white;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      font-size: 0.875rem;
+      font-weight: 500;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateX(10px);
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+    .fab-container.open .fab-label {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .fab-button {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      text-decoration: none;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+    }
+    .fab-button:hover {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      transform: scale(1.15);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    .fab-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 1049;
+  S }
+    .fab-container.open ~ .fab-backdrop {
+      opacity: 1;
+      pointer-events: all;
+    }
 
-    @media (max-width: 768px) {
-      .calendar-grid {
-        gap: 0.25rem;
-      }
-      .calendar-day {
-        padding: 0.25rem;
-      }
-      .day-number {
-        font-size: 0.9rem;
-      }
-      .day-status {
-        font-size: 1.2rem;
-      }
-    }
-  </style>
+    @media (max-width: 768px) {
+      .calendar-grid {
+        gap: 0.25rem;
+      }
+      .calendar-day {
+        padding: 0.25rem;
+      }
+      .day-number {
+        font-size: 0.9rem;
+      }
+      .day-status {
+        font-size: 1.2rem;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="main-container">
-    <!-- Nagłówek -->
-    <div class="header-section text-center">
-      <h1 class="display-6 mb-2">📊 Zestawienie Miesięcznej Obecności</h1>
-      <p class="lead mb-0">Raport obecności dla wybranego klienta</p>
-    </div>
+  <div class="main-container">
+        <div class="header-section text-center">
+      <h1 class="display-6 mb-2">📊 Zestawienie Miesięcznej Obecności</h1>
+      <p class="lead mb-0">Raport obecności dla wybranego klienta</p>
+    </div>
 
-    <!-- Kontrolki -->
-    <div class="controls-section">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label"><strong>Wybierz klienta</strong></label>
-          <select id="clientSelect" class="form-select">
-            <option value="">Ładowanie klientów...</option>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label"><strong>Miesiąc</strong></label>
-          <select id="monthSelect" class="form-select">
-            <option value="0">Styczeń</option>
-            <option value="1">Luty</option>
-            <option value="2">Marzec</option>
-            <option value="3">Kwiecień</option>
-            <option value="4">Maj</option>
-            <option value="5">Czerwiec</option>
-            <option value="6">Lipiec</option>
-            <option value="7">Sierpień</option>
-            <option value="8">Wrzesień</option>
-            <option value="9">Październik</option>
-            <option value="10">Listopad</option>
-            <option value="11">Grudzień</option>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label"><strong>Rok</strong></label>
-          <select id="yearSelect" class="form-select">
-          </select>
-        </div>
-      </div>
-      <div class="row mt-3">
-        <div class="col-12">
-          <button class="btn btn-primary" onclick="loadReport()">
-            <i class="bi bi-bar-chart-fill"></i> Wygeneruj raport
-          </button>
-          <button class="btn btn-success" onclick="exportReport()">
-            <i class="bi bi-download"></i> Eksportuj PDF
-          </button>
-        </div>
-      </div>
-    </div>
+        <div class="controls-section">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label"><strong>Wyszukaj klienta</strong></label>
+          <input type="text" id="clientSearch" class="form-control mb-2" placeholder="Wpisz imię, nazwisko...">
 
-    <!-- Alert -->
-    <div id="alertBox" class="m-3"></div>
+          <label class="form-label"><strong>Wybierz klienta</strong></label>
+          <select id="clientSelect" class="form-select">
+            <option value="">Ładowanie klientów...</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label"><strong>Miesiąc</strong></label>
+          <select id="monthSelect" class="form-select">
+            <option value="0">Styczeń</option>
+            <option value="1">Luty</option>
+            <option value="2">Marzec</option>
+            <option value="3">Kwiecień</option>
+            <option value="4">Maj</option>
+            <option value="5">Czerwiec</option>
+            <option value="6">Lipiec</option>
+            <option value="7">Sierpień</option>
+            <option value="8">Wrzesień</option>
+            <option value="9">Październik</option>
+            <option value="10">Listopad</option>
+            <option value="11">Grudzień</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label"><strong>Rok</strong></label>
+          <select id="yearSelect" class="form-select">
+          </select>
+        </div>
+      </div>
+      <div class="row mt-3">
+        <div class="col-12">
+          <button class="btn btn-primary" onclick="loadReport()">
+            <i class="bi bi-bar-chart-fill"></i> Wygeneruj raport
+          </button>
+          <button id="exportPdfBtn" class="btn btn-success" onclick="exportPDF()">
+            <i class="bi bi-download"></i> Eksportuj PDF
+          </button>
+        </div>
+      </div>
+    </div>
 
-    <!-- Wyniki -->
-    <div id="reportContent" class="p-3" style="display: none;">
+        <div id="alertBox" class="m-3"></div>
 
-      <!-- Informacje o kliencie -->
-      <div class="client-info">
-        <div class="row align-items-center">
-          <div class="col-auto">
-            <img id="clientPhoto" src="" alt="Klient" class="client-photo-large">
-          </div>
-          <div class="col">
-            <h3 id="clientName" class="mb-1"></h3>
-            <p class="mb-0" id="clientDetails"></p>
-          </div>
-        </div>
-      </div>
+        <div id="reportContent" class="p-3" style="display: none;">
 
-      <!-- Statystyki -->
-      <div class="stats-card">
-        <h5 class="mb-3"><i class="bi bi-graph-up"></i> Podsumowanie obecności</h5>
-        <div class="row">
-          <div class="col-md-3">
-            <div class="stat-box stat-present">
-              <div class="display-6" id="statPresent">0</div>
-              <small><strong>Obecny</strong></small>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stat-box stat-absent">
-              <div class="display-6" id="statAbsent">0</div>
-              <small><strong>Nieobecny</strong></small>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stat-box stat-late">
-              <div class="display-6" id="statLate">0</div>
-              <small><strong>Spóźniony</strong></small>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stat-box stat-excused">
-              <div class="display-6" id="statExcused">0</div>
-              <small><strong>Usprawiedliwiony</strong></small>
-            </div>
-          </div>
-        </div>
-        <div class="mt-3 text-center">
-          <h4>Frekwencja: <span id="attendanceRate" class="text-primary">0%</span></h4>
-          <small class="text-muted">Procent obecności względem zaplanowanych zajęć</small>
-        </div>
-      </div>
+            <div class="client-info">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <img id="clientPhoto" src="" alt="Klient" class="client-photo-large">
+          </div>
+          <div class="col">
+            <h3 id="clientName" class="mb-1"></h3>
+            <p class="mb-0" id="clientDetails"></p>
+          </div>
+        </div>
+      </div>
 
-      <!-- Kalendarz -->
-      <div class="stats-card">
-        <h5 class="mb-3"><i class="bi bi-calendar3"></i> Kalendarz obecności</h5>
-        <h6 class="text-center text-muted mb-3" id="calendarTitle"></h6>
+            <div class="stats-card">
+        <h5 class="mb-3"><i class="bi bi-graph-up"></i> Podsumowanie obecności</h5>
+        <div class="row">
+          <div class="col-md-3">
+            <div class="stat-box stat-present">
+              <div class="display-6" id="statPresent">0</div>
+              <small><strong>Obecny</strong></small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-box stat-absent">
+              <div class="display-6" id="statAbsent">0</div>
+              <small><strong>Nieobecny</strong></small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-box stat-late">
+              <div class="display-6" id="statLate">0</div>
+              <small><strong>Spóźniony</strong></small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-box stat-excused">
+              <div class="display-6" id="statExcused">0</div>
+              <small><strong>Usprawiedliwiony</strong></small>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 text-center">
+          <h4>Frekwencja: <span id="attendanceRate" class="text-primary">0%</span></h4>
+          <small class="text-muted">Procent obecności względem zaplanowanych zajęć</small>
+        </div>
+      </div>
 
-        <div class="calendar-grid">
-          <div class="calendar-header">Pn</div>
-          <div class="calendar-header">Wt</div>
-          <div class="calendar-header">Śr</div>
-          <div class="calendar-header">Cz</div>
-          <div class="calendar-header">Pt</div>
-          <div class="calendar-header">So</div>
-          <div class="calendar-header">Nd</div>
-        </div>
+            <div class="stats-card">
+        <h5 class="mb-3"><i class="bi bi-calendar3"></i> Kalendarz obecności</h5>
+        <h6 class="text-center text-muted mb-3" id="calendarTitle"></h6>
 
-        <div class="calendar-grid" id="calendarDays"></div>
+        <div class="calendar-grid">
+          <div class="calendar-header">Pn</div>
+          <div class="calendar-header">Wt</div>
+          <div class="calendar-header">Śr</div>
+          <div class="calendar-header">Cz</div>
+          <div class="calendar-header">Pt</div>
+          <div class="calendar-header">So</div>
+          <div class="calendar-header">Nd</div>
+        </div>
 
-        <div class="legend">
-          <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);"></div>
-            <span>Obecny</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);"></div>
-            <span>Nieobecny</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);"></div>
-            <span>Spóźniony</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);"></div>
-            <span>Usprawiedliwiony</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #f8f9fa; border: 1px solid #dee2e6;"></div>
-            <span>Brak danych</span>
-          </div>
-        </div>
-      </div>
+        <div class="calendar-grid" id="calendarDays"></div>
 
-      <!-- Wykres -->
-      <div class="stats-card">
-        <h5 class="mb-3"><i class="bi bi-pie-chart-fill"></i> Wykres obecności</h5>
-        <div class="chart-container">
-          <canvas id="attendanceChart"></canvas>
-        </div>
-      </div>
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);"></div>
+            <span>Obecny</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);"></div>
+            <span>Nieobecny</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);"></div>
+            <span>Spóźniony</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);"></div>
+            <span>Usprawiedliwiony</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #f8f9fa; border: 1px solid #dee2e6;"></div>
+            <span>Brak danych</span>
+          </div>
+        </div>
+      </div>
 
-    </div>
-  </div>
+            <div class="stats-card">
+        <h5 class="mb-3"><i class="bi bi-pie-chart-fill"></i> Wykres obecności</h5>
+        <div class="chart-container">
+          <canvas id="attendanceChart"></canvas>
+        </div>
+      </div>
 
-  <!-- FAB Menu -->
-  <div class="fab-container" id="fabContainer">
-    <div class="fab-menu">
-      <div class="fab-item">
-        <span class="fab-label">Strona główna</span>
-        <a href="index.html" class="fab-button" title="Strona główna">
-          <i class="bi bi-house-fill"></i>
-        </a>
-      </div>
-      <div class="fab-item">
-        <span class="fab-label">Lista obecności</span>
-        <a href="attendance.html" class="fab-button" title="Lista obecności">
-          <i class="bi bi-clipboard-check"></i>
-        </a>
-      </div>
-      <div class="fab-item">
-        <span class="fab-label">Klienci</span>
-        <a href="klienci.html" class="fab-button" title="Lista klientów">
-          <i class="bi bi-people-fill"></i>
-        </a>
-      </div>
-      <div class="fab-item">
-        <span class="fab-label">Plan SUO</span>
-        <a href="panel.html" class="fab-button" title="Plan SUO">
-          <i class="bi bi-calendar3"></i>
-        </a>
-      </div>
-    </div>
-    <button class="fab-main" id="fabMainBtn" aria-label="Menu nawigacji">
-      <i class="bi bi-plus-lg"></i>
-    </button>
-  </div>
+    </div>
+  </div>
 
-  <div class="fab-backdrop" id="fabBackdrop"></div>
+  <div class="fab-container" id="fabContainer">
+    <div class="fab-menu">
+      <div class="fab-item">
+        <span class="fab-label">Strona główna</span>
+        <a href="index.html" class="fab-button" title="Strona główna">
+          <i class="bi bi-house-fill"></i>
+        </a>
+      </div>
+      <div class="fab-item">
+        <span class="fab-label">Lista obecności</span>
+        <a href="attendance.html" class="fab-button" title="Lista obecności">
+          <i class="bi bi-clipboard-check"></i>
+        </a>
+      </div>
+      <div class="fab-item">
+        <span class="fab-label">Klienci</span>
+        <a href="klienci.html" class="fab-button" title="Lista klientów">
+          <i class="bi bi-people-fill"></i>
+        </a>
+      </div>
+      <div class="fab-item">
+        <span class="fab-label">Plan SUO</span>
+        <a href="panel.html" class="fab-button" title="Plan SUO">
+          <i class="bi bi-calendar3"></i>
+        </a>
+      </div>
+    </div>
+    <button class="fab-main" id="fabMainBtn" aria-label="Menu nawigacji">
+      <i class="bi bi-plus-lg"></i>
+    </button>
+  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script>
-    const API_URL = ""; // ✅ POPRAWNIE
-    let allClients = [];
-    let attendanceData = {};
-    let currentChart = null;
+  <div class="fab-backdrop" id="fabBackdrop"></div>
 
-    document.addEventListener('DOMContentLoaded', () => {
-      setupEventListeners();
-      initializeSelects();
-      loadClients();
-    });
 
-    function setupEventListeners() {
-      const fabContainer = document.getElementById('fabContainer');
-      const fabMainBtn = document.getElementById('fabMainBtn');
-      const fabBackdrop = document.getElementById('fabBackdrop');
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    const API_URL = ""; 
+    let allClients = [];
+    let attendanceData = {};
+    let currentChart = null;
+    // NOWOŚĆ: Deklaracja dla jsPDF
+    const { jsPDF } = window.jspdf;
 
-      if (fabMainBtn) {
-        fabMainBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          fabContainer.classList.toggle('open');
-        });
-      }
+    document.addEventListener('DOMContentLoaded', () => {
+      setupEventListeners();
+      initializeSelects();
+      loadClients();
+    });
 
-      if (fabBackdrop) {
-        fabBackdrop.addEventListener('click', () => {
-          fabContainer.classList.remove('open');
-        });
-      }
+    function setupEventListeners() {
+      // ... (obsługa FAB Menu - bez zmian) ...
+      const fabContainer = document.getElementById('fabContainer');
+      const fabMainBtn = document.getElementById('fabMainBtn');
+      const fabBackdrop = document.getElementById('fabBackdrop');
 
-      document.querySelectorAll('.fab-button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          fabContainer.classList.remove('open');
-        });
-      });
+      if (fabMainBtn) {
+        fabMainBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fabContainer.classList.toggle('open');
+        });
+      }
 
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && fabContainer.classList.contains('open')) {
-          fabContainer.classList.remove('open');
-        }
-      });
-    }
+      if (fabBackdrop) {
+        fabBackdrop.addEventListener('click', () => {
+          fabContainer.classList.remove('open');
+        });
+      }
 
-    function initializeSelects() {
-      const today = new Date();
-      const yearSelect = document.getElementById('yearSelect');
-      const monthSelect = document.getElementById('monthSelect');
+      document.querySelectorAll('.fab-button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          fabContainer.classList.remove('open');
+        });
+      });
 
-      for (let year = today.getFullYear(); year >= today.getFullYear() - 5; year--) {
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year;
-        yearSelect.appendChild(option);
-      }
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && fabContainer.classList.contains('open')) {
+          fabContainer.classList.remove('open');
+        }
+      });
 
-      monthSelect.value = today.getMonth();
-      yearSelect.value = today.getFullYear();
-    }
+      // NOWOŚĆ: Listener dla wyszukiwarki klientów
+      document.getElementById('clientSearch').addEventListener('input', filterClients);
+    }
 
-    async function loadClients() {
-      try {
-        const response = await fetch(`${API_URL}/api/clients`);
-        if (!response.ok) throw new Error('Błąd pobierania klientów');
+    function initializeSelects() {
+      const today = new Date();
+      const yearSelect = document.getElementById('yearSelect');
+      const monthSelect = document.getElementById('monthSelect');
 
-        allClients = await response.json();
+      for (let year = today.getFullYear(); year >= today.getFullYear() - 5; year--) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        yearSelect.appendChild(option);
+      }
+
+      monthSelect.value = today.getMonth();
+      yearSelect.value = today.getFullYear();
+    }
+
+    // NOWOŚĆ: Funkcja do (re)populacji listy klientów
+    function populateClientList(clientsToShow) {
         const select = document.getElementById('clientSelect');
-        select.innerHTML = '<option value="">-- Wybierz klienta --</option>';
+        const selectedValue = select.value;
+        select.innerHTML = ''; // Wyczyść listę
 
-        allClients
-          .filter(c => c.active !== false)
-          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
-          .forEach(client => {
-            const option = document.createElement('option');
-            option.value = client.client_id || client.id;
-            option.textContent = client.full_name || 'Brak nazwy';
-            select.appendChild(option);
-          });
+        // Dodaj opcję domyślną
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '-- Wybierz klienta --';
+        select.appendChild(defaultOption);
 
-      } catch (error) {
-        console.error('Błąd ładowania klientów:', error);
-        showAlert('Nie udało się załadować listy klientów', 'danger');
-      }
+        // Sortuj i dodaj przefiltrowanych klientów
+        clientsToShow
+            .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+            .forEach(client => {
+                const option = document.createElement('option');
+                option.value = client.client_id || client.id;
+                option.textContent = client.full_name || 'Brak nazwy';
+                select.appendChild(option);
+            });
+        
+        // Spróbuj przywrócić zaznaczenie, jeśli nadal pasuje
+        if (Array.from(select.options).some(opt => opt.value === selectedValue)) {
+            select.value = selectedValue;
+        }
     }
 
-    async function loadReport() {
-    const clientId = document.getElementById('clientSelect').value;
-    const month = parseInt(document.getElementById('monthSelect').value);
-    const year = parseInt(document.getElementById('yearSelect').value);
-
-    if (!clientId) {
-        showAlert('Wybierz klienta', 'warning');
-        return;
-    }
-
-    const client = allClients.find(c => (c.client_id || c.id) == clientId);
-    if (!client) {
-        showAlert('Nie znaleziono klienta', 'danger');
-        return;
-    }
-
-    showAlert('Generowanie raportu...', 'info');
-
-    try {
-        const startDate = new Date(year, month, 1);
-        const endDate = new Date(year, month + 1, 0);
-
-        attendanceData = {};
-
-        console.log("🔍 Pobieram obecność dla:", {
-            client: client.full_name,
-            clientId: clientId,
-            month: month + 1,
-            year: year,
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0]
-        });
-
-        let foundCount = 0;
-
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-            d.setHours(12, 0, 0, 0); // <-- DODANA LINIA: Unikamy problemu stref czasowych
-            const dateStr = d.toISOString().split('T')[0];
-
-            try {
-                const url = `${API_URL}/api/attendance?date=${dateStr}&client_id=${clientId}`;
-                console.log(`   📡 Zapytanie: ${url}`);
-
-                const response = await fetch(url);
-
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log(`   📥 Odpowiedź dla ${dateStr}:`, data);
-
-                    const clientRecord = data.find(a => a.client_id == clientId);
-                    if (clientRecord) {
-                        attendanceData[dateStr] = clientRecord;
-                        foundCount++;
-                        console.log(`   ✅ Znaleziono obecność: ${clientRecord.status}`);
-                    }
-                } else {
-                    console.log(`   ⚠️ HTTP ${response.status} dla ${dateStr}`);
-                }
-            } catch (e) {
-                console.log(`   ❌ Błąd dla ${dateStr}:`, e.message);
-            }
+    // NOWOŚĆ: Funkcja filtrująca wywoływana przez input
+    function filterClients() {
+        const searchTerm = document.getElementById('clientSearch').value.toLowerCase().trim();
+        const activeClients = allClients.filter(c => c.active !== false);
+        
+        if (!searchTerm) {
+            populateClientList(activeClients); // Pokaż wszystkich aktywnych, jeśli wyszukiwarka pusta
+            return;
         }
 
-        console.log(`🎯 PODSUMOWANIE: Znaleziono ${foundCount} dni z obecnością`);
-        console.log("📋 attendanceData:", attendanceData);
-
-        displayReport(client, month, year);
-        showAlert(`Raport wygenerowany (${foundCount} wpisów)`, 'success');
-
-    } catch (error) {
-        console.error('❌ Błąd generowania raportu:', error);
-        showAlert('Błąd podczas generowania raportu', 'danger');
-    }
-}
-
-    function displayReport(client, month, year) {
-      document.getElementById('reportContent').style.display = 'block';
-
-      const initials = (client.full_name || 'K').charAt(0).toUpperCase();
-      const avatarSVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ccircle cx='40' cy='40' r='40' fill='%23667eea'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.35em' fill='white' font-size='36' font-family='Arial'%3E${initials}%3C/text%3E%3C/svg%3E`;
-
-      document.getElementById('clientPhoto').src = client.photo_url || avatarSVG;
-      document.getElementById('clientName').textContent = client.full_name;
-      document.getElementById('clientDetails').textContent = `Tel: ${client.phone || 'Brak'} | Email: ${client.email || 'Brak'}`;
-
-      const stats = calculateStats();
-      document.getElementById('statPresent').textContent = stats.obecny;
-      document.getElementById('statAbsent').textContent = stats.nieobecny;
-      document.getElementById('statLate').textContent = stats.spóźniony;
-      document.getElementById('statExcused').textContent = stats.usprawiedliwiony;
-
-      const totalScheduled = stats.obecny + stats.nieobecny + stats.spóźniony + stats.usprawiedliwiony;
-      const rate = totalScheduled > 0 ? Math.round((stats.obecny / totalScheduled) * 100) : 0;
-      document.getElementById('attendanceRate').textContent = rate + '%';
-
-      const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
-                          'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
-      document.getElementById('calendarTitle').textContent = `${monthNames[month]} ${year}`;
-
-      displayCalendar(month, year);
-      displayChart(stats);
+        const filteredClients = activeClients.filter(c => 
+            (c.full_name || '').toLowerCase().includes(searchTerm)
+        );
+        populateClientList(filteredClients);
     }
 
-    function calculateStats() {
-      const stats = {
-        obecny: 0,
-        nieobecny: 0,
-        spóźniony: 0,
-        usprawiedliwiony: 0
-      };
+    async function loadClients() {
+      try {
+        const response = await fetch(`${API_URL}/api/clients`);
+        if (!response.ok) throw new Error('Błąd pobierania klientów');
 
-      Object.values(attendanceData).forEach(record => {
-        if (record.status && stats.hasOwnProperty(record.status)) {
-          stats[record.status]++;
-        }
-      });
+        allClients = await response.json();
+        
+        // NOWOŚĆ: Zamiast budować listę tutaj, wywołujemy funkcję filtrującą,
+        // która zajmie się początkowym zapełnieniem listy
+        filterClients(); 
 
-      return stats;
-    }
+      } catch (error) {
+        console.error('Błąd ładowania klientów:', error);
+        showAlert('Nie udało się załadować listy klientów', 'danger');
+        // W razie błędu, wyczyść "ładowanie"
+        const select = document.getElementById('clientSelect');
+        select.innerHTML = '<option value="">Błąd ładowania</option>';
+      }
+    }
 
-    function displayCalendar(month, year) {
-      const calendarDays = document.getElementById('calendarDays');
-      calendarDays.innerHTML = '';
+    async function loadReport() {
+      // ... (funkcja bez zmian) ...
+      const clientId = document.getElementById('clientSelect').value;
+      const month = parseInt(document.getElementById('monthSelect').value);
+      const year = parseInt(document.getElementById('yearSelect').value);
 
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
+      if (!clientId) {
+          showAlert('Wybierz klienta', 'warning');
+          return;
+      }
 
-      let dayOfWeek = firstDay.getDay();
-      dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const client = allClients.find(c => (c.client_id || c.id) == clientId);
+      if (!client) {
+          showAlert('Nie znaleziono klienta', 'danger');
+          return;
+      }
 
-      for (let i = 0; i < dayOfWeek; i++) {
-        const emptyDay = document.createElement('div');
-        emptyDay.className = 'calendar-day empty';
-        calendarDays.appendChild(emptyDay);
-      }
+      showAlert('Generowanie raportu...', 'info');
 
-      for (let day = 1; day <= lastDay.getDate(); day++) {
-        // Ustawiamy godzinę na 12:00, aby uniknąć problemów ze strefą czasową
-        const date = new Date(year, month, day, 12, 0, 0); 
+      try {
+          const startDate = new Date(year, month, 1);
+          const endDate = new Date(year, month + 1, 0);
+
+          attendanceData = {};
+
+          console.log("🔍 Pobieram obecność dla:", {
+              client: client.full_name,
+              clientId: clientId,
+              month: month + 1,
+              year: year,
+              startDate: startDate.toISOString().split('T')[0],
+              endDate: endDate.toISOString().split('T')[0]
+          });
+
+          let foundCount = 0;
+
+          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+              d.setHours(12, 0, 0, 0); 
+              const dateStr = d.toISOString().split('T')[0];
+
+              try {
+                  const url = `${API_URL}/api/attendance?date=${dateStr}&client_id=${clientId}`;
+                  console.log(`   📡 Zapytanie: ${url}`);
+
+                  const response = await fetch(url);
+
+                  if (response.ok) {
+                      const data = await response.json();
+                      console.log(`   📥 Odpowiedź dla ${dateStr}:`, data);
+
+                      const clientRecord = data.find(a => a.client_id == clientId);
+                      if (clientRecord) {
+                          attendanceData[dateStr] = clientRecord;
+                          foundCount++;
+                          console.log(`   ✅ Znaleziono obecność: ${clientRecord.status}`);
+                      }
+                  } else {
+                      console.log(`   ⚠️ HTTP ${response.status} dla ${dateStr}`);
+                  }
+              } catch (e) {
+                  console.log(`   ❌ Błąd dla ${dateStr}:`, e.message);
+              }
+          }
+
+          console.log(`🎯 PODSUMOWANIE: Znaleziono ${foundCount} dni z obecnością`);
+          console.log("📋 attendanceData:", attendanceData);
+
+          displayReport(client, month, year);
+          showAlert(`Raport wygenerowany (${foundCount} wpisów)`, 'success');
+
+      } catch (error) {
+          console.error('❌ Błąd generowania raportu:', error);
+          showAlert('Błąd podczas generowania raportu', 'danger');
+      }
+  }
+
+    function displayReport(client, month, year) {
+      // ... (funkcja bez zmian) ...
+      document.getElementById('reportContent').style.display = 'block';
+
+      const initials = (client.full_name || 'K').charAt(0).toUpperCase();
+      const avatarSVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ccircle cx='40' cy='40' r='40' fill='%23667eea'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.35em' fill='white' font-size='36' font-family='Arial'%3E${initials}%3C/text%3E%3C/svg%3E`;
+
+      document.getElementById('clientPhoto').src = client.photo_url || avatarSVG;
+      document.getElementById('clientName').textContent = client.full_name;
+      document.getElementById('clientDetails').textContent = `Tel: ${client.phone || 'Brak'} | Email: ${client.email || 'Brak'}`;
+
+      const stats = calculateStats();
+      document.getElementById('statPresent').textContent = stats.obecny;
+      document.getElementById('statAbsent').textContent = stats.nieobecny;
+      document.getElementById('statLate').textContent = stats.spóźniony;
+      document.getElementById('statExcused').textContent = stats.usprawiedliwiony;
+
+      const totalScheduled = stats.obecny + stats.nieobecny + stats.spóźniony + stats.usprawiedliwiony;
+      const rate = totalScheduled > 0 ? Math.round((stats.obecny / totalScheduled) * 100) : 0;
+      document.getElementById('attendanceRate').textContent = rate + '%';
+
+      const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
+                          'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+      document.getElementById('calendarTitle').textContent = `${monthNames[month]} ${year}`;
+
+      displayCalendar(month, year);
+      displayChart(stats);
+    }
+
+    function calculateStats() {
+      // ... (funkcja bez zmian) ...
+      const stats = {
+        obecny: 0,
+        nieobecny: 0,
+        spóźniony: 0,
+        usprawiedliwiony: 0
+      };
+
+      Object.values(attendanceData).forEach(record => {
+        if (record.status && stats.hasOwnProperty(record.status)) {
+          stats[record.status]++;
+        }
+      });
+
+      return stats;
+    }
+
+    function displayCalendar(month, year) {
+      // ... (funkcja bez zmian) ...
+      const calendarDays = document.getElementById('calendarDays');
+      calendarDays.innerHTML = '';
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+
+      let dayOfWeek = firstDay.getDay();
+      dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+      for (let i = 0; i < dayOfWeek; i++) {
+        const emptyDay = document.createElement('div');
+        emptyDay.className = 'calendar-day empty';
+        calendarDays.appendChild(emptyDay);
+      }
+
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(year, month, day, 12, 0, 0); 
         const dateStr = date.toISOString().split('T')[0];
         const record = attendanceData[dateStr];
 
-        const dayDiv = document.createElement('div');
-        dayDiv.className = 'calendar-day';
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'calendar-day';
 
-        if (record && record.status) {
-          dayDiv.classList.add(`status-${record.status}`);
-          const statusEmoji = {
-            'obecny': '✅',
-            'nieobecny': '❌',
-            'spóźniony': '⏰',
-            'usprawiedliwiony': '📝'
-          };
-          dayDiv.innerHTML = `
-            <div class="day-number">${day}</div>
-            <div class="day-status">${statusEmoji[record.status] || ''}</div>
-          `;
-          dayDiv.title = `${day} - ${record.status}${record.notes ? '\n' + record.notes : ''}`;
-        } else {
-          dayDiv.classList.add('status-no-data');
-          dayDiv.innerHTML = `<div class="day-number">${day}</div>`;
-          dayDiv.title = `${day} - Brak danych`;
+        if (record && record.status) {
+          dayDiv.classList.add(`status-${record.status}`);
+          const statusEmoji = {
+            'obecny': '✅',
+            'nieobecny': '❌',
+            'spóźniony': '⏰',
+            'usprawiedliwiony': '📝'
+          };
+          dayDiv.innerHTML = `
+            <div class="day-number">${day}</div>
+            <div class="day-status">${statusEmoji[record.status] || ''}</div>
+          `;
+          dayDiv.title = `${day} - ${record.status}${record.notes ? '\n' + record.notes : ''}`;
+        } else {
+          dayDiv.classList.add('status-no-data');
+          dayDiv.innerHTML = `<div class="day-number">${day}</div>`;
+          dayDiv.title = `${day} - Brak danych`;
+        }
+
+        calendarDays.appendChild(dayDiv);
+      }
+    }
+
+    function displayChart(stats) {
+      // ... (funkcja bez zmian) ...
+      const ctx = document.getElementById('attendanceChart');
+
+      if (currentChart) {
+        currentChart.destroy();
+      }
+
+      currentChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Obecny', 'Nieobecny', 'Spóźniony', 'Usprawiedliwiony'],
+          datasets: [{
+            data: [stats.obecny, stats.nieobecny, stats.spóźniony, stats.usprawiedliwiony],
+            backgroundColor: [
+              'rgba(40, 167, 69, 0.8)',
+              'rgba(220, 53, 69, 0.8)',
+              'rgba(255, 193, 7, 0.8)',
+              'rgba(23, 162, 184, 0.8)'
+            ],
+            borderColor: [
+              'rgba(40, 167, 69, 1)',
+              'rgba(220, 53, 69, 1)',
+              'rgba(255, 193, 7, 1)',
+              'rgba(23, 162, 184, 1)'
+            ],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                padding: 15,
+                font: {
+                  size: 14
+                }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                  return `${label}: ${value} (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // NOWOŚĆ: Zaktualizowana funkcja eksportu do PDF
+    async function exportPDF() {
+        const reportElement = document.getElementById('reportContent');
+        if (reportElement.style.display === 'none') {
+            showAlert('Najpierw wygeneruj raport, aby go wyeksportować.', 'warning');
+            return;
         }
 
-        calendarDays.appendChild(dayDiv);
-      }
-    }
+        const btn = document.getElementById('exportPdfBtn');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Generowanie...`;
 
-    function displayChart(stats) {
-      const ctx = document.getElementById('attendanceChart');
+        try {
+            // Pobranie nazwy klienta i daty do nazwy pliku
+            const clientName = document.getElementById('clientName').textContent.replace(/ /g, '_');
+            const monthText = document.getElementById('monthSelect').options[document.getElementById('monthSelect').selectedIndex].text;
+            const year = document.getElementById('yearSelect').value;
+            const fileName = `Raport_Obecnosci_${clientName}_${monthText}_${year}.pdf`;
 
-      if (currentChart) {
-        currentChart.destroy();
-      }
+            // Użyj html2canvas do zrobienia "zrzutu" elementu
+            // Zwiększona skala dla lepszej jakości w PDF
+            const canvas = await html2canvas(reportElement, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
 
-      currentChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: ['Obecny', 'Nieobecny', 'Spóźniony', 'Usprawiedliwiony'],
-          datasets: [{
-            data: [stats.obecny, stats.nieobecny, stats.spóźniony, stats.usprawiedliwiony],
-            backgroundColor: [
-              'rgba(40, 167, 69, 0.8)',
-              'rgba(220, 53, 69, 0.8)',
-              'rgba(255, 193, 7, 0.8)',
-              'rgba(23, 162, 184, 0.8)'
-            ],
-            borderColor: [
-              'rgba(40, 167, 69, 1)',
-              'rgba(220, 53, 69, 1)',
-              'rgba(255, 193, 7, 1)',
-              'rgba(23, 162, 184, 1)'
-            ],
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                padding: 15,
-                font: {
-                  size: 14
-                }
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const label = context.label || '';
-                  const value = context.parsed || 0;
-                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                  const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                  return `${label}: ${value} (${percentage}%)`;
-                }
-              }
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            const margin = 10; // 10mm marginesu
+            const imgWidth = pdfWidth - margin * 2;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            let heightLeft = imgHeight;
+            let position = margin;
+
+            // Dodaj pierwszy obraz
+            pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+            heightLeft -= (pdfHeight - margin * 2); // Odejmij wysokość strony (z marginesami)
+
+            // Dodawaj kolejne strony, jeśli obraz jest za wysoki
+            while (heightLeft > 0) {
+                position = margin - (imgHeight - heightLeft); // Przesuń obraz "w górę" na nowej stronie
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+                heightLeft -= (pdfHeight - margin * 2);
             }
-          }
+
+            // Zapisz plik
+            pdf.save(fileName);
+            showAlert('Raport PDF został wygenerowany!', 'success');
+
+        } catch (error) {
+            console.error("Błąd podczas generowania PDF:", error);
+            showAlert('Wystąpił błąd podczas generowania PDF.', 'danger');
+        } finally {
+            // Przywróć przycisk do stanu pierwotnego
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
         }
-      });
     }
 
-    function exportReport() {
-      showAlert('Funkcja eksportu do PDF będzie dostępna wkrótce', 'info');
-    }
 
-    function showAlert(message, type) {
-      const alertBox = document.getElementById('alertBox');
-      alertBox.innerHTML = `
-        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-          ${message}
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      `;
+    function showAlert(message, type) {
+      // ... (funkcja bez zmian) ...
+      const alertBox = document.getElementById('alertBox');
+      alertBox.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      `;
 
-      if (type !== 'danger') {
-        setTimeout(() => {
-          const alert = alertBox.querySelector('.alert');
-          if (alert) alert.remove();
-        }, 5000);
-      }
-    }
-  </script>
+      if (type !== 'danger') {
+        setTimeout(() => {
+          const alert = alertBox.querySelector('.alert');
+          if (alert) alert.remove();
+        }, 5000);
+      }
+    }
+  </script>
 </body>
-
 </html>
-
