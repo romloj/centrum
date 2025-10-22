@@ -287,6 +287,15 @@
                 <option value="">-- wybierz terapeutę --</option>
               </select>
             </div>
+
+            <div class="mb-3">
+              <label class="form-label">Typ wizyty</label>
+              <select id="addType" class="form-select">
+                <option value="therapy">Terapia indywidualna</option>
+                <option value="tus">Grupa TUS</option>
+              </select>
+            </div>
+            
             <div class="mb-3">
               <label class="form-label">Klient <span class="text-danger">*</span></label>
               <select id="addClient" class="form-select" required>
@@ -299,6 +308,15 @@
               <input type="text" id="addNewClientName" class="form-control" placeholder="Imię i nazwisko">
               <small class="text-muted">Jeśli wpiszesz tu nazwisko, zostanie dodany nowy klient</small>
             </div>
+            
+            <div id="groupClientField" style="display: none;">
+              <div class="mb-3">
+                <label for="addGroup" class="form-label">Grupa <span class="text-danger">*</span></label>
+                <select id="addGroup" class="form-select"> <option value="">-- wybierz grupę --</option>
+                  </select>
+              </div>
+            </div>
+            
             <div class="mb-3">
               <label class="form-label">Data <span class="text-danger">*</span></label>
               <input type="date" id="addDate" class="form-control" required>
@@ -317,13 +335,7 @@
               <label class="form-label">Miejsce</label>
               <input type="text" id="addPlace" class="form-control" placeholder="np. Gabinet 1">
             </div>
-            <div class="mb-3">
-              <label class="form-label">Typ wizyty</label>
-              <select id="addType" class="form-select">
-                <option value="therapy">Terapia indywidualna</option>
-                <option value="tus">Grupa TUS</option>
-              </select>
-            </div>
+            
             <div id="addCollisionWarning" class="alert alert-warning d-none">
               <i class="bi bi-exclamation-triangle"></i> <strong>Uwaga!</strong> Wykryto kolizję czasową z inną wizytą tego terapeuty.
             </div>
@@ -388,6 +400,7 @@
 
     // — stan —
     let _clientsCache = null;
+    let _groupsCache = null;
 
     // — helpery —
     function showAlert(msg, type="success"){
@@ -456,6 +469,51 @@
       }
     }
 
+    // VVV DODAJ CAŁĄ TĘ FUNKCJĘ VVV
+    // Załaduj listę grup TUS
+    async function loadGroups() {
+      if (_groupsCache) return _groupsCache;
+
+      try {
+        // Używamy endpointu z pliku tus.html do pobrania podsumowania grup
+        const res = await fetch(`${API}/api/tus/groups-summary`); 
+        if (!res.ok) throw new Error('Nie można pobrać listy grup TUS');
+        _groupsCache = await res.json();
+        _clientsCache = null; // Unieważnij cache klientów na wypadek dodania nowego
+        return _groupsCache;
+      } catch (e) {
+        console.error('Błąd ładowania grup:', e);
+        showAlert('Nie można załadować listy grup', 'warning');
+        return [];
+      }
+    }
+
+    /**
+     * Przełącza widoczność pól Klient/Grupa w formularzu dodawania
+     * oraz zarządza atrybutem 'required' dla walidacji.
+     */
+    function toggleClientGroupFields() {
+        const visitType = document.getElementById('addType').value;
+        const individualFields = document.getElementById('individualClientFields');
+        const groupField = document.getElementById('groupClientField');
+        const clientSelect = document.getElementById('addClient');
+        const groupSelect = document.getElementById('addGroup');
+
+        if (visitType === 'tus') {
+            // Wybrano grupę TUS
+            individualFields.style.display = 'none';
+            groupField.style.display = 'block';
+            clientSelect.required = false; // Klient indywidualny nie jest wymagany
+            groupSelect.required = true;  // Grupa jest wymagana
+        } else {
+            // Wybrano terapię indywidualną
+            individualFields.style.display = 'block';
+            groupField.style.display = 'none';
+            clientSelect.required = true;  // Klient indywidualny jest wymagany
+            groupSelect.required = false; // Grupa nie jest wymagana
+        }
+    }
+
     // Otwórz modal dodawania
     async function openAddModal() {
       console.log('=== OPENING ADD MODAL ===');
@@ -469,6 +527,7 @@
       document.getElementById('addPlace').value = '';
       document.getElementById('addType').value = 'therapy';
       document.getElementById('addCollisionWarning').classList.add('d-none');
+      document.getElementById('addGroup').value = '';
 
       // Jeśli oglądamy konkretnego terapeutę, ukryj wybór terapeuty
       const therapistGroup = document.getElementById('addTherapistGroup');
@@ -484,6 +543,42 @@
         therapistSelect.value = _state.therapistId;
         therapistSelect.required = false;
       }
+
+      // --- ZMODYFIKOWANY BLOK ŁADOWANIA DANYCH ---
+
+      // Uruchom ładowanie klientów i grup równolegle
+      const [clients, groups] = await Promise.all([
+          loadClients(),
+          loadGroups() 
+      ]);
+
+      // 1. Wypełnij listę klientów
+      console.log('Clients loaded:', clients.length);
+      const clientSelect = document.getElementById('addClient');
+      const activeClients = clients.filter(c => c.active !== false);
+      const sortedClients = activeClients.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+      const options = '<option value="">-- wybierz klienta --</option>' +
+        sortedClients.map(c => {
+          const id = c.id || c.client_id;
+          const name = c.full_name || `Klient #${id}`;
+          return `<option value="${id}">${name}</option>`;
+        }).join('');
+      clientSelect.innerHTML = options;
+      console.log('Select innerHTML set, total options:', clientSelect.options.length);
+
+      // 2. Wypełnij listę grup (NOWY BLOK)
+      console.log('Groups loaded:', groups.length);
+      const groupSelect = document.getElementById('addGroup');
+      const sortedGroups = (groups || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      const groupOptions = '<option value="">-- wybierz grupę --</option>' +
+        sortedGroups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+      groupSelect.innerHTML = groupOptions;
+      console.log('Groups select innerHTML set, total options:', groupSelect.options.length);
+
+      // --- KONIEC ZMODYFIKOWANEGO BLOKU ---
+
+      // Ustaw poprawną widoczność pól PRZED pokazaniem modala
+      toggleClientGroupFields();
 
       // Załaduj klientów
       console.log('Loading clients...');
@@ -552,187 +647,133 @@
     }
 
     // Utwórz nową wizytę
+    // Utwórz nową wizytę
     async function createNewEvent() {
       console.log('=== CREATE NEW EVENT START ===');
-      console.log('Create button clicked');
 
+      // 1. POBIERZ WARTOŚCI WSPÓLNE
       const therapistId = _state.therapistId === 'all'
-        ? document.getElementById('addTherapist').value
-        : _state.therapistId;
-
-      const clientId = document.getElementById('addClient').value;
-      const newClientName = document.getElementById('addNewClientName').value.trim();
+          ? document.getElementById('addTherapist').value
+          : _state.therapistId;
+      
       const date = document.getElementById('addDate').value;
       const startTime = document.getElementById('addStartTime').value;
       const endTime = document.getElementById('addEndTime').value;
       const place = document.getElementById('addPlace').value;
-      const type = document.getElementById('addType').value;
-
-      console.log('=== FORM VALUES ===');
-      console.log('therapistId:', therapistId, typeof therapistId);
-      console.log('clientId (raw):', `"${clientId}"`, typeof clientId, 'length:', clientId.length);
-      console.log('clientId == "":', clientId === '');
-      console.log('!clientId:', !clientId);
-      console.log('newClientName:', newClientName);
-      console.log('date:', date);
-      console.log('startTime:', startTime);
-      console.log('endTime:', endTime);
-      console.log('place:', place);
-      console.log('type:', type);
-
-      // Walidacja
-      if (!therapistId || !date || !startTime || !endTime) {
-        showAlert('Proszę wypełnić wszystkie wymagane pola (oznaczone *)', 'danger');
-        return;
-      }
-
-      // POPRAWIONA WALIDACJA - sprawdź czy clientId jest pustym stringiem
-      if ((!clientId || clientId === '') && !newClientName) {
-        showAlert('Proszę wybrać klienta z listy lub wpisać nazwisko nowego klienta', 'danger');
-        return;
-      }
+      const type = document.getElementById('addType').value; // 'therapy' or 'tus'
 
       const starts_at = `${date} ${startTime}:00`;
       const ends_at = `${date} ${endTime}:00`;
 
-      let finalClientId = clientId && clientId !== '' ? clientId : null;
+      // 2. WALIDACJA PÓL WSPÓLNYCH
+      if (!therapistId || !date || !startTime || !endTime) {
+          showAlert('Proszę wypełnić wszystkie wymagane pola (Terapeuta, Data, Czas)', 'danger');
+          return;
+      }
+      
+      let payload = {
+          therapist_id: Number(therapistId),
+          starts_at,
+          ends_at,
+          place_to: place || null,
+          status: 'planned'
+          // client_id LUB group_id zostanie dodane poniżej
+          // kind zostanie dodane poniżej
+      };
 
-      console.log('=== BEFORE CLIENT CREATION ===');
-      console.log('finalClientId (initial):', finalClientId, typeof finalClientId);
+      // 3. LOGIKA WARUNKOWA DLA TYPU WIZYTY
+      if (type === 'tus') {
+          // --- Tryb grupowy ---
+          const groupId = document.getElementById('addGroup').value;
+          if (!groupId) {
+              showAlert('Proszę wybrać grupę', 'danger');
+              return;
+          }
+          // Zakładamy, że API /api/schedule przyjmuje 'group_id' i 'kind'='tus'
+          payload.group_id = Number(groupId); 
+          payload.kind = 'tus'; 
 
-      // Jeśli wpisano nowego klienta, najpierw go utwórz
-      if (newClientName && (!finalClientId || finalClientId === '')) {
-        try {
-          console.log('Creating new client:', newClientName);
-          const createClientRes = await fetch(`${API}/api/clients`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              full_name: newClientName,
-              active: true
-            })
-          });
+      } else {
+          // --- Tryb indywidualny (logika z oryginalnego pliku) ---
+          const clientId = document.getElementById('addClient').value;
+          const newClientName = document.getElementById('addNewClientName').value.trim();
 
-          if (!createClientRes.ok) {
-            const errorText = await createClientRes.text();
-            throw new Error(`Nie można utworzyć nowego klienta: ${errorText}`);
+          if ((!clientId || clientId === '') && !newClientName) {
+              showAlert('Proszę wybrać klienta z listy lub wpisać nazwisko nowego klienta', 'danger');
+              return;
           }
 
-          const newClient = await createClientRes.json();
-          finalClientId = newClient.id || newClient.client_id;
-          console.log('New client created with ID:', finalClientId);
+          let finalClientId = clientId && clientId !== '' ? clientId : null;
+
+          if (newClientName && (!finalClientId || finalClientId === '')) {
+              try {
+                  console.log('Creating new client:', newClientName);
+                  const createClientRes = await fetch(`${API}/api/clients`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ full_name: newClientName, active: true })
+                  });
+
+                  if (!createClientRes.ok) {
+                      const errorText = await createClientRes.text();
+                      throw new Error(`Nie można utworzyć nowego klienta: ${errorText}`);
+                  }
+
+                  const newClient = await createClientRes.json();
+                  finalClientId = newClient.id || newClient.client_id;
+                  console.log('New client created with ID:', finalClientId);
+
+                  if (!finalClientId) {
+                      throw new Error('Serwer nie zwrócił ID nowego klienta');
+                  }
+                  _clientsCache = null; // Unieważnij cache klientów
+
+              } catch (e) {
+                  console.error('Error creating client:', e);
+                  showAlert(`Błąd tworzenia klienta: ${e.message}`, 'danger');
+                  return;
+              }
+          }
 
           if (!finalClientId) {
-            throw new Error('Serwer nie zwrócił ID nowego klienta');
+              showAlert('Błąd: Nie udało się pobrać ID klienta.', 'danger');
+              return;
           }
-
-          _clientsCache = null;
-
-        } catch (e) {
-          console.error('Error creating client:', e);
-          showAlert(`Błąd tworzenia klienta: ${e.message}`, 'danger');
-          return;
-        }
+          
+          payload.client_id = Number(finalClientId);
+          payload.kind = 'therapy';
       }
-
-      // DODATKOWA WALIDACJA
-      if (!finalClientId || finalClientId === 'null' || finalClientId === '' || finalClientId === 'undefined') {
-        console.error('❌ BŁĄD: finalClientId jest nieprawidłowe:', finalClientId);
-        showAlert('Błąd: Nie udało się pobrać ID klienta. Wybierz klienta z listy lub wpisz jego nazwisko ponownie.', 'danger');
-        return;
-      }
-
-      // Konwersja na liczbę
-      finalClientId = Number(finalClientId);
-
-      if (isNaN(finalClientId) || finalClientId <= 0) {
-        console.error('❌ BŁĄD: finalClientId nie jest prawidłową liczbą:', finalClientId);
-        showAlert('Błąd: ID klienta nie jest prawidłową liczbą. Spróbuj ponownie.', 'danger');
-        return;
-      }
-
-      console.log('=== PRZED UTWORZENIEM PAYLOAD ===');
-      console.log('therapistId:', therapistId, typeof therapistId);
-      console.log('finalClientId:', finalClientId, typeof finalClientId);
-      console.log('starts_at:', starts_at);
-      console.log('ends_at:', ends_at);
-
-      // WALIDACJA - upewnij się że mamy wszystkie wymagane dane
-      if (!finalClientId) {
-        showAlert('Błąd: Brak ID klienta. Spróbuj ponownie wybrać klienta.', 'danger');
-        return;
-      }
-
-      const payload = {
-        therapist_id: Number(therapistId),
-        client_id: Number(finalClientId),
-        starts_at,
-        ends_at,
-        place_to: place || null,
-        kind: 'therapy',
-        status: 'planned'
-      };
 
       console.log('=== FINAL PAYLOAD ===');
       console.log('Payload:', payload);
-      console.log('therapist_id:', typeof payload.therapist_id, payload.therapist_id);
-      console.log('client_id:', typeof payload.client_id, payload.client_id);
-      console.log('starts_at:', payload.starts_at);
-      console.log('ends_at:', payload.ends_at);
 
-      // Rozszerzona lista możliwych endpointów i wariantów payload
+      // 4. ISTNIEJĄCA LOGIKA WYSYŁANIA (zastępuje starą pętlę)
+      
+      // Definiujemy warianty payload dla różnych endpointów, bazując na payloadzie głównym
       const endpoints = [
-        // Wariant 1: Podstawowy endpoint schedule (WŁAŚCIWY FORMAT)
+        // Wariant 1: Podstawowy (WŁAŚCIWY FORMAT)
         {
           method: 'POST',
           url: `${API}/api/schedule`,
-          payload: payload
+          payload: payload // Wysyła pełny obiekt (z client_id LUB group_id)
         },
-        // Wariant 3: Endpoint therapist-specific
+        // Wariant 3: Endpoint therapist-specific (dostosowany)
         {
           method: 'POST',
           url: `${API}/api/therapists/${therapistId}/schedule`,
           payload: {
-            client_id: Number(finalClientId),
-            starts_at,
-            ends_at,
-            place_to: place || null,
-            kind: 'therapy',
-            type: type,
-            status: 'planned'
+            ...payload, // Przekaż wszystko
+            type: payload.kind // Zduplikuj 'kind' jako 'type', na wszelki wypadek
           }
         },
-        // Wariant 4: Endpoint sessions
-        {
-          method: 'POST',
-          url: `${API}/api/sessions`,
-          payload: payload
-        },
-        // Wariant 5: Endpoint appointments
-        {
-          method: 'POST',
-          url: `${API}/api/appointments`,
-          payload: payload
-        },
-        // Wariant 6: Slots endpoint
-        {
-          method: 'POST',
-          url: `${API}/api/slots`,
-          payload: payload
-        },
-        // Wariant 7: Endpoint z create w nazwie
-        {
-          method: 'POST',
-          url: `${API}/api/schedule/create`,
-          payload: payload
-        },
-        // Wariant 8: Therapist sessions
-        {
-          method: 'POST',
-          url: `${API}/api/therapist/schedule`,
-          payload: payload
-        }
+        // Warianty 4-8 (używają tego samego payloadu)
+        { method: 'POST', url: `${API}/api/sessions`, payload: payload },
+        { method: 'POST', url: `${API}/api/appointments`, payload: payload },
+        { method: 'POST', url: `${API}/api/slots`, payload: payload },
+        { method: 'POST', url: `${API}/api/schedule/create`, payload: payload },
+        { method: 'POST', url: `${API}/api/therapist/schedule`, payload: payload }
       ];
+
 
       let success = false;
       let lastError = null;
@@ -760,22 +801,14 @@
             bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
             await reloadData();
             break;
-          } else if (response.status === 405) {
-            // Method not allowed - próbuj dalej
-            allErrors.push(`${endpoint.url}: METHOD NOT ALLOWED (405)`);
-            continue;
-          } else if (response.status === 404) {
-            // Not found - próbuj dalej
-            allErrors.push(`${endpoint.url}: NOT FOUND (404)`);
+          } else if (response.status === 405 || response.status === 404) {
+            allErrors.push(`${endpoint.url}: NOT FOUND/ALLOWED (${response.status})`);
             continue;
           } else {
-            // Inny błąd - może to być problem z danymi
             const errorText = await response.text();
             console.error('Error response:', errorText);
             lastError = `Błąd ${response.status}: ${errorText}`;
             allErrors.push(`${endpoint.url}: ${response.status} - ${errorText}`);
-
-            // Jeśli to błąd walidacji (400, 422), pokaż użytkownikowi
             if (response.status === 400 || response.status === 422) {
               showAlert(`Błąd walidacji danych: ${errorText}`, 'danger');
               return;
@@ -791,18 +824,11 @@
       if (!success) {
         console.error('❌ All endpoints failed');
         console.error('All errors:', allErrors);
-
-        // Pokaż szczegółowy komunikat z instrukcją
         const errorDetails = allErrors.slice(0, 3).join('\n');
         showAlert(`
-          <strong>Nie można dodać wizyty - brak działającego endpointu API.</strong><br><br>
-          <small>Wypróbowano ${endpoints.length} różnych endpointów, ale żaden nie obsługuje POST.<br><br>
-          <strong>Co zrobić?</strong><br>
-          1. Sprawdź dokumentację API Twojego backendu<br>
-          2. Znajdź endpoint do tworzenia wizyt/sesji<br>
-          3. Podaj mi nazwę endpointu, a zaktualizuję kod<br><br>
-          <strong>Przykładowe błędy:</strong><br>
-          <code style="font-size:10px">${errorDetails.replace(/\n/g, '<br>')}</code></small>
+          <strong>Nie można dodać wizyty.</strong><br>
+          <small>Sprawdź, czy Twoje API akceptuje pole 'group_id' lub 'client_id' na jednym z endpointów.<br>
+          Ostatni błąd: ${lastError || 'Brak odpowiedzi'}</small>
         `, 'danger');
       }
     }
@@ -1628,5 +1654,6 @@
 </body>
 
 </html>
+
 
 
