@@ -612,7 +612,7 @@ async function openGroupDetails(groupId) {
             const yearEnd = yearStart + 1;
             schoolYearOptionsHtml += `<option value="${yearStart}">${yearStart}/${yearEnd}</option>`;
         }
-        const membersListHtml = (g.members || []).map(m => `<li>${m.full_name}</li>`).join('') || '<li class="text-muted">Brak uczestników</li>';
+        // const membersListHtml = (g.members || []).map(m => `<li>${m.full_name}</li>`).join('') || '<li class="text-muted">Brak uczestników</li>'; // Już niepotrzebne
 
         // --- HTML dla listy obecności ---
         const membersChecklistHtml = (g.members || []).length > 0
@@ -661,7 +661,7 @@ async function openGroupDetails(groupId) {
             return `<li class="list-group-item d-flex justify-content-between align-items-center"><div><strong>${h.client_name}</strong> otrzymał <strong>${h.points} pkt.</strong><br><small class="text-muted">Powód: ${h.reason || 'Brak'}</small></div><span class="badge bg-secondary rounded-pill">${date}</span></li>`;
         }).join('') : '<li class="list-group-item text-muted">Brak przyznanych bonusów ogólnych.</li>';
 
-        // --- POPRAWIONY UKŁAD HTML ---
+        // --- ZMIENIONY UKŁAD HTML ---
         $('#groupDetailsBody').html(`
             <ul class="nav nav-tabs" id="groupTabs" role="tablist">
               <li class="nav-item" role="presentation"><button class="nav-link active" id="sessions-tab" data-bs-toggle="tab" data-bs-target="#sessions-panel" type="button" role="tab">Sesje i Uczestnicy</button></li>
@@ -676,53 +676,45 @@ async function openGroupDetails(groupId) {
                 <hr>
 
                                 <form id="addSessionForm" data-group-id="${g.id}">
-                  <div class="row g-4">
-                                        <div class="col-lg-5">
-                     <!-- <h6>Uczestnicy (lista)</h6>-->
-                     <!-- <ul class="list-unstyled small">${membersListHtml}</ul>-->
-                     
-                      <div class="mt-4">
+                                    <div class="row g-4">
+                                        <div class="col-lg-3 col-md-4">
                         <label class="form-label mb-1 fw-bold">Obecność (dla nowej sesji):</label>
-                        <div class="p-2 border rounded bg-white" style="max-height: 160px; overflow-y: auto;">
+                        <div class="p-2 border rounded bg-white" style="max-height: 250px; overflow-y: auto;">
                           ${membersChecklistHtml}
                         </div>
-                      </div>
-                      
-                      <div id="sessionCalendar" class="mt-4"></div>
-                      <div class="d-grid mt-2"><button type="button" id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button></div>
-                      
-                         
                     </div>
-                                        <div class="col-lg-4"> 
-<!--col-: Klasa Bootstrapa oznaczająca kolumnę w siatce.-->
-<!--//lg-: Określa, że reguła dotyczy dużych ekranów (ang. large, domyślnie ≥992px szerokości) i szerszych.-->
-<!--//7: Oznacza, że element ma zająć 7 z 12 dostępnych kolumn w danym wierszu (row).-->
-                      <div class="card">
-                        <div class="card-body">
-                          <h6 class="card-title">Dodaj nową sesję</h6>
-                          <div class="row g-2">
-                            <div class="col-5">
-                              <label for="sessionDateInput" class="form-label">Data</label>
-                              <input type="date" class="form-control" name="date" id="sessionDateInput" required>
+                                        <div class="col-lg-4 col-md-4">
+                        <label class="form-label mb-1 fw-bold">Szablon dni:</label>
+                        <div id="sessionCalendar"></div>
+                        <div class="d-grid mt-2"><button type="button" id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button></div>
+                    </div>
+                                        <div class="col-lg-5 col-md-4">
+                        <div class="card h-100">
+                          <div class="card-body">
+                            <h6 class="card-title">Dodaj nową sesję</h6>
+                            <div class="row g-2">
+                              <div class="col-6">
+                                <label for="sessionDateInput" class="form-label">Data</label>
+                                <input type="date" class="form-control" name="date" id="sessionDateInput" required>
+                              </div>
+                              <div class="col-6">
+                                <label for="sessionTimeInput" class="form-label">Godzina</label>
+                                <input type="time" class="form-control" name="time" id="sessionTimeInput" required>
+                              </div>
+                              <div class="col-12">
+                                <label for="sessionTopicInput" class="form-label">Temat</label>
+                                <input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required>
+                              </div>
+                              <div class="col-12">
+                                <label for="sessionBehaviorsSelect" class="form-label">Zachowania do modelowania (max 4)</label>
+                                <select id="sessionBehaviorsSelect" class="form-select" multiple></select>
+                              </div>
                             </div>
-                            <div class="col-5">
-                              <label for="sessionTimeInput" class="form-label">Godzina</label>
-                              <input type="time" class="form-control" name="time" id="sessionTimeInput" required>
+                            <div class="col-12 mt-3">
+                              <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
                             </div>
-                            <div class="col-12">
-                              <label for="sessionTopicInput" class="form-label">Temat</label>
-                              <input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required>
-                            </div>
-                            <div class="col-12">
-                              <label for="sessionBehaviorsSelect" class="form-label">Zachowania do modelowania (max 4)</label>
-                              <select id="sessionBehaviorsSelect" class="form-select" multiple></select>
-                            </div>
-                          </div>
-                          <div class="col-12 mt-3">
-                            <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
                           </div>
                         </div>
-                      </div>
                     </div>
                   </div>
                 </form>
@@ -771,7 +763,6 @@ async function openGroupDetails(groupId) {
         const behaviors = await fetchJSON(`${API_BASE}/api/tus/behaviors`);
         const $behaviorSelect = $('#sessionBehaviorsSelect').empty();
         (behaviors || []).forEach(b => $behaviorSelect.append(new Option(`${b.title} (max ${b.default_max_points ?? 3})`, String(b.id))));
-        // POPRAWKA: Używamy $behaviorSelect zamiast Examples
         $behaviorSelect.select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Wybierz do 4 zachowań', maximumSelectionLength: 4, dropdownParent: $('#groupDetailsModal') });
 
         groupDetailsModal.show();
@@ -1404,6 +1395,7 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
 
 
 
