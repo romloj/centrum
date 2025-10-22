@@ -265,6 +265,54 @@
       pointer-events: all;
     }
 
+    /* Wyszukiwanie klienta */
+    .search-container {
+      position: relative;
+    }
+    .search-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #dee2e6;
+      border-radius: 0.375rem;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .search-result-item {
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-bottom: 1px solid #f8f9fa;
+    }
+    .search-result-item:hover {
+      background-color: #f8f9fa;
+    }
+    .search-result-item:last-child {
+      border-bottom: none;
+    }
+    .client-option {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .client-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #667eea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+
     @media (max-width: 768px) {
       .calendar-grid {
         gap: 0.25rem;
@@ -293,10 +341,12 @@
     <div class="controls-section">
       <div class="row g-3">
         <div class="col-md-6">
-          <label class="form-label"><strong>Wybierz klienta</strong></label>
-          <select id="clientSelect" class="form-select">
-            <option value="">Ładowanie klientów...</option>
-          </select>
+          <label class="form-label"><strong>Wyszukaj klienta</strong></label>
+          <div class="search-container">
+            <input type="text" id="clientSearch" class="form-control" placeholder="Wpisz imię lub nazwisko klienta..." autocomplete="off">
+            <div id="searchResults" class="search-results"></div>
+          </div>
+          <input type="hidden" id="selectedClientId">
         </div>
         <div class="col-md-3">
           <label class="form-label"><strong>Miesiąc</strong></label>
@@ -328,6 +378,9 @@
           </button>
           <button class="btn btn-success" onclick="exportReport()">
             <i class="bi bi-download"></i> Eksportuj PDF
+          </button>
+          <button class="btn btn-outline-secondary" onclick="clearSearch()">
+            <i class="bi bi-x-circle"></i> Wyczyść
           </button>
         </div>
       </div>
@@ -485,6 +538,7 @@
       setupEventListeners();
       initializeSelects();
       loadClients();
+      setupSearch();
     });
 
     function setupEventListeners() {
@@ -534,24 +588,112 @@
       yearSelect.value = today.getFullYear();
     }
 
+    function setupSearch() {
+      const searchInput = document.getElementById('clientSearch');
+      const searchResults = document.getElementById('searchResults');
+
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        
+        if (query.length < 2) {
+          searchResults.style.display = 'none';
+          return;
+        }
+
+        const filteredClients = allClients.filter(client => 
+          (client.full_name && client.full_name.toLowerCase().includes(query)) ||
+          (client.email && client.email.toLowerCase().includes(query)) ||
+          (client.phone && client.phone.includes(query))
+        );
+
+        displaySearchResults(filteredClients);
+      });
+
+      // Ukryj wyniki wyszukiwania po kliknięciu gdziekolwiek indziej
+      document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+          searchResults.style.display = 'none';
+        }
+      });
+    }
+
+    function displaySearchResults(clients) {
+      const searchResults = document.getElementById('searchResults');
+      searchResults.innerHTML = '';
+
+      if (clients.length === 0) {
+        searchResults.innerHTML = '<div class="search-result-item text-muted">Brak wyników</div>';
+        searchResults.style.display = 'block';
+        return;
+      }
+
+      clients.slice(0, 10).forEach(client => {
+        const resultItem = document.createElement('div');
+        resultItem.className = 'search-result-item';
+        
+        const initials = (client.full_name || 'K').charAt(0).toUpperCase();
+        
+        resultItem.innerHTML = `
+          <div class="client-option">
+            <div class="client-avatar">
+              ${initials}
+            </div>
+            <div>
+              <strong>${client.full_name || 'Brak nazwy'}</strong>
+              <div class="text-muted small">
+                ${client.phone || 'Brak telefonu'} | ${client.email || 'Brak email'}
+              </div>
+            </div>
+          </div>
+        `;
+
+        resultItem.addEventListener('click', () => {
+          selectClient(client);
+        });
+
+        searchResults.appendChild(resultItem);
+      });
+
+      searchResults.style.display = 'block';
+    }
+
+    function selectClient(client) {
+      const searchInput = document.getElementById('clientSearch');
+      const selectedClientId = document.getElementById('selectedClientId');
+      const searchResults = document.getElementById('searchResults');
+
+      searchInput.value = client.full_name || 'Brak nazwy';
+      selectedClientId.value = client.client_id || client.id;
+      searchResults.style.display = 'none';
+
+      // Automatycznie wygeneruj raport dla wybranego klienta
+      setTimeout(() => {
+        loadReport();
+      }, 500);
+    }
+
+    function clearSearch() {
+      const searchInput = document.getElementById('clientSearch');
+      const selectedClientId = document.getElementById('selectedClientId');
+      const searchResults = document.getElementById('searchResults');
+      const reportContent = document.getElementById('reportContent');
+
+      searchInput.value = '';
+      selectedClientId.value = '';
+      searchResults.style.display = 'none';
+      reportContent.style.display = 'none';
+
+      showAlert('Wyszukiwanie wyczyszczone', 'info');
+    }
+
     async function loadClients() {
       try {
         const response = await fetch(`${API_URL}/api/clients`);
         if (!response.ok) throw new Error('Błąd pobierania klientów');
 
         allClients = await response.json();
-        const select = document.getElementById('clientSelect');
-        select.innerHTML = '<option value="">-- Wybierz klienta --</option>';
 
-        allClients
-          .filter(c => c.active !== false)
-          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
-          .forEach(client => {
-            const option = document.createElement('option');
-            option.value = client.client_id || client.id;
-            option.textContent = client.full_name || 'Brak nazwy';
-            select.appendChild(option);
-          });
+        showAlert(`Załadowano ${allClients.length} klientów`, 'success');
 
       } catch (error) {
         console.error('Błąd ładowania klientów:', error);
@@ -560,24 +702,24 @@
     }
 
     async function loadReport() {
-    const clientId = document.getElementById('clientSelect').value;
-    const month = parseInt(document.getElementById('monthSelect').value);
-    const year = parseInt(document.getElementById('yearSelect').value);
+      const clientId = document.getElementById('selectedClientId').value;
+      const month = parseInt(document.getElementById('monthSelect').value);
+      const year = parseInt(document.getElementById('yearSelect').value);
 
-    if (!clientId) {
-        showAlert('Wybierz klienta', 'warning');
+      if (!clientId) {
+        showAlert('Wybierz klienta z listy wyszukiwania', 'warning');
         return;
-    }
+      }
 
-    const client = allClients.find(c => (c.client_id || c.id) == clientId);
-    if (!client) {
+      const client = allClients.find(c => (c.client_id || c.id) == clientId);
+      if (!client) {
         showAlert('Nie znaleziono klienta', 'danger');
         return;
-    }
+      }
 
-    showAlert('Generowanie raportu...', 'info');
+      showAlert('Generowanie raportu...', 'info');
 
-    try {
+      try {
         const startDate = new Date(year, month, 1);
         const endDate = new Date(year, month + 1, 0);
 
@@ -595,44 +737,44 @@
         let foundCount = 0;
 
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-            d.setHours(12, 0, 0, 0); // <-- DODANA LINIA: Unikamy problemu stref czasowych
-            const dateStr = d.toISOString().split('T')[0];
+          d.setHours(12, 0, 0, 0);
+          const dateStr = d.toISOString().split('T')[0];
 
-            try {
-                const url = `${API_URL}/api/attendance?date=${dateStr}&client_id=${clientId}`;
-                console.log(`   📡 Zapytanie: ${url}`);
+          try {
+            const url = `${API_URL}/api/attendance?date=${dateStr}&client_id=${clientId}`;
+            console.log(`   📡 Zapytanie: ${url}`);
 
-                const response = await fetch(url);
+            const response = await fetch(url);
 
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log(`   📥 Odpowiedź dla ${dateStr}:`, data);
+            if (response.ok) {
+              const data = await response.json();
+              console.log(`   📥 Odpowiedź dla ${dateStr}:`, data);
 
-                    const clientRecord = data.find(a => a.client_id == clientId);
-                    if (clientRecord) {
-                        attendanceData[dateStr] = clientRecord;
-                        foundCount++;
-                        console.log(`   ✅ Znaleziono obecność: ${clientRecord.status}`);
-                    }
-                } else {
-                    console.log(`   ⚠️ HTTP ${response.status} dla ${dateStr}`);
-                }
-            } catch (e) {
-                console.log(`   ❌ Błąd dla ${dateStr}:`, e.message);
+              const clientRecord = data.find(a => a.client_id == clientId);
+              if (clientRecord) {
+                attendanceData[dateStr] = clientRecord;
+                foundCount++;
+                console.log(`   ✅ Znaleziono obecność: ${clientRecord.status}`);
+              }
+            } else {
+              console.log(`   ⚠️ HTTP ${response.status} dla ${dateStr}`);
             }
+          } catch (e) {
+            console.log(`   ❌ Błąd dla ${dateStr}:`, e.message);
+          }
         }
 
         console.log(`🎯 PODSUMOWANIE: Znaleziono ${foundCount} dni z obecnością`);
         console.log("📋 attendanceData:", attendanceData);
 
         displayReport(client, month, year);
-        showAlert(`Raport wygenerowany (${foundCount} wpisów)`, 'success');
+        showAlert(`Raport wygenerowany dla ${client.full_name} (${foundCount} wpisów)`, 'success');
 
-    } catch (error) {
+      } catch (error) {
         console.error('❌ Błąd generowania raportu:', error);
         showAlert('Błąd podczas generowania raportu', 'danger');
+      }
     }
-}
 
     function displayReport(client, month, year) {
       document.getElementById('reportContent').style.display = 'block';
@@ -696,10 +838,9 @@
       }
 
       for (let day = 1; day <= lastDay.getDate(); day++) {
-        // Ustawiamy godzinę na 12:00, aby uniknąć problemów ze strefą czasową
-        const date = new Date(year, month, day, 12, 0, 0); 
-        const dateStr = date.toISOString().split('T')[0];
-        const record = attendanceData[dateStr];
+        const date = new Date(year, month, day, 12, 0, 0);
+        const dateStr = date.toISOString().split('T')[0];
+        const record = attendanceData[dateStr];
 
         const dayDiv = document.createElement('div');
         dayDiv.className = 'calendar-day';
@@ -806,5 +947,4 @@
     }
   </script>
 </body>
-
 </html>
