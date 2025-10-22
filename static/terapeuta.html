@@ -273,82 +273,83 @@
     </div>
 
     <!-- Modal dodawania wizyty -->
-    <div class="modal fade" id="addEventModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Dodaj nową wizytę</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3" id="addTherapistGroup">
-              <label class="form-label">Terapeuta <span class="text-danger">*</span></label>
-              <select id="addTherapist" class="form-select" required>
-                <option value="">-- wybierz terapeutę --</option>
-              </select>
-            </div>
+<div class="modal fade" id="addEventModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Dodaj nową wizytę</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3" id="addTherapistGroup">
+          <label class="form-label">Terapeuta <span class="text-danger">*</span></label>
+          <select id="addTherapist" class="form-select" required>
+            <option value="">-- wybierz terapeutę --</option>
+          </select>
+        </div>
 
-            <div class="mb-3">
-              <label class="form-label">Typ wizyty</label>
-              <select id="addType" class="form-select">
-                <option value="therapy">Terapia indywidualna</option>
-                <option value="tus">Grupa TUS</option>
-              </select>
-            </div>
+        <div class="mb-3">
+          <label class="form-label">Typ wizyty</label>
+          <select id="addType" class="form-select">
+            <option value="therapy">Terapia indywidualna</option>
+            <option value="tus">Grupa TUS</option>
+          </select>
+        </div>
             
-            <div class="mb-3">
-              <label class="form-label">Klient <span class="text-danger">*</span></label>
-              <select id="addClient" class="form-select" required>
-                <option value="">-- wybierz klienta --</option>
-              </select>
-              <small class="text-muted">Lub wpisz nowego klienta poniżej:</small>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Nowy klient (opcjonalnie)</label>
-              <input type="text" id="addNewClientName" class="form-control" placeholder="Imię i nazwisko">
-              <small class="text-muted">Jeśli wpiszesz tu nazwisko, zostanie dodany nowy klient</small>
-            </div>
+        <div class="mb-3">
+          <label class="form-label">Klient <span class="text-danger">*</span></label>
+          <select id="addClient" class="form-select" required>
+            <option value="">-- wybierz klienta --</option>
+          </select>
+          <small class="text-muted">Lub wpisz nowego klienta poniżej:</small>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Nowy klient (opcjonalnie)</label>
+          <input type="text" id="addNewClientName" class="form-control" placeholder="Imię i nazwisko">
+          <small class="text-muted">Jeśli wpiszesz tu nazwisko, zostanie dodany nowy klient</small>
+        </div>
             
-            <div id="groupClientField" style="display: none;">
-              <div class="mb-3">
-                <label for="addGroup" class="form-label">Grupa <span class="text-danger">*</span></label>
-                <select id="addGroup" class="form-select"> <option value="">-- wybierz grupę --</option>
-                  </select>
-              </div>
-            </div>
-            
-            <div class="mb-3">
-              <label class="form-label">Data <span class="text-danger">*</span></label>
-              <input type="date" id="addDate" class="form-control" required>
-            </div>
-            <div class="row">
-              <div class="col-6 mb-3">
-                <label class="form-label">Godzina rozpoczęcia <span class="text-danger">*</span></label>
-                <input type="time" id="addStartTime" class="form-control" value="10:00" required>
-              </div>
-              <div class="col-6 mb-3">
-                <label class="form-label">Godzina zakończenia <span class="text-danger">*</span></label>
-                <input type="time" id="addEndTime" class="form-control" value="11:00" required>
-              </div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Miejsce</label>
-              <input type="text" id="addPlace" class="form-control" placeholder="np. Gabinet 1">
-            </div>
-            
-            <div id="addCollisionWarning" class="alert alert-warning d-none">
-              <i class="bi bi-exclamation-triangle"></i> <strong>Uwaga!</strong> Wykryto kolizję czasową z inną wizytą tego terapeuty.
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-            <button type="button" id="createEventBtn" class="btn btn-success">
-              <i class="bi bi-plus-circle"></i> Dodaj wizytę
-            </button>
+        <div id="groupClientField" style="display: none;">
+          <div class="mb-3">
+            <label for="addGroup" class="form-label">Grupa <span class="text-danger">*</span></label>
+            <select id="addGroup" class="form-select"> 
+              <option value="">-- wybierz grupę --</option>
+            </select>
           </div>
         </div>
+            
+        <div class="mb-3">
+          <label class="form-label">Data <span class="text-danger">*</span></label>
+          <input type="date" id="addDate" class="form-control" required>
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Godzina rozpoczęcia <span class="text-danger">*</span></label>
+            <input type="time" id="addStartTime" class="form-control" value="10:00" required>
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Godzina zakończenia <span class="text-danger">*</span></label>
+            <input type="time" id="addEndTime" class="form-control" value="11:00" required>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Miejsce</label>
+          <input type="text" id="addPlace" class="form-control" placeholder="np. Gabinet 1">
+        </div>
+            
+        <div id="addCollisionWarning" class="alert alert-warning d-none">
+          <i class="bi bi-exclamation-triangle"></i> <strong>Uwaga!</strong> Wykryto kolizję czasową z inną wizytą tego terapeuty.
+        </div>
+      </div> <!-- Tutaj było brakujące zamknięcie -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="button" id="createEventBtn" class="btn btn-success">
+          <i class="bi bi-plus-circle"></i> Dodaj wizytę
+        </button>
       </div>
     </div>
+  </div>
+</div>
 
     <div id="calendarHost">
       <!-- tutaj renderuję tydzień lub miesiąc -->
@@ -1545,6 +1546,7 @@
 </body>
 
 </html>
+
 
 
 
