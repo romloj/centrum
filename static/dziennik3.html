@@ -6,13 +6,160 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibjNQVX1cDxCSGGhQXVMA9zVRvIeGzSA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibjNQVX1cDxCSGGhQXVMA9zVRvIeGzSA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSZnIDU4pRNTJBt+OhJPKVhDNGgLfTmqgmEqgAkU+S9iUcbZUkPETEzXFsFaiA+wDsLmwzmbQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  
   <link rel="stylesheet" href="css/dziennik.css">
-  
-<style>
-    /* ... (style FAB Menu - bez zmian) ... */
+
+  <style>
+    /* ... (wszystkie Twoje style CSS) ... */
+    body {
+      padding: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .main-container {
+      background-color: #fff;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    .header-section {
+      background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+      color: white;
+      padding: 2rem;
+    }
+    .controls-section {
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-bottom: 2px solid #e9ecef;
+    }
+    .stats-card {
+      background: white;
+      border-radius: 10px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+    }
+    .stat-box {
+      text-align: center;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    .stat-present { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); color: #155724; }
+    .stat-absent { background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); color: #721c24; }
+    .stat-late { background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); color: #856404; }
+    .stat-excused { background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); color: #0c5460; }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+    .calendar-header {
+      text-align: center;
+      font-weight: bold;
+      padding: 0.5rem;
+      background: #f8f9fa;
+      border-radius: 5px;
+    }
+    .calendar-day {
+      aspect-ratio: 1;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+    }
+    .calendar-day:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .calendar-day.empty {
+      border: none;
+      cursor: default;
+    }
+    .calendar-day.empty:hover {
+      transform: none;
+      box-shadow: none;
+    }
+    .day-number {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-bottom: 0.25rem;
+    }
+    .day-status {
+      font-size: 1.5rem;
+    }
+    .status-obecny {
+      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+      border-color: #28a745;
+    }
+    .status-nieobecny {
+      background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+      border-color: #dc3545;
+    }
+    .status-spóźniony {
+      background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+      border-color: #ffc107;
+    }
+    .status-usprawiedliwiony {
+      background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+      border-color: #17a2b8;
+    }
+    .status-no-data {
+      background: #f8f9fa;
+      border-color: #dee2e6;
+    }
+    .client-info {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 10px;
+      margin-bottom: 1.5rem;
+    }
+    .client-photo-large {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid white;
+    }
+    .chart-container {
+      position: relative;
+      height: 250px;
+      margin: 1rem 0;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+  _ }
+
+    /* ... (style FAB Menu) ... */
     .fab-container {
       position: fixed;
       bottom: 2rem;
@@ -119,11 +266,12 @@
       pointer-events: none;
       transition: opacity 0.3s ease;
       z-index: 1049;
-   }
+    /* USUNIĘTO BŁĄD (LITERA 'S') STĄD */
+    }
     .fab-container.open ~ .fab-backdrop {
       opacity: 1;
       pointer-events: all;
-    }
+  S }
 
     @media (max-width: 768px) {
       .calendar-grid {
@@ -294,7 +442,7 @@
     </div>
   </div>
 
-  <div class="fab-container" id="fabContainer">
+    <div class="fab-container" id="fabContainer">
     <div class="fab-menu">
       <div class="fab-item">
         <span class="fab-label">Strona główna</span>
@@ -331,12 +479,12 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script>
-    const API_URL = ""; 
+    const API_URL = ""; 
     let allClients = [];
     let attendanceData = {};
     let currentChart = null;
-    // NOWOŚĆ: Deklaracja dla jsPDF
-    const { jsPDF } = window.jspdf;
+    // Deklaracja dla jsPDF
+    const { jsPDF } = window.jspdf;
 
     document.addEventListener('DOMContentLoaded', () => {
       setupEventListeners();
@@ -345,7 +493,7 @@
     });
 
     function setupEventListeners() {
-      // ... (obsługa FAB Menu - bez zmian) ...
+      // ... (obsługa FAB Menu) ...
       const fabContainer = document.getElementById('fabContainer');
       const fabMainBtn = document.getElementById('fabMainBtn');
       const fabBackdrop = document.getElementById('fabBackdrop');
@@ -375,8 +523,8 @@
         }
       });
 
-      // NOWOŚĆ: Listener dla wyszukiwarki klientów
-      document.getElementById('clientSearch').addEventListener('input', filterClients);
+      // Listener dla wyszukiwarki klientów
+      document.getElementById('clientSearch').addEventListener('input', filterClients);
     }
 
     function initializeSelects() {
@@ -395,49 +543,49 @@
       yearSelect.value = today.getFullYear();
     }
 
-    // NOWOŚĆ: Funkcja do (re)populacji listy klientów
-    function populateClientList(clientsToShow) {
-        const select = document.getElementById('clientSelect');
-        const selectedValue = select.value;
-        select.innerHTML = ''; // Wyczyść listę
+    // Funkcja do (re)populacji listy klientów
+    function populateClientList(clientsToShow) {
+        const select = document.getElementById('clientSelect');
+        const selectedValue = select.value;
+        select.innerHTML = ''; // Wyczyść listę
 
-        // Dodaj opcję domyślną
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = '-- Wybierz klienta --';
-        select.appendChild(defaultOption);
+        // Dodaj opcję domyślną
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '-- Wybierz klienta --';
+        select.appendChild(defaultOption);
 
-        // Sortuj i dodaj przefiltrowanych klientów
-        clientsToShow
-            .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
-            .forEach(client => {
-                const option = document.createElement('option');
-                option.value = client.client_id || client.id;
-                option.textContent = client.full_name || 'Brak nazwy';
-                select.appendChild(option);
-            });
-        
-        // Spróbuj przywrócić zaznaczenie, jeśli nadal pasuje
-        if (Array.from(select.options).some(opt => opt.value === selectedValue)) {
-            select.value = selectedValue;
-        }
-    }
+        // Sortuj i dodaj przefiltrowanych klientów
+        clientsToShow
+            .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+            .forEach(client => {
+                const option = document.createElement('option');
+                option.value = client.client_id || client.id;
+                option.textContent = client.full_name || 'Brak nazwy';
+                select.appendChild(option);
+            });
+        
+        // Spróbuj przywrócić zaznaczenie, jeśli nadal pasuje
+        if (Array.from(select.options).some(opt => opt.value === selectedValue)) {
+            select.value = selectedValue;
+        }
+    }
 
-    // NOWOŚĆ: Funkcja filtrująca wywoływana przez input
-    function filterClients() {
-        const searchTerm = document.getElementById('clientSearch').value.toLowerCase().trim();
-        const activeClients = allClients.filter(c => c.active !== false);
-        
-        if (!searchTerm) {
-            populateClientList(activeClients); // Pokaż wszystkich aktywnych, jeśli wyszukiwarka pusta
-            return;
-        }
+    // Funkcja filtrująca wywoływana przez input
+    function filterClients() {
+        const searchTerm = document.getElementById('clientSearch').value.toLowerCase().trim();
+        const activeClients = allClients.filter(c => c.active !== false);
+        
+        if (!searchTerm) {
+            populateClientList(activeClients); // Pokaż wszystkich aktywnych, jeśli wyszukiwarka pusta
+            return;
+        }
 
-        const filteredClients = activeClients.filter(c => 
-            (c.full_name || '').toLowerCase().includes(searchTerm)
-        );
-        populateClientList(filteredClients);
-    }
+        const filteredClients = activeClients.filter(c => 
+            (c.full_name || '').toLowerCase().includes(searchTerm)
+        );
+        populateClientList(filteredClients);
+    }
 
     async function loadClients() {
       try {
@@ -445,98 +593,96 @@
         if (!response.ok) throw new Error('Błąd pobierania klientów');
 
         allClients = await response.json();
-        
-        // NOWOŚĆ: Zamiast budować listę tutaj, wywołujemy funkcję filtrującą,
-        // która zajmie się początkowym zapełnieniem listy
-        filterClients(); 
+        
+        // Wywołujemy funkcję filtrującą,
+        // która zajmie się początkowym zapełnieniem listy
+        filterClients(); 
 
       } catch (error) {
         console.error('Błąd ładowania klientów:', error);
         showAlert('Nie udało się załadować listy klientów', 'danger');
-        // W razie błędu, wyczyść "ładowanie"
-        const select = document.getElementById('clientSelect');
-        select.innerHTML = '<option value="">Błąd ładowania</option>';
+        // W razie błędu, wyczyść "ładowanie"
+        const select = document.getElementById('clientSelect');
+        select.innerHTML = '<option value="">Błąd ładowania</option>';
       }
     }
 
     async function loadReport() {
-      // ... (funkcja bez zmian) ...
-      const clientId = document.getElementById('clientSelect').value;
-      const month = parseInt(document.getElementById('monthSelect').value);
-      const year = parseInt(document.getElementById('yearSelect').value);
+      const clientId = document.getElementById('clientSelect').value;
+      const month = parseInt(document.getElementById('monthSelect').value);
+      const year = parseInt(document.getElementById('yearSelect').value);
 
-      if (!clientId) {
-          showAlert('Wybierz klienta', 'warning');
-          return;
-      }
+      if (!clientId) {
+          showAlert('Wybierz klienta', 'warning');
+          return;
+      }
 
-      const client = allClients.find(c => (c.client_id || c.id) == clientId);
-      if (!client) {
-          showAlert('Nie znaleziono klienta', 'danger');
-          return;
-      }
+      const client = allClients.find(c => (c.client_id || c.id) == clientId);
+      if (!client) {
+          showAlert('Nie znaleziono klienta', 'danger');
+          return;
+      }
 
-      showAlert('Generowanie raportu...', 'info');
+      showAlert('Generowanie raportu...', 'info');
 
-      try {
-          const startDate = new Date(year, month, 1);
-          const endDate = new Date(year, month + 1, 0);
+      try {
+          const startDate = new Date(year, month, 1);
+          const endDate = new Date(year, month + 1, 0);
 
-          attendanceData = {};
+          attendanceData = {};
 
-          console.log("🔍 Pobieram obecność dla:", {
-              client: client.full_name,
-              clientId: clientId,
-              month: month + 1,
-              year: year,
-              startDate: startDate.toISOString().split('T')[0],
-              endDate: endDate.toISOString().split('T')[0]
-          });
+          console.log("🔍 Pobieram obecność dla:", {
+              client: client.full_name,
+              clientId: clientId,
+              month: month + 1,
+              year: year,
+              startDate: startDate.toISOString().split('T')[0],
+              endDate: endDate.toISOString().split('T')[0]
+          });
 
-          let foundCount = 0;
+          let foundCount = 0;
 
-          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-              d.setHours(12, 0, 0, 0); 
-              const dateStr = d.toISOString().split('T')[0];
+          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+              d.setHours(12, 0, 0, 0); 
+              const dateStr = d.toISOString().split('T')[0];
 
-              try {
-                  const url = `${API_URL}/api/attendance?date=${dateStr}&client_id=${clientId}`;
-                  console.log(`   📡 Zapytanie: ${url}`);
+              try {
+                  const url = `${API_URL}/api/attendance?date=${dateStr}&client_id=${clientId}`;
+                  console.log(`   📡 Zapytanie: ${url}`);
 
-                  const response = await fetch(url);
+                  const response = await fetch(url);
 
-                  if (response.ok) {
-                      const data = await response.json();
-                      console.log(`   📥 Odpowiedź dla ${dateStr}:`, data);
+                  if (response.ok) {
+                      const data = await response.json();
+                      console.log(`   📥 Odpowiedź dla ${dateStr}:`, data);
 
-                      const clientRecord = data.find(a => a.client_id == clientId);
-                      if (clientRecord) {
-                          attendanceData[dateStr] = clientRecord;
-                          foundCount++;
-                          console.log(`   ✅ Znaleziono obecność: ${clientRecord.status}`);
-                      }
-                  } else {
-                      console.log(`   ⚠️ HTTP ${response.status} dla ${dateStr}`);
-                  }
-              } catch (e) {
-                  console.log(`   ❌ Błąd dla ${dateStr}:`, e.message);
-              }
-          }
+                      const clientRecord = data.find(a => a.client_id == clientId);
+                      if (clientRecord) {
+                          attendanceData[dateStr] = clientRecord;
+                          foundCount++;
+                          console.log(`   ✅ Znaleziono obecność: ${clientRecord.status}`);
+                      }
+                  } else {
+                      console.log(`   ⚠️ HTTP ${response.status} dla ${dateStr}`);
+                  }
+              } catch (e) {
+                  console.log(`   ❌ Błąd dla ${dateStr}:`, e.message);
+              }
+          }
 
-          console.log(`🎯 PODSUMOWANIE: Znaleziono ${foundCount} dni z obecnością`);
-          console.log("📋 attendanceData:", attendanceData);
+          console.log(`🎯 PODSUMOWANIE: Znaleziono ${foundCount} dni z obecnością`);
+          console.log("📋 attendanceData:", attendanceData);
 
-          displayReport(client, month, year);
-          showAlert(`Raport wygenerowany (${foundCount} wpisów)`, 'success');
+          displayReport(client, month, year);
+          showAlert(`Raport wygenerowany (${foundCount} wpisów)`, 'success');
 
-      } catch (error) {
-          console.error('❌ Błąd generowania raportu:', error);
-          showAlert('Błąd podczas generowania raportu', 'danger');
-      }
-  }
+      } catch (error) {
+          console.error('❌ Błąd generowania raportu:', error);
+          showAlert('Błąd podczas generowania raportu', 'danger');
+      }
+  }
 
     function displayReport(client, month, year) {
-      // ... (funkcja bez zmian) ...
       document.getElementById('reportContent').style.display = 'block';
 
       const initials = (client.full_name || 'K').charAt(0).toUpperCase();
@@ -565,7 +711,6 @@
     }
 
     function calculateStats() {
-      // ... (funkcja bez zmian) ...
       const stats = {
         obecny: 0,
         nieobecny: 0,
@@ -583,7 +728,6 @@
     }
 
     function displayCalendar(month, year) {
-      // ... (funkcja bez zmian) ...
       const calendarDays = document.getElementById('calendarDays');
       calendarDays.innerHTML = '';
 
@@ -617,7 +761,7 @@
           };
           dayDiv.innerHTML = `
             <div class="day-number">${day}</div>
-            <div class="day-status">${statusEmoji[record.status] || ''}</div>
+s           <div class="day-status">${statusEmoji[record.status] || ''}</div>
           `;
           dayDiv.title = `${day} - ${record.status}${record.notes ? '\n' + record.notes : ''}`;
         } else {
@@ -631,7 +775,6 @@
     }
 
     function displayChart(stats) {
-      // ... (funkcja bez zmian) ...
       const ctx = document.getElementById('attendanceChart');
 
       if (currentChart) {
@@ -661,7 +804,7 @@
         },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
+    t     maintainAspectRatio: false,
           plugins: {
             legend: {
               position: 'bottom',
@@ -677,7 +820,7 @@
                 label: function(context) {
                   const label = context.label || '';
                   const value = context.parsed || 0;
-                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+section                   const total = context.dataset.data.reduce((a, b) => a + b, 0);
                   const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
                   return `${label}: ${value} (${percentage}%)`;
                 }
@@ -688,71 +831,69 @@
       });
     }
 
-    // NOWOŚĆ: Zaktualizowana funkcja eksportu do PDF
-    async function exportPDF() {
-        const reportElement = document.getElementById('reportContent');
-        if (reportElement.style.display === 'none') {
-            showAlert('Najpierw wygeneruj raport, aby go wyeksportować.', 'warning');
-            return;
-        }
+    // Zaktualizowana funkcja eksportu do PDF
+    async function exportPDF() {
+        const reportElement = document.getElementById('reportContent');
+        if (reportElement.style.display === 'none') {
+            showAlert('Najpierw wygeneruj raport, aby go wyeksportować.', 'warning');
+            return;
+        }
 
-        const btn = document.getElementById('exportPdfBtn');
-        const originalHtml = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Generowanie...`;
+        const btn = document.getElementById('exportPdfBtn');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Generowanie...`;
 
-        try {
-            // Pobranie nazwy klienta i daty do nazwy pliku
-            const clientName = document.getElementById('clientName').textContent.replace(/ /g, '_');
-            const monthText = document.getElementById('monthSelect').options[document.getElementById('monthSelect').selectedIndex].text;
-            const year = document.getElementById('yearSelect').value;
-            const fileName = `Raport_Obecnosci_${clientName}_${monthText}_${year}.pdf`;
+        try {
+            // Pobranie nazwy klienta i daty do nazwy pliku
+            const clientName = document.getElementById('clientName').textContent.replace(/ /g, '_');
+            const monthText = document.getElementById('monthSelect').options[document.getElementById('monthSelect').selectedIndex].text;
+            const year = document.getElementById('yearSelect').value;
+            const fileName = `Raport_Obecnosci_${clientName}_${monthText}_${year}.pdf`;
 
-            // Użyj html2canvas do zrobienia "zrzutu" elementu
-            // Zwiększona skala dla lepszej jakości w PDF
-            const canvas = await html2canvas(reportElement, { scale: 2 });
-            const imgData = canvas.toDataURL('image/png');
+            // Użyj html2canvas do zrobienia "zrzutu" elementu
+            const canvas = await html2canvas(reportElement, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
 
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            
-            const margin = 10; // 10mm marginesu
-            const imgWidth = pdfWidth - margin * 2;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            
-            let heightLeft = imgHeight;
-            let position = margin;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            const margin = 10; // 10mm marginesu
+            const imgWidth = pdfWidth - margin * 2;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            let heightLeft = imgHeight;
+            let position = margin;
 
-            // Dodaj pierwszy obraz
-            pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-            heightLeft -= (pdfHeight - margin * 2); // Odejmij wysokość strony (z marginesami)
+            // Dodaj pierwszy obraz
+            pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+            heightLeft -= (pdfHeight - margin * 2); 
 
-            // Dodawaj kolejne strony, jeśli obraz jest za wysoki
-            while (heightLeft > 0) {
-                position = margin - (imgHeight - heightLeft); // Przesuń obraz "w górę" na nowej stronie
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-                heightLeft -= (pdfHeight - margin * 2);
-            }
+            // Dodawaj kolejne strony, jeśli obraz jest za wysoki
+            while (heightLeft > 0) {
+                position = margin - (imgHeight - heightLeft); 
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+                heightLeft -= (pdfHeight - margin * 2);
+            }
 
-            // Zapisz plik
-            pdf.save(fileName);
-            showAlert('Raport PDF został wygenerowany!', 'success');
+            // Zapisz plik
+            pdf.save(fileName);
+            showAlert('Raport PDF został wygenerowany!', 'success');
 
-        } catch (error) {
-            console.error("Błąd podczas generowania PDF:", error);
-            showAlert('Wystąpił błąd podczas generowania PDF.', 'danger');
-        } finally {
-            // Przywróć przycisk do stanu pierwotnego
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-        }
-    }
+        } catch (error) {
+            console.error("Błąd podczas generowania PDF:", error);
+            showAlert('Wystąpił błąd podczas generowania PDF.', 'danger');
+        } finally {
+            // Przywróć przycisk do stanu pierwotnego
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
 
 
     function showAlert(message, type) {
-      // ... (funkcja bez zmian) ...
       const alertBox = document.getElementById('alertBox');
       alertBox.innerHTML = `
         <div class="alert alert-${type} alert-dismissible fade show" role="alert">
@@ -771,8 +912,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
