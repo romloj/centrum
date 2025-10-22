@@ -2,231 +2,149 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
-  <title>Zestawienie Miesięcznej Obecności</title>
+  <title>Panel terapeuty – grafik</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
-    body {
-      padding: 1rem;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-    }
-    .main-container {
-      background-color: #fff;
-      border-radius: 15px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-      overflow: hidden;
-      margin-bottom: 2rem;
-    }
-    .header-section {
-      background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-      color: white;
-      padding: 2rem;
-    }
-    .controls-section {
-      background: #f8f9fa;
-      padding: 1.5rem;
-      border-bottom: 2px solid #e9ecef;
-    }
-    .stats-card {
-      background: white;
-      border-radius: 10px;
-      padding: 1.5rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      margin-bottom: 1.5rem;
-    }
-    .stat-box {
-      text-align: center;
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-    }
-    .stat-present { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); color: #155724; }
-    .stat-absent { background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); color: #721c24; }
-    .stat-late { background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); color: #856404; }
-    .stat-excused { background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); color: #0c5460; }
+    body { padding: 16px; }
+    .toolbar .form-select, .toolbar .form-control { max-width: 280px }
+    .toolbar .view-toggle .btn { min-width: 96px }
 
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 0.5rem;
-      margin: 1rem 0;
-    }
-    .calendar-header {
-      text-align: center;
-      font-weight: bold;
-      padding: 0.5rem;
-      background: #f8f9fa;
-      border-radius: 5px;
-    }
-    .calendar-day {
-      aspect-ratio: 1;
-      border: 2px solid #e9ecef;
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 0.5rem;
-      transition: all 0.3s ease;
-      cursor: pointer;
-      position: relative;
-    }
-    .calendar-day:hover {
-      transform: scale(1.05);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    .calendar-day.empty {
-      border: none;
-      cursor: default;
-    }
-    .calendar-day.empty:hover {
-      transform: none;
-      box-shadow: none;
-    }
-    .day-number {
-      font-weight: bold;
-      font-size: 1.1rem;
-      margin-bottom: 0.25rem;
-    }
-    .day-status {
-      font-size: 1.5rem;
-    }
-    .status-obecny {
-      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-      border-color: #28a745;
-    }
-    .status-nieobecny {
-      background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-      border-color: #dc3545;
-    }
-    .status-spóźniony {
-      background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-      border-color: #ffc107;
-    }
-    .status-usprawiedliwiony {
-      background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
-      border-color: #17a2b8;
-    }
-    .status-no-data {
-      background: #f8f9fa;
-      border-color: #dee2e6;
-    }
-    .client-info {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 1.5rem;
-      border-radius: 10px;
-      margin-bottom: 1.5rem;
-    }
-    .client-photo-large {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid white;
-    }
-    .chart-container {
-      position: relative;
-      height: 250px;
-      margin: 1rem 0;
-    }
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      margin-top: 1rem;
-      padding: 1rem;
-      background: #f8f9fa;
-      border-radius: 8px;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .legend-color {
-      width: 20px;
-      height: 20px;
-      border-radius: 4px;
-    }
+    /* — Tydzień — */
+    .cal-wrap { overflow:auto; border:1px solid var(--bs-border-color); border-radius:.5rem; }
+    .cal-grid { display:grid; grid-template-columns: 80px repeat(7, 1fr); }
+    .cal-head { position:sticky; top:0; z-index:2; background:var(--bs-body-bg); border-bottom:1px solid var(--bs-border-color); }
+    .cal-head div { padding:.5rem; font-weight:600; text-align:center; border-left:1px solid var(--bs-border-color); }
+    .cal-head div:first-child { border-left:0; text-align:left; }
+    .cal-row { height:24px; border-top:1px dotted var(--bs-border-color); font-size:12px; }
+    .cal-row label { display:inline-block; padding:2px 6px; color: var(--bs-secondary-color); }
+    .cal-col { position:relative; border-left:1px solid var(--bs-border-color); }
+    .cal-event { position:absolute; left:4px; right:4px; border-radius:.5rem; padding:2px 6px; font-size:12px; line-height:1.2; overflow:hidden; background:rgba(13,110,253,.12); border:1px solid rgba(13,110,253,.35); }
+    .cal-event.done { background: rgba(25,135,84,.15); border-color: rgba(25,135,84,.35); }
+    .cal-event.planned { background: rgba(13,110,253,.12); border-color: rgba(13,110,253,.35); }
+    .cal-event.cancelled { background: rgba(220,53,69,.10); border-color: rgba(220,53,69,.35); text-decoration:line-through; }
+    .cal-event.all { color: #000; }
+    .cal-legend { display:flex; gap:.5rem; flex-wrap:wrap; padding:.5rem; border-top:1px solid var(--bs-border-color); font-size:12px; color: var(--bs-secondary-color) }
+    .cal-legend .swatch { width:10px; height:10px; border-radius:2px; display:inline-block; margin-right:.25rem; vertical-align:baseline; }
 
-    /* FAB Menu */
+    /* — Miesiąc — */
+    .month-wrap { border:1px solid var(--bs-border-color); border-radius:.5rem; overflow:hidden; }
+    .month-head { display:grid; grid-template-columns: repeat(7, 1fr); background:var(--bs-body-bg); border-bottom:1px solid var(--bs-border-color); position:sticky; top:0; z-index:2; }
+    .month-head div { padding:.5rem; font-weight:600; text-align:center; border-left:1px solid var(--bs-border-color); }
+    .month-head div:first-child { border-left:0; }
+    .month-grid { display:grid; grid-template-columns: repeat(7, 1fr); }
+    .day-cell { min-height:120px; border-left:1px solid var(--bs-border-color); border-top:1px solid var(--bs-border-color); padding:.25rem .25rem .25rem .5rem; position:relative; }
+    .day-cell:nth-child(7n+1) { border-left:0; }
+    .day-num { font-size:12px; color: var(--bs-secondary-color); }
+    .day-chip { display:inline-block; margin:.15rem .15rem 0 0; padding:.1rem .35rem; border-radius:999px; font-size:11px; border:1px solid transparent; background:rgba(13,110,253,.12); }
+    .day-chip.done { background:rgba(25,135,84,.15); border-color:rgba(25,135,84,.35) }
+    .day-chip.cancelled { background:rgba(220,53,69,.12); border-color:rgba(220,53,69,.35); text-decoration:line-through }
+    .day-chip .mini { opacity:.7 }
+    .muted-month { opacity:.55 }
+    .sticky-month-title { position:sticky; top:0; background:var(--bs-body-bg); z-index:3; padding:.25rem 0 .5rem 0; }
+
+    /* Kolizje */
+    .collision-badge { position: absolute; top: 2px; right: 2px; background: #dc3545; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+    .cal-event.has-collision { border: 2px solid #dc3545 !important; box-shadow: 0 0 0 2px rgba(220,53,69,0.2); }
+    .day-chip.has-collision { border: 2px solid #dc3545 !important; box-shadow: 0 0 0 1px rgba(220,53,69,0.2); }
+    .day-cell.has-collision .day-num::after { content: "⚠"; color: #dc3545; margin-left: 4px; font-size: 14px; }
+
+    /* Modal edycji */
+    .modal-backdrop.show { opacity: 0.5; }
+
     .fab-container {
       position: fixed;
-      bottom: 2rem;
-      right: 2rem;
-      z-index: 1050;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 1030;
       display: flex;
       flex-direction: column-reverse;
-      align-items: center;
-      gap: 1rem;
+      align-items: flex-end;
+      gap: 0.75rem;
+      pointer-events: none;
     }
+
+    .fab-main,
+    .fab-button,
+    .fab-label,
+    .fab-menu {
+      pointer-events: auto;
+    }
+
     .fab-main {
-      width: 64px;
-      height: 64px;
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.8rem;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-      z-index: 2;
+      font-size: 1.5rem;
+      transition: all 0.3s ease;
     }
+
     .fab-main:hover {
       transform: scale(1.1);
-      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
     }
+
     .fab-main i {
       transition: transform 0.3s ease;
     }
+
     .fab-container.open .fab-main i {
       transform: rotate(45deg);
     }
+
     .fab-menu {
+      list-style: none;
+      padding: 0;
+      margin: 0;
       display: flex;
       flex-direction: column-reverse;
       gap: 0.75rem;
       opacity: 0;
-      transform: translateY(20px) scale(0.8);
+      transform: translateY(10px) scale(0.9);
       pointer-events: none;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
+
     .fab-container.open .fab-menu {
       opacity: 1;
       transform: translateY(0) scale(1);
-      pointer-events: all;
+      pointer-events: auto;
     }
+
     .fab-item {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      transition: all 0.3s ease;
+      gap: 0.75rem;
+      justify-content: flex-end;
     }
+
     .fab-label {
       background: white;
+      color: #333;
       padding: 0.5rem 1rem;
       border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
       font-size: 0.875rem;
       font-weight: 500;
       white-space: nowrap;
-      opacity: 0;
-      transform: translateX(10px);
-      transition: all 0.3s ease;
-      pointer-events: none;
-    }
-    .fab-container.open .fab-label {
       opacity: 1;
-      transform: translateX(0);
+      transition: all 0.3s ease;
     }
+
+    .fab-item:hover .fab-label {
+      background: #f8f9fa;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+    }
+
     .fab-button {
       width: 48px;
       height: 48px;
@@ -237,1145 +155,1359 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.3rem;
+      font-size: 1.25rem;
       text-decoration: none;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
       transition: all 0.3s ease;
     }
+
     .fab-button:hover {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       transform: scale(1.15);
-      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-    }
-    .fab-backdrop {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.3);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-      z-index: 1049;
-    }
-    .fab-container.open ~ .fab-backdrop {
-      opacity: 1;
-      pointer-events: all;
-    }
-
-    /* Wyszukiwanie klienta */
-    .search-container {
-      position: relative;
-    }
-    .search-results {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: white;
-      border: 1px solid #dee2e6;
-      border-radius: 0.375rem;
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 1000;
-      display: none;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    .search-result-item {
-      padding: 0.5rem 1rem;
-      cursor: pointer;
-      border-bottom: 1px solid #f8f9fa;
-    }
-    .search-result-item:hover {
-      background-color: #f8f9fa;
-    }
-    .search-result-item:last-child {
-      border-bottom: none;
-    }
-    .client-option {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .client-avatar {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      object-fit: cover;
-      background: #667eea;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 0.8rem;
-      font-weight: bold;
-    }
-
-    /* PDF Specific Styles */
-    .pdf-only {
-      display: none;
-    }
-
-    /* Print Styles */
-    @media print {
-      body {
-        background: white !important;
-        padding: 0 !important;
-        margin: 0 !important;
-      }
-      .main-container {
-        box-shadow: none !important;
-        border-radius: 0 !important;
-        margin: 0 !important;
-      }
-      .header-section {
-        background: #2c3e50 !important;
-        padding: 1rem !important;
-      }
-      .controls-section,
-      .fab-container,
-      .fab-backdrop,
-      .alert,
-      .screen-only {
-        display: none !important;
-      }
-      .stats-card {
-        box-shadow: none !important;
-        border: 1px solid #dee2e6 !important;
-        margin-bottom: 1rem !important;
-        page-break-inside: avoid;
-      }
-      .client-info {
-        background: #667eea !important;
-        margin-bottom: 1rem !important;
-      }
-      .chart-container {
-        height: 200px !important;
-      }
-      .calendar-day:hover {
-        transform: none !important;
-        box-shadow: none !important;
-      }
-      .pdf-only {
-        display: block !important;
-      }
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.5);
     }
 
     @media (max-width: 768px) {
-      .calendar-grid {
-        gap: 0.25rem;
+      .fab-container {
+        bottom: 1rem;
+        right: 1rem;
       }
-      .calendar-day {
-        padding: 0.25rem;
-      }
-      .day-number {
-        font-size: 0.9rem;
-      }
-      .day-status {
-        font-size: 1.2rem;
+
+      .fab-label {
+        font-size: 0.813rem;
+        padding: 0.4rem 0.8rem;
       }
     }
   </style>
 </head>
 <body>
-  <div class="main-container">
-    <!-- Nagłówek -->
-    <div class="header-section text-center">
-      <h1 class="display-6 mb-2">📊 Zestawienie Miesięcznej Obecności</h1>
-      <p class="lead mb-0">Raport obecności dla wybranego klienta</p>
+  <div class="container-fluid">
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-3 toolbar">
+      <h1 class="h5 m-0">Panel terapeuty – grafik</h1>
+      <div class="ms-auto"></div>
+
+      <div class="btn-group view-toggle" role="group" aria-label="View toggle">
+        <input type="radio" class="btn-check" name="viewMode" id="vmWeek" autocomplete="off" checked>
+        <label class="btn btn-outline-primary" for="vmWeek">Tydzień</label>
+        <input type="radio" class="btn-check" name="viewMode" id="vmMonth" autocomplete="off">
+        <label class="btn btn-outline-primary" for="vmMonth">Miesiąc</label>
+      </div>
+
+      <select id="tpTherapistSelect" class="form-select">
+        <option value="all">— wszyscy terapeuci —</option>
+      </select>
+
+      <input type="date" id="tpRefDate" class="form-control" />
+      <input type="month" id="tpRefMonth" class="form-control d-none" />
+
+      <div class="btn-group">
+        <button id="tpPrev" class="btn btn-outline-secondary">«</button>
+        <button id="tpToday" class="btn btn-outline-secondary">Dziś</button>
+        <button id="tpNext" class="btn btn-outline-secondary">»</button>
+      </div>
+      <button id="tpPrint" class="btn btn-outline-secondary">Drukuj</button>
+      <button id="tpAddVisit" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> Dodaj wizytę
+      </button>
+    </header>
+
+    <div id="alertBox" class="mb-3"></div>
+
+    <!-- Modal edycji wizyty -->
+    <div class="modal fade" id="editEventModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Edytuj wizytę</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="editEventId">
+            <input type="hidden" id="editTherapistId">
+            <div class="mb-3">
+              <label class="form-label">Klient</label>
+              <input type="text" id="editClientName" class="form-control" readonly>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Data <span class="text-danger">*</span></label>
+              <input type="date" id="editDate" class="form-control" required>
+            </div>
+            <div class="row">
+              <div class="col-6 mb-3">
+                <label class="form-label">Godzina rozpoczęcia <span class="text-danger">*</span></label>
+                <input type="time" id="editStartTime" class="form-control" required>
+              </div>
+              <div class="col-6 mb-3">
+                <label class="form-label">Godzina zakończenia <span class="text-danger">*</span></label>
+                <input type="time" id="editEndTime" class="form-control" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Miejsce</label>
+              <input type="text" id="editPlace" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Status</label>
+              <select id="editStatus" class="form-select">
+                <option value="planned">Zaplanowana</option>
+                <option value="done">Odbyta</option>
+                <option value="cancelled">Anulowana</option>
+              </select>
+            </div>
+            <div id="collisionWarning" class="alert alert-warning d-none">
+              <i class="bi bi-exclamation-triangle"></i> <strong>Uwaga!</strong> Wykryto kolizję czasową z inną wizytą tego terapeuty.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="deleteEventBtn" class="btn btn-danger me-auto">
+              <i class="bi bi-trash"></i> Usuń wizytę
+            </button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+            <button type="button" id="saveEventBtn" class="btn btn-primary">
+              <i class="bi bi-check-circle"></i> Zapisz zmiany
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Kontrolki -->
-    <div class="controls-section">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label"><strong>Wyszukaj klienta</strong></label>
-          <div class="search-container">
-            <input type="text" id="clientSearch" class="form-control" placeholder="Wpisz imię lub nazwisko klienta..." autocomplete="off">
-            <div id="searchResults" class="search-results"></div>
+    <!-- Modal dodawania wizyty -->
+    <div class="modal fade" id="addEventModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Dodaj nową wizytę</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <input type="hidden" id="selectedClientId">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label"><strong>Miesiąc</strong></label>
-          <select id="monthSelect" class="form-select">
-            <option value="0">Styczeń</option>
-            <option value="1">Luty</option>
-            <option value="2">Marzec</option>
-            <option value="3">Kwiecień</option>
-            <option value="4">Maj</option>
-            <option value="5">Czerwiec</option>
-            <option value="6">Lipiec</option>
-            <option value="7">Sierpień</option>
-            <option value="8">Wrzesień</option>
-            <option value="9">Październik</option>
-            <option value="10">Listopad</option>
-            <option value="11">Grudzień</option>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label"><strong>Rok</strong></label>
-          <select id="yearSelect" class="form-select">
-          </select>
-        </div>
-      </div>
-      <div class="row mt-3">
-        <div class="col-12">
-          <button class="btn btn-primary" onclick="loadReport()">
-            <i class="bi bi-bar-chart-fill"></i> Wygeneruj raport
-          </button>
-          <button class="btn btn-success" onclick="exportToPDF()">
-            <i class="bi bi-download"></i> Eksportuj PDF
-          </button>
-          <button class="btn btn-outline-secondary" onclick="clearSearch()">
-            <i class="bi bi-x-circle"></i> Wyczyść
-          </button>
-          <button class="btn btn-info" onclick="printReport()">
-            <i class="bi bi-printer"></i> Drukuj
-          </button>
+          <div class="modal-body">
+            <div class="mb-3" id="addTherapistGroup">
+              <label class="form-label">Terapeuta <span class="text-danger">*</span></label>
+              <select id="addTherapist" class="form-select" required>
+                <option value="">-- wybierz terapeutę --</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Typ wizyty</label>
+              <select id="addType" class="form-select">
+                <option value="therapy">Terapia indywidualna</option>
+                <option value="tus">Grupa TUS</option>
+              </select>
+            </div>
+            
+            <!-- Pola dla terapii indywidualnej -->
+            <div id="individualClientFields">
+              <div class="mb-3">
+                <label class="form-label">Klient <span class="text-danger">*</span></label>
+                <select id="addClient" class="form-select">
+                  <option value="">-- wybierz klienta --</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Nowy klient (opcjonalnie)</label>
+                <input type="text" id="addNewClientName" class="form-control" placeholder="Imię i nazwisko">
+                <small class="text-muted">Jeśli wpiszesz tu nazwisko, zostanie dodany nowy klient</small>
+              </div>
+            </div>
+
+            <!-- Pola dla grup TUS -->
+            <div id="groupClientField" style="display: none;">
+              <div class="mb-3">
+                <label for="addGroup" class="form-label">Grupa <span class="text-danger">*</span></label>
+                <select id="addGroup" class="form-select">
+                  <option value="">-- wybierz grupę --</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label">Data <span class="text-danger">*</span></label>
+              <input type="date" id="addDate" class="form-control" required>
+            </div>
+            <div class="row">
+              <div class="col-6 mb-3">
+                <label class="form-label">Godzina rozpoczęcia <span class="text-danger">*</span></label>
+                <input type="time" id="addStartTime" class="form-control" value="10:00" required>
+              </div>
+              <div class="col-6 mb-3">
+                <label class="form-label">Godzina zakończenia <span class="text-danger">*</span></label>
+                <input type="time" id="addEndTime" class="form-control" value="11:00" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Miejsce</label>
+              <input type="text" id="addPlace" class="form-control" placeholder="np. Gabinet 1">
+            </div>
+            
+            <div id="addCollisionWarning" class="alert alert-warning d-none">
+              <i class="bi bi-exclamation-triangle"></i> <strong>Uwaga!</strong> Wykryto kolizję czasową z inną wizytą tego terapeuty.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+            <button type="button" id="createEventBtn" class="btn btn-success">
+              <i class="bi bi-plus-circle"></i> Dodaj wizytę
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Alert -->
-    <div id="alertBox" class="m-3"></div>
-
-    <!-- Wyniki -->
-    <div id="reportContent" class="p-3" style="display: none;">
-
-      <!-- Informacje o kliencie -->
-      <div class="client-info">
-        <div class="row align-items-center">
-          <div class="col-auto">
-            <div id="clientAvatar" class="client-photo-large" style="background: #667eea; display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: bold;"></div>
-          </div>
-          <div class="col">
-            <h3 id="clientName" class="mb-1"></h3>
-            <p class="mb-0" id="clientDetails"></p>
-          </div>
-          <div class="col-auto">
-            <small>Wygenerowano: <span id="reportDate"></span></small>
-          </div>
-        </div>
-      </div>
-
-      <!-- Statystyki -->
-      <div class="stats-card">
-        <h5 class="mb-3"><i class="bi bi-graph-up"></i> Podsumowanie obecności</h5>
-        <div class="row">
-          <div class="col-md-3">
-            <div class="stat-box stat-present">
-              <div class="display-6" id="statPresent">0</div>
-              <small><strong>Obecny</strong></small>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stat-box stat-absent">
-              <div class="display-6" id="statAbsent">0</div>
-              <small><strong>Nieobecny</strong></small>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stat-box stat-late">
-              <div class="display-6" id="statLate">0</div>
-              <small><strong>Spóźniony</strong></small>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stat-box stat-excused">
-              <div class="display-6" id="statExcused">0</div>
-              <small><strong>Usprawiedliwiony</strong></small>
-            </div>
-          </div>
-        </div>
-        <div class="mt-3 text-center">
-          <h4>Frekwencja: <span id="attendanceRate" class="text-primary">0%</span></h4>
-          <small class="text-muted">Procent obecności względem zaplanowanych zajęć</small>
-        </div>
-      </div>
-
-      <!-- Kalendarz -->
-      <div class="stats-card">
-        <h5 class="mb-3"><i class="bi bi-calendar3"></i> Kalendarz obecności</h5>
-        <h6 class="text-center text-muted mb-3" id="calendarTitle"></h6>
-
-        <div class="calendar-grid">
-          <div class="calendar-header">Pn</div>
-          <div class="calendar-header">Wt</div>
-          <div class="calendar-header">Śr</div>
-          <div class="calendar-header">Cz</div>
-          <div class="calendar-header">Pt</div>
-          <div class="calendar-header">So</div>
-          <div class="calendar-header">Nd</div>
-        </div>
-
-        <div class="calendar-grid" id="calendarDays"></div>
-
-        <div class="legend">
-          <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);"></div>
-            <span>Obecny</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);"></div>
-            <span>Nieobecny</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);"></div>
-            <span>Spóźniony</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);"></div>
-            <span>Usprawiedliwiony</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #f8f9fa; border: 1px solid #dee2e6;"></div>
-            <span>Brak danych</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Wykres - tylko dla ekranu -->
-      <div class="stats-card screen-only">
-        <h5 class="mb-3"><i class="bi bi-pie-chart-fill"></i> Wykres obecności</h5>
-        <div class="chart-container">
-          <canvas id="attendanceChart"></canvas>
-        </div>
-      </div>
-
-      <!-- Alternatywny wykres dla PDF -->
-      <div class="stats-card pdf-only" id="chartAlternative">
-        <h5 class="mb-3"><i class="bi bi-pie-chart-fill"></i> Statystyki obecności</h5>
-        <div class="row text-center">
-          <div class="col-3">
-            <div class="stat-present p-3 rounded">
-              <h4 id="altPresent">0</h4>
-              <small>Obecny</small>
-            </div>
-          </div>
-          <div class="col-3">
-            <div class="stat-absent p-3 rounded">
-              <h4 id="altAbsent">0</h4>
-              <small>Nieobecny</small>
-            </div>
-          </div>
-          <div class="col-3">
-            <div class="stat-late p-3 rounded">
-              <h4 id="altLate">0</h4>
-              <small>Spóźniony</small>
-            </div>
-          </div>
-          <div class="col-3">
-            <div class="stat-excused p-3 rounded">
-              <h4 id="altExcused">0</h4>
-              <small>Usprawiedliwiony</small>
-            </div>
-          </div>
-        </div>
-        <div class="mt-4 text-center">
-          <h5>Frekwencja: <span id="altAttendanceRate" class="text-primary">0%</span></h5>
-        </div>
-      </div>
-
-      <!-- Tabela szczegółów -->
-      <div class="stats-card pdf-only" id="detailedTableSection">
-        <h5 class="mb-3"><i class="bi bi-table"></i> Szczegółowy wykaz obecności</h5>
-        <div class="table-responsive">
-          <table class="table table-striped table-bordered" id="detailedTable">
-            <thead class="table-dark">
-              <tr>
-                <th>Data</th>
-                <th>Status</th>
-                <th>Notatki</th>
-                <th>Godzina</th>
-              </tr>
-            </thead>
-            <tbody id="detailedTableBody">
-            </tbody>
-          </table>
-        </div>
-      </div>
-
+    <div id="calendarHost">
+      <!-- tutaj renderuję tydzień lub miesiąc -->
     </div>
   </div>
 
   <!-- FAB Menu -->
   <div class="fab-container" id="fabContainer">
-    <div class="fab-menu">
-      <div class="fab-item">
+    <ul class="fab-menu">
+      <li class="fab-item">
+        <span class="fab-label">Plan terapeuty</span>
+        <a href="therapist.html" class="fab-button" title="Plan terapeuty">
+          <i class="bi bi-heart-pulse"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Moduł TUS</span>
+        <a href="tus.html" class="fab-button" title="Moduł TUS">
+          <i class="bi bi-star-fill"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Lista klientów</span>
+        <a href="klienci.html" class="fab-button" title="Lista klientów">
+          <i class="bi bi-people-fill"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Historia klientów</span>
+        <a href="client_history.html" class="fab-button" title="Historia klientów">
+          <i class="bi bi-clock-history"></i>
+        </a>
+      </li>
+      <li class="fab-item">
         <span class="fab-label">Strona główna</span>
         <a href="index.html" class="fab-button" title="Strona główna">
           <i class="bi bi-house-fill"></i>
         </a>
-      </div>
-      <div class="fab-item">
-        <span class="fab-label">Lista obecności</span>
-        <a href="attendance.html" class="fab-button" title="Lista obecności">
-          <i class="bi bi-clipboard-check"></i>
-        </a>
-      </div>
-      <div class="fab-item">
-        <span class="fab-label">Klienci</span>
-        <a href="klienci.html" class="fab-button" title="Lista klientów">
-          <i class="bi bi-people-fill"></i>
-        </a>
-      </div>
-      <div class="fab-item">
-        <span class="fab-label">Plan SUO</span>
-        <a href="panel.html" class="fab-button" title="Plan SUO">
-          <i class="bi bi-calendar3"></i>
-        </a>
-      </div>
-    </div>
-    <button class="fab-main" id="fabMainBtn" aria-label="Menu nawigacji">
+      </li>
+    </ul>
+    <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
       <i class="bi bi-plus-lg"></i>
     </button>
   </div>
 
-  <div class="fab-backdrop" id="fabBackdrop"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script>
-    const API_URL = ""; // ✅ POPRAWNIE
-    let allClients = [];
-    let attendanceData = {};
-    let currentChart = null;
-    let currentClient = null;
-    let currentMonth = null;
-    let currentYear = null;
+    //const API = ""; // ten sam origin
+    const API = window.location.origin;
 
-    document.addEventListener('DOMContentLoaded', () => {
-      setupEventListeners();
-      initializeSelects();
-      loadClients();
-      setupSearch();
-    });
+    // — stan —
+    let _clientsCache = null;
+    let _groupsCache = null;
 
-    function setupEventListeners() {
-      const fabContainer = document.getElementById('fabContainer');
-      const fabMainBtn = document.getElementById('fabMainBtn');
-      const fabBackdrop = document.getElementById('fabBackdrop');
+    // — helpery —
+    function showAlert(msg, type="success"){
+      const box = document.getElementById("alertBox");
+      box.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    }
 
-      if (fabMainBtn) {
-        fabMainBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          fabContainer.classList.toggle('open');
-        });
-      }
+    function initials(name){
+      if(!name) return "";
+      return name.split(/\s+/).filter(Boolean).slice(0,3).map(w=>w[0].toUpperCase()).join("");
+    }
 
-      if (fabBackdrop) {
-        fabBackdrop.addEventListener('click', () => {
-          fabContainer.classList.remove('open');
-        });
-      }
+    function colorForId(id){
+      const h = (Number(id)*47) % 360;
+      const s = 75, l = 80, borderL = 60;
+      return { bg:`hsl(${h} ${s}% ${l}%)`, border:`hsl(${h} ${s}% ${borderL}%)`, text: l < 60 ? "#fff" : "#000" };
+    }
 
-      document.querySelectorAll('.fab-button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          fabContainer.classList.remove('open');
-        });
-      });
+    const dowShort = ["Pn","Wt","Śr","Cz","Pt","So","Nd"];
 
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && fabContainer.classList.contains('open')) {
-          fabContainer.classList.remove('open');
+    // Wykrywanie kolizji
+    function detectCollisions(rows) {
+      const collisions = new Map();
+
+      for (let i = 0; i < rows.length; i++) {
+        for (let j = i + 1; j < rows.length; j++) {
+          const a = rows[i], b = rows[j];
+
+          if (a.therapist_id !== b.therapist_id) continue;
+
+          const aStart = parseLocalTimestamp(a.starts_at);
+          const aEnd = parseLocalTimestamp(a.ends_at);
+          const bStart = parseLocalTimestamp(b.starts_at);
+          const bEnd = parseLocalTimestamp(b.ends_at);
+
+          if (!aStart || !aEnd || !bStart || !bEnd) continue;
+
+          if (fmtYYYYMMDD(aStart) !== fmtYYYYMMDD(bStart)) continue;
+
+          if (aStart < bEnd && bStart < aEnd) {
+            if (!collisions.has(a.slot_id)) collisions.set(a.slot_id, []);
+            if (!collisions.has(b.slot_id)) collisions.set(b.slot_id, []);
+            collisions.get(a.slot_id).push(b.slot_id);
+            collisions.get(b.slot_id).push(a.slot_id);
+          }
         }
+      }
+
+      return collisions;
+    }
+
+    // Załaduj listę klientów
+    async function loadClients() {
+      if (_clientsCache) return _clientsCache;
+
+      try {
+        const res = await fetch(`${API}/api/clients`);
+        if (!res.ok) throw new Error('Nie można pobrać listy klientów');
+        _clientsCache = await res.json();
+        return _clientsCache;
+      } catch (e) {
+        console.error('Błąd ładowania klientów:', e);
+        showAlert('Nie można załadować listy klientów', 'warning');
+        return [];
+      }
+    }
+
+    // Załaduj listę grup TUS
+    async function loadGroups() {
+      if (_groupsCache) return _groupsCache;
+
+      try {
+        // Używamy endpointu z pliku tus.html do pobrania podsumowania grup
+        const res = await fetch(`${API}/api/tus/groups-summary`); 
+        if (!res.ok) throw new Error('Nie można pobrać listy grup TUS');
+        _groupsCache = await res.json();
+        _clientsCache = null; // Unieważnij cache klientów na wypadek dodania nowego
+        return _groupsCache;
+      } catch (e) {
+        console.error('Błąd ładowania grup:', e);
+        showAlert('Nie można załadować listy grup', 'warning');
+        return [];
+      }
+    }
+
+    /**
+     * Przełącza widoczność pól Klient/Grupa w formularzu dodawania
+     * oraz zarządza atrybutem 'required' dla walidacji.
+     */
+    function toggleClientGroupFields() {
+        const visitType = document.getElementById('addType').value;
+        const individualFields = document.getElementById('individualClientFields');
+        const groupField = document.getElementById('groupClientField');
+        const clientSelect = document.getElementById('addClient');
+        const groupSelect = document.getElementById('addGroup');
+
+        if (visitType === 'tus') {
+            // Wybrano grupę TUS
+            individualFields.style.display = 'none';
+            groupField.style.display = 'block';
+            clientSelect.required = false; // Klient indywidualny nie jest wymagany
+            groupSelect.required = true;  // Grupa jest wymagana
+        } else {
+            // Wybrano terapię indywidualną
+            individualFields.style.display = 'block';
+            groupField.style.display = 'none';
+            clientSelect.required = true;  // Klient indywidualny jest wymagany
+            groupSelect.required = false; // Grupa nie jest wymagana
+        }
+    }
+
+    // Otwórz modal dodawania
+    async function openAddModal() {
+      console.log('=== OPENING ADD MODAL ===');
+
+      // Resetuj formularz
+      document.getElementById('addClient').value = '';
+      document.getElementById('addNewClientName').value = '';
+      document.getElementById('addDate').value = fmtYYYYMMDD(new Date());
+      document.getElementById('addStartTime').value = '10:00';
+      document.getElementById('addEndTime').value = '11:00';
+      document.getElementById('addPlace').value = '';
+      document.getElementById('addType').value = 'therapy';
+      document.getElementById('addCollisionWarning').classList.add('d-none');
+      document.getElementById('addGroup').value = '';
+
+      // Ustaw poprawną widoczność pól PRZED pokazaniem modala
+      toggleClientGroupFields();
+
+      // Załaduj klientów i grupy równolegle
+      const [clients, groups] = await Promise.all([
+          loadClients(),
+          loadGroups()
+      ]);
+
+      // Wypełnij listę klientów
+      const clientSelect = document.getElementById('addClient');
+      const activeClients = clients.filter(c => c.active !== false);
+      const sortedClients = activeClients.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+      clientSelect.innerHTML = '<option value="">-- wybierz klienta --</option>' +
+          sortedClients.map(c => {
+              const id = c.id || c.client_id;
+              const name = c.full_name || `Klient #${id}`;
+              return `<option value="${id}">${name}</option>`;
+          }).join('');
+
+      // Wypełnij listę grup
+      const groupSelect = document.getElementById('addGroup');
+      const sortedGroups = (groups || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      groupSelect.innerHTML = '<option value="">-- wybierz grupę --</option>' +
+          sortedGroups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+
+      const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
+      modal.show();
+    }
+
+    // Sprawdź kolizje przy dodawaniu
+    async function checkCollisionOnAdd() {
+      const therapistId = _state.therapistId === 'all'
+        ? document.getElementById('addTherapist').value
+        : _state.therapistId;
+
+      const date = document.getElementById('addDate').value;
+      const startTime = document.getElementById('addStartTime').value;
+      const endTime = document.getElementById('addEndTime').value;
+
+      if (!therapistId || !date || !startTime || !endTime) return false;
+
+      const newStart = new Date(`${date}T${startTime}:00`);
+      const newEnd = new Date(`${date}T${endTime}:00`);
+
+      const hasCollision = _state.rows.some(r => {
+        if (r.therapist_id != therapistId) return false;
+
+        const rStart = parseLocalTimestamp(r.starts_at);
+        const rEnd = parseLocalTimestamp(r.ends_at);
+
+        if (!rStart || !rEnd) return false;
+        if (fmtYYYYMMDD(rStart) !== date) return false;
+
+        return newStart < rEnd && rStart < newEnd;
+      });
+
+      const warning = document.getElementById('addCollisionWarning');
+      if (hasCollision) {
+        warning.classList.remove('d-none');
+      } else {
+        warning.classList.add('d-none');
+      }
+
+      return hasCollision;
+    }
+
+    // Utwórz nową wizytę
+    async function createNewEvent() {
+      console.log('=== CREATE NEW EVENT START ===');
+
+      // 1. POBIERZ WARTOŚCI WSPÓLNE
+      const therapistId = _state.therapistId === 'all'
+          ? document.getElementById('addTherapist').value
+          : _state.therapistId;
+      
+      const date = document.getElementById('addDate').value;
+      const startTime = document.getElementById('addStartTime').value;
+      const endTime = document.getElementById('addEndTime').value;
+      const place = document.getElementById('addPlace').value;
+      const type = document.getElementById('addType').value; // 'therapy' or 'tus'
+
+      const starts_at = `${date} ${startTime}:00`;
+      const ends_at = `${date} ${endTime}:00`;
+
+      // 2. WALIDACJA PÓL WSPÓLNYCH
+      if (!therapistId || !date || !startTime || !endTime) {
+          showAlert('Proszę wypełnić wszystkie wymagane pola (Terapeuta, Data, Czas)', 'danger');
+          return;
+      }
+      
+      let payload = {
+          therapist_id: Number(therapistId),
+          starts_at,
+          ends_at,
+          place_to: place || null,
+          status: 'planned'
+      };
+
+      // 3. LOGIKA WARUNKOWA DLA TYPU WIZYTY
+      if (type === 'tus') {
+          // --- Tryb grupowy ---
+          const groupId = document.getElementById('addGroup').value;
+          if (!groupId) {
+              showAlert('Proszę wybrać grupę', 'danger');
+              return;
+          }
+          payload.group_id = Number(groupId); 
+          payload.kind = 'tus'; 
+
+      } else {
+          // --- Tryb indywidualny ---
+          const clientId = document.getElementById('addClient').value;
+          const newClientName = document.getElementById('addNewClientName').value.trim();
+
+          if ((!clientId || clientId === '') && !newClientName) {
+              showAlert('Proszę wybrać klienta z listy lub wpisać nazwisko nowego klienta', 'danger');
+              return;
+          }
+
+          let finalClientId = clientId && clientId !== '' ? clientId : null;
+
+          if (newClientName && (!finalClientId || finalClientId === '')) {
+              try {
+                  console.log('Creating new client:', newClientName);
+                  const createClientRes = await fetch(`${API}/api/clients`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ full_name: newClientName, active: true })
+                  });
+
+                  if (!createClientRes.ok) {
+                      const errorText = await createClientRes.text();
+                      throw new Error(`Nie można utworzyć nowego klienta: ${errorText}`);
+                  }
+
+                  const newClient = await createClientRes.json();
+                  finalClientId = newClient.id || newClient.client_id;
+                  console.log('New client created with ID:', finalClientId);
+
+                  if (!finalClientId) {
+                      throw new Error('Serwer nie zwrócił ID nowego klienta');
+                  }
+                  _clientsCache = null; // Unieważnij cache klientów
+
+              } catch (e) {
+                  console.error('Error creating client:', e);
+                  showAlert(`Błąd tworzenia klienta: ${e.message}`, 'danger');
+                  return;
+              }
+          }
+
+          if (!finalClientId) {
+              showAlert('Błąd: Nie udało się pobrać ID klienta.', 'danger');
+              return;
+          }
+          
+          payload.client_id = Number(finalClientId);
+          payload.kind = 'therapy';
+      }
+
+      console.log('=== FINAL PAYLOAD ===');
+      console.log('Payload:', payload);
+
+      // 4. WYSYŁANIE DO API
+      const endpoints = [
+        // Wariant 1: Podstawowy
+        {
+          method: 'POST',
+          url: `${API}/api/schedule`,
+          payload: payload
+        },
+        // Wariant 2: Endpoint therapist-specific
+        {
+          method: 'POST',
+          url: `${API}/api/therapists/${therapistId}/schedule`,
+          payload: {
+            ...payload,
+            type: payload.kind
+          }
+        },
+        // Warianty 3-7
+        { method: 'POST', url: `${API}/api/sessions`, payload: payload },
+        { method: 'POST', url: `${API}/api/appointments`, payload: payload },
+        { method: 'POST', url: `${API}/api/slots`, payload: payload },
+        { method: 'POST', url: `${API}/api/schedule/create`, payload: payload },
+        { method: 'POST', url: `${API}/api/therapist/schedule`, payload: payload }
+      ];
+
+      let success = false;
+      let lastError = null;
+      let allErrors = [];
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying ${endpoint.method} ${endpoint.url}`);
+          console.log('With payload:', endpoint.payload);
+
+          const response = await fetch(endpoint.url, {
+            method: endpoint.method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(endpoint.payload)
+          });
+
+          console.log(`Response status: ${response.status}`);
+
+          if (response.ok) {
+            console.log('✅ Success with:', endpoint);
+            const result = await response.json();
+            console.log('Response data:', result);
+            success = true;
+            showAlert('✅ Wizyta została dodana', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
+            await reloadData();
+            break;
+          } else if (response.status === 405 || response.status === 404) {
+            allErrors.push(`${endpoint.url}: NOT FOUND/ALLOWED (${response.status})`);
+            continue;
+          } else {
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            lastError = `Błąd ${response.status}: ${errorText}`;
+            allErrors.push(`${endpoint.url}: ${response.status} - ${errorText}`);
+            if (response.status === 400 || response.status === 422) {
+              showAlert(`Błąd walidacji danych: ${errorText}`, 'danger');
+              return;
+            }
+          }
+        } catch (e) {
+          console.error(`Error with ${endpoint.method} ${endpoint.url}:`, e);
+          lastError = e.message;
+          allErrors.push(`${endpoint.url}: ${e.message}`);
+        }
+      }
+
+      if (!success) {
+        console.error('❌ All endpoints failed');
+        console.error('All errors:', allErrors);
+        const errorDetails = allErrors.slice(0, 3).join('\n');
+        showAlert(`
+          <strong>Nie można dodać wizyty.</strong><br>
+          <small>Sprawdź, czy Twoje API akceptuje pole 'group_id' lub 'client_id' na jednym z endpointów.<br>
+          Ostatni błąd: ${lastError || 'Brak odpowiedzi'}</small>
+        `, 'danger');
+      }
+    }
+
+    // Otwórz modal edycji
+    function openEditModal(eventData) {
+      console.log('=== OPENING MODAL ===');
+      console.log('Event data:', eventData);
+
+      const eventId = eventData.slot_id;
+
+      if (!eventId) {
+        console.error('❌ BRAK slot_id!');
+        showAlert('Błąd: Brak ID wizyty (slot_id) w danych z API.', 'danger');
+        return;
+      }
+
+      document.getElementById('editEventId').value = eventId || '';
+      document.getElementById('editTherapistId').value = eventData.therapist_id || '';
+      document.getElementById('editClientName').value = eventData.client_name || eventData.group_name || `Klient #${eventData.client_id || ''}`;
+
+      const startDate = parseLocalTimestamp(eventData.starts_at);
+      const endDate = parseLocalTimestamp(eventData.ends_at);
+
+      if (startDate) {
+        document.getElementById('editDate').value = fmtYYYYMMDD(startDate);
+        document.getElementById('editStartTime').value = startDate.toTimeString().slice(0, 5);
+      }
+      if (endDate) {
+        document.getElementById('editEndTime').value = endDate.toTimeString().slice(0, 5);
+      }
+
+      document.getElementById('editPlace').value = eventData.place_to || '';
+      document.getElementById('editStatus').value = eventData.status || 'planned';
+
+      document.getElementById('collisionWarning').classList.add('d-none');
+
+      const modal = new bootstrap.Modal(document.getElementById('editEventModal'));
+      modal.show();
+    }
+
+    // Sprawdź kolizje przy zapisie
+    async function checkCollisionOnSave() {
+      const eventId = document.getElementById('editEventId').value;
+      const therapistId = document.getElementById('editTherapistId').value;
+      const date = document.getElementById('editDate').value;
+      const startTime = document.getElementById('editStartTime').value;
+      const endTime = document.getElementById('editEndTime').value;
+
+      if (!date || !startTime || !endTime) return false;
+
+      const newStart = new Date(`${date}T${startTime}:00`);
+      const newEnd = new Date(`${date}T${endTime}:00`);
+
+      const hasCollision = _state.rows.some(r => {
+        if (r.slot_id == eventId) return false;
+        if (r.therapist_id != therapistId) return false;
+
+        const rStart = parseLocalTimestamp(r.starts_at);
+        const rEnd = parseLocalTimestamp(r.ends_at);
+
+        if (!rStart || !rEnd) return false;
+        if (fmtYYYYMMDD(rStart) !== date) return false;
+
+        return newStart < rEnd && rStart < newEnd;
+      });
+
+      const warning = document.getElementById('collisionWarning');
+      if (hasCollision) {
+        warning.classList.remove('d-none');
+      } else {
+        warning.classList.add('d-none');
+      }
+
+      return hasCollision;
+    }
+
+    // Zapisz zmiany
+    async function saveEventChanges() {
+      const eventId = document.getElementById('editEventId').value;
+      const date = document.getElementById('editDate').value;
+      const startTime = document.getElementById('editStartTime').value;
+      const endTime = document.getElementById('editEndTime').value;
+      const place = document.getElementById('editPlace').value;
+      const status = document.getElementById('editStatus').value;
+
+      if (!eventId || !date || !startTime || !endTime) {
+        showAlert('Proszę wypełnić wszystkie pola oznaczone gwiazdką (*)', 'danger');
+        return;
+      }
+
+      const starts_at = `${date} ${startTime}:00`;
+      const ends_at = `${date} ${endTime}:00`;
+
+      const payload = {
+        starts_at,
+        ends_at,
+        place_to: place,
+        status
+      };
+
+      const endpoints = [
+        { method: 'PATCH', url: `${API}/api/schedule/${eventId}` },
+        { method: 'PUT', url: `${API}/api/schedule/${eventId}` },
+        { method: 'POST', url: `${API}/api/schedule/${eventId}/update` },
+        { method: 'PATCH', url: `${API}/api/slots/${eventId}` },
+        { method: 'PUT', url: `${API}/api/slots/${eventId}` },
+        { method: 'POST', url: `${API}/api/therapist/schedule/${eventId}` }
+      ];
+
+      let success = false;
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint.url, {
+            method: endpoint.method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            success = true;
+            showAlert('Wizyta została zaktualizowana', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
+            await reloadData();
+            break;
+          } else if (response.status !== 405 && response.status !== 404) {
+            const errorText = await response.text();
+            lastError = `Błąd ${response.status}: ${errorText}`;
+          }
+        } catch (e) {
+          lastError = e.message;
+        }
+      }
+
+      if (!success) {
+        showAlert(`Nie można zapisać zmian. ${lastError || ''}`, 'danger');
+      }
+    }
+
+    // Usuń wizytę
+    async function deleteEvent() {
+      const eventId = document.getElementById('editEventId').value;
+
+      if (!eventId) {
+        showAlert('Brak ID wizyty do usunięcia', 'danger');
+        return;
+      }
+
+      const shouldDelete = confirm('⚠️ UWAGA!\n\nCzy na pewno chcesz TRWALE USUNĄĆ tę wizytę z bazy danych?\n\nTej operacji NIE MOŻNA cofnąć!');
+
+      if (!shouldDelete) return;
+
+      try {
+        const response = await fetch(`${API}/api/schedule/${eventId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Nie można usunąć wizyty. Status: ${response.status}`);
+        }
+
+        showAlert('✅ Wizyta została trwale usunięta z bazy danych', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
+        await reloadData();
+
+      } catch (e) {
+        showAlert(`❌ Błąd usuwania: ${e.message}`, 'danger');
+      }
+    }
+
+    // — stan —
+    const TP_START_HOUR = 7, TP_END_HOUR=20, PX_PER_MIN=24/30;
+    let _state = {
+      mode: "week",
+      therapistId: "all",
+      refDate: new Date(),
+      refMonth: new Date(),
+      therapists: [],
+      rows: []
+    };
+
+    // — init —
+    (async function init(){
+      const t = new Date();
+      document.getElementById("tpRefDate").value = t.toISOString().slice(0,10);
+      document.getElementById("tpRefMonth").value = t.toISOString().slice(0,7);
+      _state.refDate = t; _state.refMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+
+      try{
+        const res = await fetch(`${API}/api/therapists`);
+        _state.therapists = (await res.json()).filter(x => x.active !== false);
+        const sel = document.getElementById("tpTherapistSelect");
+        sel.innerHTML =
+          `<option value="all">— wszyscy terapeuci —</option>` +
+          _state.therapists.map(t => `<option value="${t.id}">${t.full_name}${t.specialization?` – ${t.specialization}`:""}</option>`).join("");
+      }catch(e){ showAlert(`Błąd ładowania terapeutów: ${e.message}`, "danger"); }
+
+      document.getElementById("vmWeek").addEventListener("change", () => switchMode("week"));
+      document.getElementById("vmMonth").addEventListener("change", () => switchMode("month"));
+      document.getElementById("tpTherapistSelect").addEventListener("change", reloadData);
+      document.getElementById("tpRefDate").addEventListener("change", e => { _state.refDate = new Date(e.target.value); reloadData(); });
+      document.getElementById("tpRefMonth").addEventListener("change", e => {
+        const [y,m] = e.target.value.split("-").map(Number);
+        _state.refMonth = new Date(y, m-1, 1);
+        reloadData();
+      });
+
+      document.getElementById("tpPrev").addEventListener("click", shiftPrev);
+      document.getElementById("tpNext").addEventListener("click", shiftNext);
+      document.getElementById("tpToday").addEventListener("click", goToday);
+      document.getElementById("tpPrint").addEventListener("click", printView);
+
+      document.getElementById('saveEventBtn').addEventListener('click', saveEventChanges);
+      document.getElementById('deleteEventBtn').addEventListener('click', deleteEvent);
+      document.getElementById('editDate').addEventListener('change', checkCollisionOnSave);
+      document.getElementById('editStartTime').addEventListener('change', checkCollisionOnSave);
+      document.getElementById('editEndTime').addEventListener('change', checkCollisionOnSave);
+
+      document.getElementById('tpAddVisit').addEventListener('click', openAddModal);
+      document.getElementById('createEventBtn').addEventListener('click', createNewEvent);
+      document.getElementById('addDate').addEventListener('change', checkCollisionOnAdd);
+      document.getElementById('addStartTime').addEventListener('change', checkCollisionOnAdd);
+      document.getElementById('addEndTime').addEventListener('change', checkCollisionOnAdd);
+      document.getElementById('addTherapist').addEventListener('change', checkCollisionOnAdd);
+      document.getElementById('addType').addEventListener('change', toggleClientGroupFields);
+
+      document.getElementById('fabMainBtn').addEventListener('click', () => {
+        document.getElementById('fabContainer').classList.toggle('open');
+      });
+
+      const qp = new URLSearchParams(location.search);
+      const qpTid = qp.get("therapist_id");
+      const qpDate = qp.get("date");
+      const qpMonth= qp.get("month");
+      const qpMode = qp.get("mode");
+      if (qpMode === "month") { document.getElementById("vmMonth").checked = true; switchMode("month", false); }
+      if (qpMonth) { document.getElementById("tpRefMonth").value = qpMonth; const [y,m]=qpMonth.split("-").map(Number); _state.refMonth = new Date(y,m-1,1); }
+      if (qpDate) { document.getElementById("tpRefDate").value = qpDate; _state.refDate = new Date(qpDate); }
+      if (qpTid)  { document.getElementById("tpTherapistSelect").value = qpTid === "all" ? "all" : String(Number(qpTid)); _state.therapistId = document.getElementById("tpTherapistSelect").value; }
+
+      reloadData();
+    })();
+
+    function switchMode(mode, reload=true){
+      _state.mode = mode;
+      document.getElementById("tpRefDate").classList.toggle("d-none", mode!=="week");
+      document.getElementById("tpRefMonth").classList.toggle("d-none", mode!=="month");
+      if (reload) reloadData();
+    }
+
+    function shiftPrev(){
+      if (_state.mode==="week"){
+        const d = new Date(_state.refDate); d.setDate(d.getDate()-7);
+        _state.refDate = d; document.getElementById("tpRefDate").value = d.toISOString().slice(0,10);
+      } else {
+        const d = new Date(_state.refMonth.getFullYear(), _state.refMonth.getMonth()-1, 1);
+        _state.refMonth = d; document.getElementById("tpRefMonth").value = d.toISOString().slice(0,7);
+      }
+      reloadData();
+    }
+
+    function shiftNext(){
+      if (_state.mode==="week"){
+        const d = new Date(_state.refDate); d.setDate(d.getDate()+7);
+        _state.refDate = d; document.getElementById("tpRefDate").value = d.toISOString().slice(0,10);
+      } else {
+        const d = new Date(_state.refMonth.getFullYear(), _state.refMonth.getMonth()+1, 1);
+        _state.refMonth = d; document.getElementById("tpRefMonth").value = d.toISOString().slice(0,7);
+      }
+      reloadData();
+    }
+
+    function goToday(){
+      if (_state.mode==="week"){
+        const t = new Date(); _state.refDate=t; document.getElementById("tpRefDate").value=t.toISOString().slice(0,10);
+      } else {
+        const t = new Date(); const m = new Date(t.getFullYear(), t.getMonth(), 1);
+        _state.refMonth=m; document.getElementById("tpRefMonth").value=m.toISOString().slice(0,7);
+      }
+      reloadData();
+    }
+
+    async function reloadData(){
+      _state.therapistId = document.getElementById("tpTherapistSelect").value || "all";
+
+      const monthKey = (_state.mode==="week" ? _state.refDate : _state.refMonth);
+      const mk = `${monthKey.getFullYear()}-${String(monthKey.getMonth()+1).padStart(2,'0')}`;
+
+      const host = document.getElementById("calendarHost");
+      host.innerHTML = `<div class="text-muted p-3">Ładowanie…</div>`;
+
+      try{
+        if (_state.therapistId === "all"){
+          const promises = _state.therapists.map(t =>
+            fetch(`${API}/api/therapists/${t.id}/schedule?month=${encodeURIComponent(mk)}`)
+              .then(r=>r.ok?r.json():[])
+              .then(rows => rows.filter(r=>r.kind==='therapy').map(r => ({...r, therapist_id: t.id, therapist_name: t.full_name })))
+          );
+          _state.rows = (await Promise.all(promises)).flat();
+        } else {
+          const tid = Number(_state.therapistId);
+          const res = await fetch(`${API}/api/therapists/${tid}/schedule?month=${encodeURIComponent(mk)}`);
+          const data = await res.json();
+          _state.rows = (data||[]).filter(r=>r.kind==='therapy').map(r=>({...r, therapist_id: tid}));
+        }
+
+        const uniqueMap = new Map();
+        _state.rows.forEach(row => {
+          const key = row.slot_id;
+          if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, row);
+          } else {
+            const existing = uniqueMap.get(key);
+            if (row.group_name && !existing.group_name) {
+              uniqueMap.set(key, row);
+            }
+          }
+        });
+
+        _state.rows = Array.from(uniqueMap.values());
+
+        if (_state.mode === "week") renderWeek();
+        else renderMonth();
+      }catch(e){
+        console.error('Błąd ładowania danych:', e);
+        host.innerHTML = `<div class="text-danger p-3">Błąd ładowania: ${e.message}</div>`;
+      }
+    }
+
+    function weekRange(date){
+      const d = new Date(date);
+      const dow = (d.getDay()+6)%7;
+      const start = new Date(d); start.setDate(d.getDate() - dow); start.setHours(0,0,0,0);
+      const days = Array.from({length:7}, (_,i)=> new Date(start.getFullYear(), start.getMonth(), start.getDate()+i));
+      return { start, days };
+    }
+
+    function renderWeek() {
+      const host = document.getElementById("calendarHost");
+      const { days } = weekRange(_state.refDate);
+
+      const collisions = detectCollisions(_state.rows);
+      const hasAnyCollision = collisions.size > 0;
+
+      const head = `<div class="cal-head cal-grid">
+          <div style="padding:.5rem">Godz.</div>
+          ${days.map((d,i)=>`<div>${dowShort[i]}<br><small>${d.toLocaleDateString("pl-PL")}</small></div>`).join("")}
+      </div>`;
+
+      let times = `<div>`;
+      for (let h = TP_START_HOUR; h <= TP_END_HOUR; h++) {
+          times += `<div class="cal-row"><label>${String(h).padStart(2, '0')}:00</label></div>`;
+          if (h !== TP_END_HOUR) times += `<div class="cal-row"></div>`;
+      }
+      times += `</div>`;
+      const colHeight = ((TP_END_HOUR - TP_START_HOUR + 1) * 2) * 24;
+
+      const cols = days.map(d => `<div class="cal-col" data-day="${fmtYYYYMMDD(d)}" style="height:${colHeight}px"></div>`).join("");
+
+      const collisionAlert = hasAnyCollision ?
+        `<div class="alert alert-warning mb-2"><i class="bi bi-exclamation-triangle"></i> <strong>Wykryto ${collisions.size} ${collisions.size === 1 ? 'kolizję' : 'kolizji'} czasowych w grafiku.</strong> Kliknij wizytę, aby edytować.</div>` : '';
+
+      host.innerHTML = `${collisionAlert}<div class="cal-wrap">
+          ${head}<div class="cal-grid">${times}${cols}</div>
+          <div class="cal-legend">
+            <span><span class="swatch" style="background:rgba(13,110,253,.3); border:1px solid rgba(13,110,253,.5)"></span> planned</span>
+            <span><span class="swatch" style="background:rgba(25,135,84,.3); border:1px solid rgba(25,135,84,.5)"></span> done</span>
+            <span><span class="swatch" style="background:rgba(220,53,69,.25); border:1px solid rgba(220,53,69,.5)"></span> cancelled</span>
+            ${_state.therapistId === "all" ? `<span class="ms-2">Kolor = terapeuta (inicjały na chipie)</span>` : ``}
+          </div>
+      </div>`;
+
+      const dayMap = new Map([...host.querySelectorAll(".cal-col")].map(el => [el.getAttribute("data-day"), el]));
+
+      for (const r of _state.rows) {
+          const d = parseLocalTimestamp(r.starts_at);
+          const e = parseLocalTimestamp(r.ends_at);
+          if (!d || !e) continue;
+
+          const key = fmtYYYYMMDD(d);
+          if (!dayMap.has(key)) continue;
+
+          const top = ((d.getHours() - TP_START_HOUR) * 60 + d.getMinutes()) * PX_PER_MIN;
+          const height = Math.max(18, Math.max(0, (e - d) / 60000) * PX_PER_MIN);
+
+          const el = document.createElement("div");
+          const hasCollision = collisions.has(r.slot_id);
+          el.className = `cal-event ${r.status || "planned"} ${_state.therapistId === "all" ? 'all' : ''} ${hasCollision ? 'has-collision' : ''}`;
+          el.style.cursor = 'pointer';
+          el.title = 'Kliknij, aby edytować';
+          el.setAttribute('data-slot-id', r.slot_id);
+
+          if (_state.therapistId === "all") {
+              const c = colorForId(r.therapist_id || 0);
+              el.style.background = c.bg;
+              el.style.borderColor = c.border;
+              el.style.color = c.text;
+          }
+          el.style.top = `${top}px`;
+          el.style.height = `${height}px`;
+
+          const isTusGroup = r.type === 'tus';
+          const tName = r.therapist_name || "";
+          const tag = _state.therapistId === "all" ? `<span class="badge rounded-pill text-bg-light border me-1" style="background:rgba(255,255,255,.6);">${initials(tName)}</span>` : ``;
+          const groupIcon = isTusGroup ? `👥 ` : '';
+          const clientLabel = isTusGroup ? `Grupa: ${r.group_name || r.client_name}` : (r.client_name || `klient #${r.client_id ?? ""}`);
+
+          el.innerHTML = `
+            <div><strong>${fmtLocalTime(r.starts_at)}–${fmtLocalTime(r.ends_at)}</strong></div>
+            <div class="text-truncate">${tag}${groupIcon}${clientLabel}</div>
+            ${r.place_to ? `<div class="text-truncate"><small>${r.place_to}</small></div>` : ``}
+            ${hasCollision ? '<span class="collision-badge">!</span>' : ''}
+          `;
+
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEditModal(r);
+          });
+
+          dayMap.get(key).appendChild(el);
+      }
+    }
+
+    function monthMatrix(firstDay){
+      const first = new Date(firstDay.getFullYear(), firstDay.getMonth(), 1);
+      const offset = (first.getDay()+6)%7;
+      const start = new Date(first); start.setDate(first.getDate()-offset); start.setHours(0,0,0,0);
+      return Array.from({length:42}, (_,i)=> new Date(start.getFullYear(), start.getMonth(), start.getDate()+i));
+    }
+
+    function renderMonth(){
+      const host = document.getElementById("calendarHost");
+      const days = monthMatrix(_state.refMonth);
+      const thisMonth = _state.refMonth.getMonth();
+
+      const collisions = detectCollisions(_state.rows);
+      const hasAnyCollision = collisions.size > 0;
+
+      const collisionsPerDay = new Map();
+      for (const r of _state.rows) {
+        if (!collisions.has(r.slot_id)) continue;
+        const s = parseLocalTimestamp(r.starts_at);
+        if (!s) continue;
+        const k = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, '0')}-${String(s.getDate()).padStart(2, '0')}`;
+        collisionsPerDay.set(k, (collisionsPerDay.get(k) || 0) + 1);
+      }
+
+      const head = `<div class="month-head">
+        ${dowShort.map(d=>`<div>${d}</div>`).join("")}
+      </div>`;
+
+      const map = new Map();
+      for (const r of _state.rows){
+        const s = parseLocalTimestamp(r.starts_at);
+        if (!s) continue;
+        const k = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, '0')}-${String(s.getDate()).padStart(2, '0')}`;
+        if (!map.has(k)) map.set(k, []);
+        map.get(k).push(r);
+      }
+
+      const grid = days.map(d => {
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const items = map.get(key) || [];
+        const muted = d.getMonth() !== thisMonth ? " muted-month" : "";
+        const dayHasCollision = collisionsPerDay.has(key) ? " has-collision" : "";
+
+        const chips = items.slice(0,8).map(r => {
+          const hasCollision = collisions.has(r.slot_id);
+          const cls = `day-chip ${r.status||"planned"} ${hasCollision ? 'has-collision' : ''}`;
+          const collisionBadge = hasCollision ? ' <span style="color:#dc3545; font-weight:bold">⚠</span>' : '';
+
+          if (_state.therapistId==="all"){
+            const c = colorForId(r.therapist_id || 0);
+            return `<span class="${cls}" style="background:${c.bg}; border-color:${c.border}; color:${c.text}; cursor:pointer" title="Kliknij, aby edytować" data-slot-id="${r.slot_id}">
+              <span class="mini">${fmtLocalTime(r.starts_at)}–${fmtLocalTime(r.ends_at)}</span> • ${initials(r.therapist_name||"")}${collisionBadge}
+            </span>`;
+          } else {
+            const clientLabel = r.group_name || r.client_name || `#${r.client_id??""}`;
+            return `<span class="${cls}" style="cursor:pointer" title="Kliknij, aby edytować" data-slot-id="${r.slot_id}">
+              <span class="mini">${fmtLocalTime(r.starts_at)}–${fmtLocalTime(r.ends_at)}</span> • ${clientLabel}${collisionBadge}
+            </span>`;
+          }
+        }).join("");
+        const more = items.length>8 ? `<div><small class="text-muted">+${items.length-8} więcej…</small></div>` : "";
+
+        return `<div class="day-cell${muted}${dayHasCollision}" data-date="${key}">
+          <div class="day-num">${d.getDate()}</div>
+          ${chips}${more}
+        </div>`;
+      }).join("");
+
+      const title = `${_state.refMonth.toLocaleDateString("pl-PL", {month:"long", year:"numeric"})}`;
+
+      const collisionAlert = hasAnyCollision ?
+        `<div class="alert alert-warning mb-2"><i class="bi bi-exclamation-triangle"></i> <strong>Wykryto ${collisions.size} ${collisions.size === 1 ? 'kolizję' : 'kolizji'} czasowych w grafiku.</strong> Kliknij wizytę, aby edytować.</div>` : '';
+
+      host.innerHTML = `
+        ${collisionAlert}
+        <div class="sticky-month-title"><h5 class="m-0">${title}</h5></div>
+        <div class="month-wrap">
+          ${head}
+          <div class="month-grid">${grid}</div>
+        </div>`;
+
+      host.querySelectorAll('.day-chip[data-slot-id]').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const slotId = chip.getAttribute('data-slot-id');
+          const eventData = _state.rows.find(r => String(r.slot_id) === String(slotId));
+
+          if (eventData) {
+            openEditModal(eventData);
+          } else {
+            showAlert(`Błąd: Nie znaleziono danych wizyty o ID ${slotId}`, 'danger');
+          }
+        });
       });
     }
 
-    function initializeSelects() {
-      const today = new Date();
-      const yearSelect = document.getElementById('yearSelect');
-      const monthSelect = document.getElementById('monthSelect');
+    const _sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
-      for (let year = today.getFullYear(); year >= today.getFullYear() - 5; year--) {
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year;
-        yearSelect.appendChild(option);
-      }
+    function _probeCalendar(){
+      const host = document.getElementById("calendarHost");
+      let nodes = [...host.querySelectorAll(".month-grid .day-cell[data-date]")];
+      if (nodes.length) return { mode:"month", nodes };
 
-      monthSelect.value = today.getMonth();
-      yearSelect.value = today.getFullYear();
+      nodes = [...host.querySelectorAll(".month-grid .day-cell")];
+      if (nodes.length) return { mode:"month", nodes };
+
+      nodes = [...host.querySelectorAll(".cal-grid .cal-col[data-day]")];
+      if (nodes.length) return { mode:"week", nodes };
+
+      nodes = [...host.querySelectorAll(".cal-grid .cal-col")];
+      if (nodes.length) return { mode:"week", nodes };
+
+      return { mode: (window._state?.mode || "week"), nodes: [] };
     }
 
-    function setupSearch() {
-      const searchInput = document.getElementById('clientSearch');
-      const searchResults = document.getElementById('searchResults');
+    async function printView(_retry=0){
+      const host = document.getElementById("calendarHost");
+      if (!host){ showAlert?.("Brak kontenera grafiku do wydruku.", "warning"); return; }
 
-      searchInput.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase().trim();
-        
-        if (query.length < 2) {
-          searchResults.style.display = 'none';
+      if (host.textContent?.trim().startsWith("Ładowanie") && _retry < 1){
+        await _sleep(60);
+      }
+
+      let { mode, nodes } = _probeCalendar();
+
+      if (!nodes.length && _retry < 1){
+        if (typeof reloadData === "function") { try { await reloadData(); } catch{} }
+        await _sleep(80);
+        ({ mode, nodes } = _probeCalendar());
+      }
+
+      const mondayOf = d => { const r=new Date(d), w=(r.getDay()+6)%7; r.setDate(r.getDate()-w); r.setHours(0,0,0,0); return r; };
+      const fmtISO    = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const sanitize  = s => String(s).replace(/[<>&]/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[ch]));
+
+      const eventsByDate = new Map();
+
+      if (nodes.length){
+        if (mode === "week"){
+          const start = mondayOf(window._state?.refDate || new Date());
+          const cols = nodes.slice(0,7);
+          cols.forEach((col, i) => {
+            const d = new Date(start); d.setDate(start.getDate()+i);
+            const iso = fmtISO(d);
+            let evs = [...col.querySelectorAll(".cal-event")].map(ev => {
+              const time = ev.querySelector("strong")?.textContent?.trim() || "";
+              const full = ev.textContent.replace(/\s+/g," ").trim();
+              const body = time ? full.replace(time,"").trim() : full;
+              return time ? `${time}${body ? " • "+body : ""}` : full;
+            }).filter(Boolean);
+            if (!evs.length){
+              const raw = col.textContent.replace(/\s+/g," ").trim();
+              if (raw) evs = [raw];
+            }
+            eventsByDate.set(iso, evs);
+          });
+        } else {
+          const ref = window._state?.refMonth || new Date();
+          const firstOfMonth = new Date(ref.getFullYear(), ref.getMonth(), 1);
+          const gridStart = mondayOf(firstOfMonth);
+
+          nodes.forEach((cell, idx) => {
+            const iso = cell.getAttribute("data-date") ||
+                        fmtISO(new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate()+idx));
+            let evs = [...cell.querySelectorAll(".day-chip")].map(x => x.textContent.replace(/\s+/g," ").trim()).filter(Boolean);
+            if (!evs.length){
+              const clone = cell.cloneNode(true);
+              clone.querySelectorAll(".day-num").forEach(x=>x.remove());
+              const raw = clone.textContent.replace(/\s+/g," ").trim();
+              if (raw) evs = [raw];
+            }
+            eventsByDate.set(iso, evs);
+          });
+        }
+      } else if (mode === "month" && Array.isArray(window._state?.rows)) {
+        const rows = (window._state.rows || []).filter(r => r && r.starts_at);
+        for (const r of rows){
+          const d = new Date((r.starts_at||"").replace(" ","T"));
+          if (isNaN(d)) continue;
+          const iso = fmtISO(d);
+          const labelTime = d.toLocaleTimeString("pl-PL", {hour:"2-digit", minute:"2-digit"});
+          const who = (window._state?.therapistId === "all")
+            ? (r.therapist_name ? ` • ${r.therapist_name}` : "")
+            : (r.client_name ? ` • ${r.client_name}` : (r.client_id ? ` • #${r.client_id}` : ""));
+          const line = `${labelTime}${who}`;
+          if (!eventsByDate.has(iso)) eventsByDate.set(iso, []);
+          eventsByDate.get(iso).push(line);
+        }
+        if (![...eventsByDate.values()].some(a => a && a.length)){
+          showAlert?.("Brak rozpoznanych komórek dni do wydruku i brak danych w _state.rows.", "warning");
           return;
         }
-
-        const filteredClients = allClients.filter(client => 
-          (client.full_name && client.full_name.toLowerCase().includes(query)) ||
-          (client.email && client.email.toLowerCase().includes(query)) ||
-          (client.phone && client.phone.includes(query))
-        );
-
-        displaySearchResults(filteredClients);
-      });
-
-      // Ukryj wyniki wyszukiwania po kliknięciu gdziekolwiek indziej
-      document.addEventListener('click', (e) => {
-        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-          searchResults.style.display = 'none';
-        }
-      });
-    }
-
-    function displaySearchResults(clients) {
-      const searchResults = document.getElementById('searchResults');
-      searchResults.innerHTML = '';
-
-      if (clients.length === 0) {
-        searchResults.innerHTML = '<div class="search-result-item text-muted">Brak wyników</div>';
-        searchResults.style.display = 'block';
+      } else {
+        showAlert?.("Brak rozpoznanych komórek dni do wydruku.", "warning");
         return;
       }
 
-      clients.slice(0, 10).forEach(client => {
-        const resultItem = document.createElement('div');
-        resultItem.className = 'search-result-item';
-        
-        const initials = (client.full_name || 'K').charAt(0).toUpperCase();
-        
-        resultItem.innerHTML = `
-          <div class="client-option">
-            <div class="client-avatar">
-              ${initials}
-            </div>
-            <div>
-              <strong>${client.full_name || 'Brak nazwy'}</strong>
-              <div class="text-muted small">
-                ${client.phone || 'Brak telefonu'} | ${client.email || 'Brak email'}
-              </div>
-            </div>
+      let startDate, endDate;
+      if (mode === "week"){
+        startDate = mondayOf(window._state?.refDate || new Date());
+        endDate = new Date(startDate); endDate.setDate(startDate.getDate()+6);
+      } else {
+        const m = window._state?.refMonth || new Date();
+        const first = new Date(m.getFullYear(), m.getMonth(), 1);
+        const last  = new Date(m.getFullYear(), m.getMonth()+1, 0);
+        startDate = mondayOf(first);
+        const tmp = new Date(last);
+        const dow = (tmp.getDay()+6)%7;
+        tmp.setDate(tmp.getDate() + (6 - dow));
+        endDate = tmp;
+      }
+
+      const rowsOut = [];
+      let cur = new Date(startDate);
+      while (cur <= endDate){
+        const tds = [];
+        for (let i=0;i<7;i++){
+          const iso = fmtISO(cur);
+          const dayNum = cur.getDate();
+          const evs = eventsByDate.get(iso) || [];
+          const evHtml = evs.map(txt => `<div class="event">${sanitize(txt)}</div>`).join("");
+          tds.push(`<td data-date="${iso}"><div class="day-head"><span class="day-number">${dayNum}</span></div><div class="events">${evHtml}</div></td>`);
+          cur.setDate(cur.getDate()+1);
+        }
+        rowsOut.push(`<tr>${tds.join("")}</tr>`);
+      }
+
+      const sel = document.getElementById("tpTherapistSelect");
+      const isAll = sel?.value === "all";
+      const therapistName = isAll ? "Wszyscy terapeuci"
+        : (sel?.options?.[sel.selectedIndex]?.textContent || (window._state?.therapistId ? `ID ${_state.therapistId}` : ""));
+
+      const html = `<!doctype html><html lang="pl"><head>
+        <meta charset="utf-8">
+        <title>Grafik – ${mode==='week'?'tydzień':'miesiąc'}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          @page { size: A4 landscape; margin: 10mm; }
+          *{box-sizing:border-box} html,body{height:100%}
+          body{font:11px/1.35 Arial,Helvetica,sans-serif; color:#111; margin:0; padding:0;}
+          .doc-header{display:flex;justify-content:space-between;align-items:flex-start;margin:0 0 10px 0;padding:0 2mm;}
+          .doc-header h1{font-size:18px; margin:0 0 2px 0;}
+          .muted{color:#666;font-size:10px}
+          table.calendar{width:100%; border-collapse:collapse; table-layout:fixed;}
+          .calendar th,.calendar td{border:1px solid #333; vertical-align:top; padding:3px 4px;}
+          .calendar thead th{background:#f1f3f4; text-align:center; font-weight:700; font-size:11px; white-space:nowrap;}
+          .calendar td{height:${mode==='week' ? '38mm' : '28mm'}; overflow:hidden;}
+          .day-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+          .day-number{font-weight:700; font-size:12px}
+          .events{font-size:10px}
+          .event{margin:2px 0; padding:2px 3px; border:1px solid #777; border-radius:3px; page-break-inside:avoid; word-wrap:break-word;}
+          .calendar tbody tr:nth-child(even) td { background:#fcfcfc; }
+        </style>
+      </head><body>
+        <div class="doc-header">
+          <div>
+            <h1>Grafik – ${mode==='week'?'tydzień':'miesiąc'}</h1>
+            <div>${isAll ? "" : "<strong>Terapeuta:</strong> "}${therapistName ? therapistName.replace(/</g,"&lt;") : ""}</div>
           </div>
-        `;
-
-        resultItem.addEventListener('click', () => {
-          selectClient(client);
-        });
-
-        searchResults.appendChild(resultItem);
-      });
-
-      searchResults.style.display = 'block';
-    }
-
-    function selectClient(client) {
-      const searchInput = document.getElementById('clientSearch');
-      const selectedClientId = document.getElementById('selectedClientId');
-      const searchResults = document.getElementById('searchResults');
-
-      searchInput.value = client.full_name || 'Brak nazwy';
-      selectedClientId.value = client.client_id || client.id;
-      searchResults.style.display = 'none';
-
-      // Automatycznie wygeneruj raport dla wybranego klienta
-      setTimeout(() => {
-        loadReport();
-      }, 500);
-    }
-
-    function clearSearch() {
-      const searchInput = document.getElementById('clientSearch');
-      const selectedClientId = document.getElementById('selectedClientId');
-      const searchResults = document.getElementById('searchResults');
-      const reportContent = document.getElementById('reportContent');
-
-      searchInput.value = '';
-      selectedClientId.value = '';
-      searchResults.style.display = 'none';
-      reportContent.style.display = 'none';
-
-      showAlert('Wyszukiwanie wyczyszczone', 'info');
-    }
-
-    async function loadClients() {
-      try {
-        const response = await fetch(`${API_URL}/api/clients`);
-        if (!response.ok) throw new Error('Błąd pobierania klientów');
-
-        allClients = await response.json();
-
-        showAlert(`Załadowano ${allClients.length} klientów`, 'success');
-
-      } catch (error) {
-        console.error('Błąd ładowania klientów:', error);
-        showAlert('Nie udało się załadować listy klientów', 'danger');
-      }
-    }
-
-    async function loadReport() {
-      const clientId = document.getElementById('selectedClientId').value;
-      const month = parseInt(document.getElementById('monthSelect').value);
-      const year = parseInt(document.getElementById('yearSelect').value);
-
-      if (!clientId) {
-        showAlert('Wybierz klienta z listy wyszukiwania', 'warning');
-        return;
-      }
-
-      const client = allClients.find(c => (c.client_id || c.id) == clientId);
-      if (!client) {
-        showAlert('Nie znaleziono klienta', 'danger');
-        return;
-      }
-
-      currentClient = client;
-      currentMonth = month;
-      currentYear = year;
-
-      showAlert('Generowanie raportu...', 'info');
-
-      try {
-        const startDate = new Date(year, month, 1);
-        const endDate = new Date(year, month + 1, 0);
-
-        attendanceData = {};
-
-        console.log("🔍 Pobieram obecność dla:", {
-            client: client.full_name,
-            clientId: clientId,
-            month: month + 1,
-            year: year,
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0]
-        });
-
-        let foundCount = 0;
-
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-          d.setHours(12, 0, 0, 0);
-          const dateStr = d.toISOString().split('T')[0];
-
-          try {
-            const url = `${API_URL}/api/attendance?date=${dateStr}&client_id=${clientId}`;
-            console.log(`   📡 Zapytanie: ${url}`);
-
-            const response = await fetch(url);
-
-            if (response.ok) {
-              const data = await response.json();
-              console.log(`   📥 Odpowiedź dla ${dateStr}:`, data);
-
-              const clientRecord = data.find(a => a.client_id == clientId);
-              if (clientRecord) {
-                attendanceData[dateStr] = clientRecord;
-                foundCount++;
-                console.log(`   ✅ Znaleziono obecność: ${clientRecord.status}`);
-              }
-            } else {
-              console.log(`   ⚠️ HTTP ${response.status} dla ${dateStr}`);
-            }
-          } catch (e) {
-            console.log(`   ❌ Błąd dla ${dateStr}:`, e.message);
-          }
-        }
-
-        console.log(`🎯 PODSUMOWANIE: Znaleziono ${foundCount} dni z obecnością`);
-        console.log("📋 attendanceData:", attendanceData);
-
-        displayReport(client, month, year);
-        showAlert(`Raport wygenerowany dla ${client.full_name} (${foundCount} wpisów)`, 'success');
-
-      } catch (error) {
-        console.error('❌ Błąd generowania raportu:', error);
-        showAlert('Błąd podczas generowania raportu', 'danger');
-      }
-    }
-
-    function displayReport(client, month, year) {
-      const reportContent = document.getElementById('reportContent');
-      reportContent.style.display = 'block';
-
-      // Ustaw datę wygenerowania raportu
-      const now = new Date();
-      document.getElementById('reportDate').textContent = now.toLocaleDateString('pl-PL', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-
-      // Ustaw awatar klienta (bez SVG)
-      const initials = (client.full_name || 'K').charAt(0).toUpperCase();
-      const clientAvatar = document.getElementById('clientAvatar');
-      clientAvatar.textContent = initials;
-      clientAvatar.style.background = '#667eea';
-
-      document.getElementById('clientName').textContent = client.full_name;
-      document.getElementById('clientDetails').textContent = `Tel: ${client.phone || 'Brak'} | Email: ${client.email || 'Brak'}`;
-
-      const stats = calculateStats();
-      document.getElementById('statPresent').textContent = stats.obecny;
-      document.getElementById('statAbsent').textContent = stats.nieobecny;
-      document.getElementById('statLate').textContent = stats.spóźniony;
-      document.getElementById('statExcused').textContent = stats.usprawiedliwiony;
-
-      // Ustaw wartości dla alternatywnego wykresu
-      document.getElementById('altPresent').textContent = stats.obecny;
-      document.getElementById('altAbsent').textContent = stats.nieobecny;
-      document.getElementById('altLate').textContent = stats.spóźniony;
-      document.getElementById('altExcused').textContent = stats.usprawiedliwiony;
-
-      const totalScheduled = stats.obecny + stats.nieobecny + stats.spóźniony + stats.usprawiedliwiony;
-      const rate = totalScheduled > 0 ? Math.round((stats.obecny / totalScheduled) * 100) : 0;
-      document.getElementById('attendanceRate').textContent = rate + '%';
-      document.getElementById('altAttendanceRate').textContent = rate + '%';
-
-      const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
-                          'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
-      document.getElementById('calendarTitle').textContent = `${monthNames[month]} ${year}`;
-
-      displayCalendar(month, year);
-      displayChart(stats);
-      displayDetailedTable();
-    }
-
-    function calculateStats() {
-      const stats = {
-        obecny: 0,
-        nieobecny: 0,
-        spóźniony: 0,
-        usprawiedliwiony: 0
-      };
-
-      Object.values(attendanceData).forEach(record => {
-        if (record.status && stats.hasOwnProperty(record.status)) {
-          stats[record.status]++;
-        }
-      });
-
-      return stats;
-    }
-
-    function displayCalendar(month, year) {
-      const calendarDays = document.getElementById('calendarDays');
-      calendarDays.innerHTML = '';
-
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-
-      let dayOfWeek = firstDay.getDay();
-      dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-
-      for (let i = 0; i < dayOfWeek; i++) {
-        const emptyDay = document.createElement('div');
-        emptyDay.className = 'calendar-day empty';
-        calendarDays.appendChild(emptyDay);
-      }
-
-      for (let day = 1; day <= lastDay.getDate(); day++) {
-        const date = new Date(year, month, day, 12, 0, 0);
-        const dateStr = date.toISOString().split('T')[0];
-        const record = attendanceData[dateStr];
-
-        const dayDiv = document.createElement('div');
-        dayDiv.className = 'calendar-day';
-
-        if (record && record.status) {
-          dayDiv.classList.add(`status-${record.status}`);
-          // Używamy prostych symboli tekstowych
-          const statusText = {
-            'obecny': 'O',
-            'nieobecny': 'N',
-            'spóźniony': 'S',
-            'usprawiedliwiony': 'U'
-          };
-          dayDiv.innerHTML = `
-            <div class="day-number">${day}</div>
-            <div class="day-status" style="font-size: 1rem; font-weight: bold;">${statusText[record.status] || ''}</div>
-          `;
-          dayDiv.title = `${day} - ${record.status}${record.notes ? '\n' + record.notes : ''}`;
-        } else {
-          dayDiv.classList.add('status-no-data');
-          dayDiv.innerHTML = `<div class="day-number">${day}</div>`;
-          dayDiv.title = `${day} - Brak danych`;
-        }
-
-        calendarDays.appendChild(dayDiv);
-      }
-    }
-
-    function displayChart(stats) {
-      const ctx = document.getElementById('attendanceChart');
-
-      if (currentChart) {
-        currentChart.destroy();
-      }
-
-      currentChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: ['Obecny', 'Nieobecny', 'Spóźniony', 'Usprawiedliwiony'],
-          datasets: [{
-            data: [stats.obecny, stats.nieobecny, stats.spóźniony, stats.usprawiedliwiony],
-            backgroundColor: [
-              'rgba(40, 167, 69, 0.8)',
-              'rgba(220, 53, 69, 0.8)',
-              'rgba(255, 193, 7, 0.8)',
-              'rgba(23, 162, 184, 0.8)'
-            ],
-            borderColor: [
-              'rgba(40, 167, 69, 1)',
-              'rgba(220, 53, 69, 1)',
-              'rgba(255, 193, 7, 1)',
-              'rgba(23, 162, 184, 1)'
-            ],
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                padding: 15,
-                font: {
-                  size: 14
-                }
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const label = context.label || '';
-                  const value = context.parsed || 0;
-                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                  const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                  return `${label}: ${value} (${percentage}%)`;
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-
-    function displayDetailedTable() {
-      const tableBody = document.getElementById('detailedTableBody');
-      const tableSection = document.getElementById('detailedTableSection');
-      
-      tableBody.innerHTML = '';
-
-      if (Object.keys(attendanceData).length === 0) {
-        return;
-      }
-
-      // Sortuj daty
-      const sortedDates = Object.keys(attendanceData).sort();
-
-      sortedDates.forEach(dateStr => {
-        const record = attendanceData[dateStr];
-        const date = new Date(dateStr);
-        const formattedDate = date.toLocaleDateString('pl-PL', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-
-        const statusLabels = {
-          'obecny': 'Obecny',
-          'nieobecny': 'Nieobecny',
-          'spóźniony': 'Spóźniony',
-          'usprawiedliwiony': 'Usprawiedliwiony'
-        };
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td><strong>${formattedDate}</strong></td>
-          <td>${statusLabels[record.status] || record.status}</td>
-          <td>${record.notes || '-'}</td>
-          <td>${record.time || '-'}</td>
-        `;
-        tableBody.appendChild(row);
-      });
-    }
-
-    function exportToPDF() {
-      const reportContent = document.getElementById('reportContent');
-      
-      if (reportContent.style.display === 'none') {
-        showAlert('Najpierw wygeneruj raport', 'warning');
-        return;
-      }
-
-      showAlert('Generowanie PDF...', 'info');
-
-      // Utwórz czystą kopię raportu bez problematycznych elementów
-      const pdfContent = createPDFContent();
-
-      const options = {
-        margin: [10, 10, 10, 10],
-        filename: `raport_obecnosci_${currentClient.full_name}_${currentMonth + 1}_${currentYear}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: false,
-          logging: false,
-          backgroundColor: '#ffffff'
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait' 
-        },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      };
-
-      html2pdf()
-        .set(options)
-        .from(pdfContent)
-        .save()
-        .then(() => {
-          showAlert('PDF został wygenerowany pomyślnie', 'success');
-          // Usuń tymczasowy element
-          pdfContent.remove();
-        })
-        .catch(error => {
-          console.error('Błąd generowania PDF:', error);
-          showAlert('Błąd podczas generowania PDF', 'danger');
-          // Usuń tymczasowy element nawet w przypadku błędu
-          if (pdfContent.parentNode) {
-            pdfContent.remove();
-          }
-        });
-    }
-
-    function createPDFContent() {
-      // Utwórz czysty kontener PDF bez żadnych obrazów
-      const pdfContainer = document.createElement('div');
-      pdfContainer.style.cssText = `
-        background: white;
-        padding: 20px;
-        font-family: Arial, sans-serif;
-      `;
-
-      const stats = calculateStats();
-      const totalScheduled = stats.obecny + stats.nieobecny + stats.spóźniony + stats.usprawiedliwiony;
-      const rate = totalScheduled > 0 ? Math.round((stats.obecny / totalScheduled) * 100) : 0;
-      const monthNames = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
-                         'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
-
-      const initials = (currentClient.full_name || 'K').charAt(0).toUpperCase();
-
-      pdfContainer.innerHTML = `
-        <div style="text-align: center; background: #2c3e50; color: white; padding: 20px; margin-bottom: 20px; border-radius: 10px;">
-          <h1 style="margin: 0 0 10px 0;">Zestawienie Miesięcznej Obecności</h1>
-          <p style="margin: 0;">Raport obecności dla wybranego klienta</p>
+          <div class="muted">Wygenerowano: ${new Date().toLocaleString("pl-PL")}</div>
         </div>
+        <table class="calendar">
+          <thead><tr><th>Pon</th><th>Wt</th><th>Śr</th><th>Czw</th><th>Pt</th><th>Sob</th><th>Nd</th></tr></thead>
+          <tbody>${rowsOut.join("")}</tbody>
+        </table>
+      </body></html>`;
 
-        <div style="background: #667eea; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-          <div style="display: flex; align-items: center; gap: 15px;">
-            <div style="width: 80px; height: 80px; border-radius: 50%; background: #5569c5; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; border: 3px solid white;">
-              ${initials}
-            </div>
-            <div style="flex: 1;">
-              <h2 style="margin: 0 0 5px 0;">${currentClient.full_name}</h2>
-              <p style="margin: 0;">Tel: ${currentClient.phone || 'Brak'} | Email: ${currentClient.email || 'Brak'}</p>
-            </div>
-            <div style="text-align: right;">
-              <small>Wygenerowano: ${new Date().toLocaleDateString('pl-PL')}</small>
-            </div>
-          </div>
-        </div>
-
-        <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 20px;">
-          <h3 style="margin-top: 0;">📊 Podsumowanie obecności</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-            <div style="background: #d4edda; color: #155724; padding: 15px; text-align: center; border-radius: 8px;">
-              <div style="font-size: 24px; font-weight: bold;">${stats.obecny}</div>
-              <small><strong>Obecny</strong></small>
-            </div>
-            <div style="background: #f8d7da; color: #721c24; padding: 15px; text-align: center; border-radius: 8px;">
-              <div style="font-size: 24px; font-weight: bold;">${stats.nieobecny}</div>
-              <small><strong>Nieobecny</strong></small>
-            </div>
-            <div style="background: #fff3cd; color: #856404; padding: 15px; text-align: center; border-radius: 8px;">
-              <div style="font-size: 24px; font-weight: bold;">${stats.spóźniony}</div>
-              <small><strong>Spóźniony</strong></small>
-            </div>
-            <div style="background: #d1ecf1; color: #0c5460; padding: 15px; text-align: center; border-radius: 8px;">
-              <div style="font-size: 24px; font-weight: bold;">${stats.usprawiedliwiony}</div>
-              <small><strong>Usprawiedliwiony</strong></small>
-            </div>
-          </div>
-          <div style="text-align: center;">
-            <h4>Frekwencja: <span style="color: #007bff;">${rate}%</span></h4>
-            <small style="color: #6c757d;">Procent obecności względem zaplanowanych zajęć</small>
-          </div>
-        </div>
-
-        <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 20px;">
-          <h3 style="margin-top: 0;">📅 Kalendarz obecności - ${monthNames[currentMonth]} ${currentYear}</h3>
-          ${generateCalendarHTML(currentMonth, currentYear)}
-        </div>
-
-        ${Object.keys(attendanceData).length > 0 ? `
-        <div style="background: white; padding: 20px; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 20px;">
-          <h3 style="margin-top: 0;">📋 Szczegółowy wykaz obecności</h3>
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr style="background: #343a40; color: white;">
-                <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left;">Data</th>
-                <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left;">Status</th>
-                <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left;">Notatki</th>
-                <th style="padding: 10px; border: 1px solid #dee2e6; text-align: left;">Godzina</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${generateTableRowsHTML()}
-            </tbody>
-          </table>
-        </div>
-        ` : ''}
-      `;
-
-      document.body.appendChild(pdfContainer);
-      return pdfContainer;
+      const iframe = document.createElement("iframe");
+      Object.assign(iframe.style, {position:"fixed", right:"0", bottom:"0", width:"0", height:"0", border:"0"});
+      iframe.setAttribute("aria-hidden","true");
+      document.body.appendChild(iframe);
+      const ifrw = iframe.contentWindow, ifrd = iframe.contentDocument || ifrw.document;
+      ifrd.open(); ifrd.write(html); ifrd.close();
+      let printed=false; const cleanup=()=>setTimeout(()=>iframe.remove(),100);
+      iframe.onload = () => { if(printed) return; printed=true; try{ ifrw.focus(); setTimeout(()=>{ try{ ifrw.print(); }catch(_){ } }, 0); }catch(_){} };
+      if (ifrw) ifrw.onafterprint = cleanup; setTimeout(cleanup, 5000);
     }
 
-    function generateCalendarHTML(month, year) {
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      
-      let dayOfWeek = firstDay.getDay();
-      dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-
-      let calendarHTML = `
-        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin: 10px 0;">
-          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Pn</div>
-          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Wt</div>
-          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Śr</div>
-          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Cz</div>
-          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Pt</div>
-          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">So</div>
-          <div style="text-align: center; font-weight: bold; padding: 5px; background: #f8f9fa; border-radius: 5px;">Nd</div>
-      `;
-
-      // Puste dni na początku
-      for (let i = 0; i < dayOfWeek; i++) {
-        calendarHTML += '<div style="aspect-ratio: 1;"></div>';
-      }
-
-      // Dni miesiąca
-      for (let day = 1; day <= lastDay.getDate(); day++) {
-        const date = new Date(year, month, day, 12, 0, 0);
-        const dateStr = date.toISOString().split('T')[0];
-        const record = attendanceData[dateStr];
-
-        let dayStyle = 'aspect-ratio: 1; border: 2px solid #e9ecef; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px;';
-        
-        if (record && record.status) {
-          const statusColors = {
-            'obecny': 'background: #d4edda; border-color: #28a745;',
-            'nieobecny': 'background: #f8d7da; border-color: #dc3545;',
-            'spóźniony': 'background: #fff3cd; border-color: #ffc107;',
-            'usprawiedliwiony': 'background: #d1ecf1; border-color: #17a2b8;'
-          };
-          dayStyle += statusColors[record.status] || '';
-        } else {
-          dayStyle += 'background: #f8f9fa;';
-        }
-
-        const statusText = {
-          'obecny': 'O',
-          'nieobecny': 'N',
-          'spóźniony': 'S',
-          'usprawiedliwiony': 'U'
-        };
-
-        calendarHTML += `
-          <div style="${dayStyle}">
-            <div style="font-weight: bold; font-size: 14px;">${day}</div>
-            <div style="font-size: 12px; font-weight: bold;">${record && record.status ? statusText[record.status] || '' : ''}</div>
-          </div>
-        `;
-      }
-
-      calendarHTML += '</div>';
-      return calendarHTML;
+    function parseLocalTimestamp(str){
+      if (!str) return null;
+      const s = str.trim().replace('T', ' ');
+      const m = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/.exec(s);
+      if (!m) return null;
+      const [_, Y, M, D, h, mnt, sec] = m;
+      return new Date(Number(Y), Number(M) - 1, Number(D), Number(h), Number(mnt), Number(sec));
     }
 
-    function generateTableRowsHTML() {
-      const sortedDates = Object.keys(attendanceData).sort();
-      let rowsHTML = '';
-
-      sortedDates.forEach(dateStr => {
-        const record = attendanceData[dateStr];
-        const date = new Date(dateStr);
-        const formattedDate = date.toLocaleDateString('pl-PL', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-
-        const statusLabels = {
-          'obecny': 'Obecny',
-          'nieobecny': 'Nieobecny',
-          'spóźniony': 'Spóźniony',
-          'usprawiedliwiony': 'Usprawiedliwiony'
-        };
-
-        rowsHTML += `
-          <tr>
-            <td style="padding: 8px; border: 1px solid #dee2e6;"><strong>${formattedDate}</strong></td>
-            <td style="padding: 8px; border: 1px solid #dee2e6;">${statusLabels[record.status] || record.status}</td>
-            <td style="padding: 8px; border: 1px solid #dee2e6;">${record.notes || '-'}</td>
-            <td style="padding: 8px; border: 1px solid #dee2e6;">${record.time || '-'}</td>
-          </tr>
-        `;
-      });
-
-      return rowsHTML;
+    function fmtLocalDateTime(str){
+      const d = parseLocalTimestamp(str);
+      if (!d) return "—";
+      return d.toLocaleString("pl-PL", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
     }
 
-    function printReport() {
-      const reportContent = document.getElementById('reportContent');
-      
-      if (reportContent.style.display === 'none') {
-        showAlert('Najpierw wygeneruj raport', 'warning');
-        return;
-      }
-
-      window.print();
+    function fmtLocalTime(str){
+      const d = parseLocalTimestamp(str);
+      if (!d) return "";
+      return d.toLocaleTimeString("pl-PL", { hour:"2-digit", minute:"2-digit" });
     }
 
-    function showAlert(message, type) {
-      const alertBox = document.getElementById('alertBox');
-      alertBox.innerHTML = `
-        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-          ${message}
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      `;
-
-      if (type !== 'danger') {
-        setTimeout(() => {
-          const alert = alertBox.querySelector('.alert');
-          if (alert) alert.remove();
-        }, 5000);
-      }
-    }
-
-    // Eksportuj funkcję dla kompatybilności wstecznej
-    function exportReport() {
-      exportToPDF();
+    function fmtYYYYMMDD(date) {
+        if (!date || isNaN(date)) return "";
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
