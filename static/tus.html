@@ -2,558 +2,561 @@
 <html lang="pl">
 
 <head>
-  <meta charset="utf-8" />
-  <title>Moduł TUS</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
+  <title>Moduł TUS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 
-  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="menu_fab.css">
-  <style>
-    body {
-      background-color: #f8f9fa;
-    }
-    .select2-container--bootstrap-5 .select2-selection {
-      min-height: 38px;
-    }
-    .select2-container--bootstrap-5 .select2-selection__rendered {
-      padding-top: 4px;
-    }
-      /* Style dla mini-kalendarza w modalu TUS */
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="menu_fab.css">
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    .select2-container--bootstrap-5 .select2-selection {
+      min-height: 38px;
+    }
+    .select2-container--bootstrap-5 .select2-selection__rendered {
+      padding-top: 4px;
+    }
+      /* Style dla mini-kalendarza w modalu TUS */
 .session-calendar {
-    border: 1px solid var(--bs-border-color);
-    border-radius: .5rem;
-    background: #fff;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem;
+    background: #fff;
 }
 .session-calendar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: .5rem;
-    border-bottom: 1px solid var(--bs-border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .5rem;
+    border-bottom: 1px solid var(--bs-border-color);
 }
 .session-calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    text-align: center;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
 }
 .session-calendar-dow {
-    font-size: .75rem;
-    font-weight: 600;
-    color: var(--bs-secondary-color);
-    padding: .25rem 0;
+    font-size: .75rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+    padding: .25rem 0;
 }
 .session-calendar-day {
-    font-size: .8rem;
-    padding: .5rem 0;
-    border-top: 1px solid var(--bs-border-color);
-    cursor: pointer;
-    position: relative;
+    font-size: .8rem;
+    padding: .5rem 0;
+    border-top: 1px solid var(--bs-border-color);
+    cursor: pointer;
+    position: relative;
 }
 .session-calendar-day:hover {
-    background-color: var(--bs-primary-bg-subtle);
+    background-color: var(--bs-primary-bg-subtle);
 }
 .session-calendar-day.other-month {
-    color: var(--bs-secondary-color);
-    opacity: .6;
+    color: var(--bs-secondary-color);
+    opacity: .6;
 }
 /* Kółko oznaczające zaplanowaną sesję */
 .session-calendar-day.scheduled::after {
-    content: '';
-    position: absolute;
-    bottom: 4px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: var(--bs-primary);
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
 }
 /* Styl dla zaznaczonego dnia */
 .session-calendar-day.selected {
-    background-color: var(--bs-primary);
-    color: #fff;
-    font-weight: 600;
-    border-radius: 50%;
+    background-color: var(--bs-primary);
+    color: #fff;
+    font-weight: 600;
+    border-radius: 50%;
 }
-      /* Styl dla regularnego dnia zajęć (szablonu) */
+      /* Styl dla regularnego dnia zajęć (szablonu) */
 .session-calendar-day.is-selected-day {
-    background-color: var(--bs-info-bg-subtle);
-    font-weight: bold;
+    background-color: var(--bs-info-bg-subtle);
+    font-weight: bold;
 }
 
-  </style>
+  </style>
 </head>
 
 <body>
 
-  <div class="container py-4">
-    <header class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-4">
-      <h1 class="h3 m-0">👥 Moduł TUS – Grupy</h1>
-      <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#topicsModal">Tematy</button>
-        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#behaviorsModal">Zachowania</button>
-        <button class="btn btn-primary" id="addGroupBtn">Stwórz nową grupę</button>
-      </div>
-    </header>
+  <div class="container py-4">
+    <header class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-4">
+      <h1 class="h3 m-0">👥 Moduł TUS – Grupy</h1>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#topicsModal">Tematy</button>
+        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#behaviorsModal">Zachowania</button>
+        <button class="btn btn-primary" id="addGroupBtn">Stwórz nową grupę</button>
+      </div>
+    </header>
 
-    <main id="groupsContainer" class="row g-4"></main>
-  </div>
+    <main id="groupsContainer" class="row g-4"></main>
+  </div>
 
-  <div class="modal fade" id="groupDetailsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="groupDetailsTitle">Szczegóły grupy</h5>
-          <div class="ms-auto d-flex gap-2">
-            <button class="btn btn-outline-danger btn-sm" id="deleteGroupFromDetailsBtn" style="display:none">Usuń grupę</button>
-            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Zamknij</button>
-          </div>
-        </div>
-        <div class="modal-body" id="groupDetailsBody">
-          </div>
-      </div>
-    </div>
-  </div>
+  <div class="modal fade" id="groupDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="groupDetailsTitle">Szczegóły grupy</h5>
+          <div class="ms-auto d-flex gap-2">
+            <button class="btn btn-outline-danger btn-sm" id="deleteGroupFromDetailsBtn" style="display:none">Usuń grupę</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Zamknij</button>
+          </div>
+        </div>
+        <div class="modal-body" id="groupDetailsBody">
+          </div>
+      </div>
+    </div>
+  </div>
 
-  <div class="modal fade" id="groupModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="groupModalTitle">Dane grupy</h5>
-        </div>
-        <div class="modal-body">
-          <form id="groupForm" novalidate>
-            <div class="mb-3">
-              <label for="groupName" class="form-label">Nazwa grupy</label>
-              <input type="text" class="form-control" id="groupName" required />
-            </div>
-            <div class="mb-3">
-              <label for="therapistSelect" class="form-label">Terapeuta prowadzący</label>
-              <select class="form-select" id="therapistSelect"></select>
-            </div>
-            <div class="mb-3">
-              <label for="assistantTherapistSelect" class="form-label">Terapeuta wspomagający (opcjonalnie)</label>
-              <select class="form-select" id="assistantTherapistSelect"></select>
-            </div>
+  <div class="modal fade" id="groupModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="groupModalTitle">Dane grupy</h5>
+        </div>
+        <div class="modal-body">
+          <form id="groupForm" novalidate>
+            <div class="mb-3">
+              <label for="groupName" class="form-label">Nazwa grupy</label>
+              <input type="text" class="form-control" id="groupName" required />
+            </div>
+            <div class="mb-3">
+              <label for="therapistSelect" class="form-label">Terapeuta prowadzący</label>
+              <select class="form-select" id="therapistSelect"></select>
+            </div>
+            <div class="mb-3">
+              <label for="assistantTherapistSelect" class="form-label">Terapeuta wspomagający (opcjonalnie)</label>
+              <select class="form-select" id="assistantTherapistSelect"></select>
+            </div>
 
-            <div class="mb-3">
-              <label for="clientSelect" class="form-label">Uczestnicy</label>
-              <select class="form-select" id="clientSelect" multiple></select>
-            </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
-          <button type="submit" form="groupForm" class="btn btn-primary" id="saveGroupBtn">Zapisz</button>
-        </div>
-      </div>
-    </div>
-  </div>
+            <div class="mb-3">
+              <label for="clientSelect" class="form-label">Uczestnicy</label>
+              <select class="form-select" id="clientSelect" multiple></select>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
+          <button type="submit" form="groupForm" class="btn btn-primary" id="saveGroupBtn">Zapisz</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <div class="modal fade" id="topicsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Tematy TUS</h5>
-        </div>
-        <div class="modal-body">
-          <form id="addTopicForm" class="d-flex gap-2 mb-3">
-            <input type="text" class="form-control" id="newTopicTitle" placeholder="Tytuł tematu" required />
-            <button type="submit" class="btn btn-success">Dodaj</button>
-          </form>
-          <ul class="list-group" id="topicsList"></ul>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div class="modal fade" id="topicsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Tematy TUS</h5>
+        </div>
+        <div class="modal-body">
+          <form id="addTopicForm" class="d-flex gap-2 mb-3">
+            <input type="text" class="form-control" id="newTopicTitle" placeholder="Tytuł tematu" required />
+            <button type="submit" class="btn btn-success">Dodaj</button>
+          </form>
+          <ul class="list-group" id="topicsList"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <div class="modal fade" id="behaviorsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Zachowania do modelowania</h5>
-        </div>
-        <div class="modal-body">
-          <form id="addBehaviorForm" class="row g-2 align-items-end mb-3">
-            <div class="col-8">
-              <label class="form-label">Nazwa</label>
-              <input type="text" class="form-control" id="newBehaviorTitle" placeholder="np. czekanie na swoją kolej" required />
-            </div>
-            <div class="col-4">
-              <label class="form-label">Domyślny max</label>
-              <input type="number" class="form-control" id="newBehaviorMax" value="3" min="1" max="10" />
-            </div>
-            <div class="col-12">
-              <button class="btn btn-success">Dodaj zachowanie</button>
-            </div>
-          </form>
-          <ul id="behaviorsList" class="list-group"></ul>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div class="modal fade" id="behaviorsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Zachowania do modelowania</h5>
+        </div>
+        <div class="modal-body">
+          <form id="addBehaviorForm" class="row g-2 align-items-end mb-3">
+            <div class="col-8">
+              <label class="form-label">Nazwa</label>
+              <input type="text" class="form-control" id="newBehaviorTitle" placeholder="np. czekanie na swoją kolej" required />
+            </div>
+            <div class="col-4">
+              <label class="form-label">Domyślny max</label>
+              <input type="number" class="form-control" id="newBehaviorMax" value="3" min="1" max="10" />
+            </div>
+            <div class="col-12">
+              <button class="btn btn-success">Dodaj zachowanie</button>
+            </div>
+          </form>
+          <ul id="behaviorsList" class="list-group"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <div class="modal fade" id="scoringModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Punktacja sesji</h5>
-        </div>
-        <div class="modal-body">
-          <div id="scoringBody"></div>
-        </div>
-        <div class="modal-footer">
-          <input type="hidden" id="scoringSessionId" />
-          <input type="hidden" id="scoringGroupId" />
-          <button class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
-          <button id="saveScoresBtn" class="btn btn-primary">Zapisz punktację</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div class="modal fade" id="scoringModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Punktacja sesji</h5>
+        </div>
+        <div class="modal-body">
+          <div id="scoringBody"></div>
+        </div>
+        <div class="modal-footer">
+          <input type="hidden" id="scoringSessionId" />
+          <input type="hidden" id="scoringGroupId" />
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+          <button id="saveScoresBtn" class="btn btn-primary">Zapisz punktację</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <div class="modal fade" id="topicHistoryModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Historia zrealizowanych tematów</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body" id="topicHistoryBody">
-          </div>
-      </div>
-    </div>
-  </div>
+  <div class="modal fade" id="topicHistoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Historia zrealizowanych tematów</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="topicHistoryBody">
+          </div>
+      </div>
+    </div>
+  </div>
 
-  <div class="modal fade" id="bonusModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="bonusModalTitle">Bonusy Indywidualne</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <p class="text-muted">Wpisz punkty bonusowe dla każdego uczestnika poniżej.</p>
-          <div id="bonusModalSessionInfo" class="mb-3"></div>
-          <form id="bonusForm">
-            <div id="bonusParticipantsContainer">
-              </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-          <button type="button" class="btn btn-primary" id="saveBonusesBtn">Zapisz Bonusy</button>
-        </div>
-      </div>
-    </div>
-  </div>
-    <div class="fab-container" id="fabContainer">
-    <ul class="fab-menu">
-        <li class="fab-item">
-            <span class="fab-label">Plan terapeuty</span>
-            <a href="therapist1.html" class="fab-button" title="Plan terapeuty">
-                <i class="bi bi-heart-pulse"></i>
-            </a>
-        </li>
-        <li class="fab-item">
-            <span class="fab-label">Moduł TUS</span>
-            <a href="tus.html" class="fab-button" title="Moduł TUS">
-                <i class="bi bi-star-fill"></i>
-            </a>
-        </li>
-        <li class="fab-item">
-            <span class="fab-label">Lista klientów</span>
-            <a href="klienci.html" class="fab-button" title="Lista klientów">
-                <i class="bi bi-people-fill"></i>
-            </a>
-        </li>
-        <li class="fab-item">
-            <span class="fab-label">Historia klientów</span>
-            <a href="client_history.html" class="fab-button" title="Historia klientów">
-                <i class="bi bi-clock-history"></i>
-            </a>
-        </li>
-        <li class="fab-item">
-            <span class="fab-label">Moduł Kierowcy</span>
-            <a href="drivers.html" class="fab-button" title="Plan terapeuty">
-                <i class="bi bi-car-front-fill"></i>
-            </a>
-        </li>
-        <li class="fab-item">
-            <span class="fab-label">Strona główna</span>
-            <a href="index.html" class="fab-button" title="Strona główna">
-                <i class="bi bi-house-fill"></i>
-            </a>
-        </li>
-    </ul>
-    <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
-        <i class="bi bi-plus-lg"></i>
-    </button>
+  <div class="modal fade" id="bonusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="bonusModalTitle">Bonusy Indywidualne</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted">Wpisz punkty bonusowe dla każdego uczestnika poniżej.</p>
+          <div id="bonusModalSessionInfo" class="mb-3"></div>
+          <form id="bonusForm">
+            <div id="bonusParticipantsContainer">
+              </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+          <button type="button" class="btn btn-primary" id="saveBonusesBtn">Zapisz Bonusy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+<!-- Floating Action Menu - TYLKO RAZ, na końcu body -->
+    <div class="fab-container" id="fabContainer">
+    <ul class="fab-menu">
+        <li class="fab-item">
+            <span class="fab-label">Plan terapeuty</span>
+            <a href="therapist1.html" class="fab-button" title="Plan terapeuty">
+                <i class="bi bi-heart-pulse"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Moduł TUS</span>
+            <a href="tus.html" class="fab-button" title="Moduł TUS">
+                <i class="bi bi-star-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Lista klientów</span>
+            <a href="klienci.html" class="fab-button" title="Lista klientów">
+                <i class="bi bi-people-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Historia klientów</span>
+            <a href="client_history.html" class="fab-button" title="Historia klientów">
+                <i class="bi bi-clock-history"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Moduł Kierowcy</span>
+            <a href="drivers.html" class="fab-button" title="Plan terapeuty">
+                <i class="bi bi-car-front-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Strona główna</span>
+            <a href="index.html" class="fab-button" title="Strona główna">
+                <i class="bi bi-house-fill"></i>
+            </a>
+        </li>
+    </ul>
+    <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg"></i>
+    </button>
 </div>
-    <div class="fab-backdrop" id="fabBackdrop"></div>
+    <div class="fab-backdrop" id="fabBackdrop"></div>
 
-        <script src="fab-menu.js"></script>
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <!-- Skrypty-->
 
-  <script>
-    $(function() {
+    <script src="fab-menu.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
-      // ==========================================================
-      // === INICJALIZACJA I ZMIENNE GLOBALNE =====================
-      // ==========================================================
+  <script>
+    $(function() {
 
-      const API_BASE = ''; // Pusty string, jeśli API jest w tej samej domenie
-      let currentGroupId = null; // null = tryb tworzenia, liczba = tryb edycji
+      // ==========================================================
+      // === INICJALIZACJA I ZMIENNE GLOBALNE =====================
+      // ==========================================================
 
-      // Inicjalizacja instancji modali Bootstrapa
-      const groupDetailsModal = new bootstrap.Modal(document.getElementById('groupDetailsModal'));
-      const groupModal = new bootstrap.Modal(document.getElementById('groupModal'));
-      const scoringModal = new bootstrap.Modal(document.getElementById('scoringModal'));
-      const topicHistoryModal = new bootstrap.Modal(document.getElementById('topicHistoryModal'));
-      const bonusModal = new bootstrap.Modal(document.getElementById('bonusModal'));
-      const topicsModal = new bootstrap.Modal(document.getElementById('topicsModal'));
-      const behaviorsModal = new bootstrap.Modal(document.getElementById('behaviorsModal'));
+      const API_BASE = ''; // Pusty string, jeśli API jest w tej samej domenie
+      let currentGroupId = null; // null = tryb tworzenia, liczba = tryb edycji
 
-
-      // ==========================================================
-      // === FUNKCJE POMOCNICZE I API =============================
-      // ==========================================================
-
-      /**
-       * Uniwersalna funkcja do zapytań API, obsługująca błędy i format JSON.
-       * @param {string} url - Adres URL endpointu API.
-       * @param {object} options - Opcje dla `fetch`, np. `method`, `headers`, `body`.
-       * @returns {Promise<any>} - Rozstrzyga do sparsowanej odpowiedzi JSON.
-       */
-      async function fetchJSON(url, options) {
-        try {
-          const res = await fetch(url, options);
-          const text = await res.text();
-          const ct = res.headers.get('content-type') || '';
-
-          if (!ct.includes('application/json')) {
-            throw new Error(`Odpowiedź serwera nie jest w formacie JSON (HTTP ${res.status}) — ${text.slice(0, 200)}`);
-          }
-
-          const data = JSON.parse(text);
-          if (!res.ok) {
-            const msg = (data && (data.error || data.message)) || `Błąd serwera (HTTP ${res.status})`;
-            throw new Error(msg);
-          }
-          return data;
-        } catch (e) {
-          // Przekaż dalej błąd, aby mógł być obsłużony w wywołującej funkcji
-          throw e;
-        }
-      }
-
-      /** Inicjalizuje kontrolki Select2 w formularzu dodawania/edycji grupy. */
-      function initGroupFormSelect2() {
-        $('#therapistSelect, #assistantTherapistSelect').select2({
-          theme: 'bootstrap-5',
-          dropdownParent: $('#groupModal'),
-          placeholder: 'Wybierz terapeutę',
-          allowClear: true,
-          width: '100%'
-        });
+      // Inicjalizacja instancji modali Bootstrapa
+      const groupDetailsModal = new bootstrap.Modal(document.getElementById('groupDetailsModal'));
+      const groupModal = new bootstrap.Modal(document.getElementById('groupModal'));
+      const scoringModal = new bootstrap.Modal(document.getElementById('scoringModal'));
+      const topicHistoryModal = new bootstrap.Modal(document.getElementById('topicHistoryModal'));
+      const bonusModal = new bootstrap.Modal(document.getElementById('bonusModal'));
+      const topicsModal = new bootstrap.Modal(document.getElementById('topicsModal'));
+      const behaviorsModal = new bootstrap.Modal(document.getElementById('behaviorsModal'));
 
 
-        $('#clientSelect').select2({
-          theme: 'bootstrap-5',
-          dropdownParent: $('#groupModal'),
-          placeholder: 'Wybierz uczestników',
-          width: '100%'
-        });
-      }
+      // ==========================================================
+      // === FUNKCJE POMOCNICZE I API =============================
+      // ==========================================================
 
-       function showAlert(msg, type = "success") {
-    const alertBox = document.getElementById('alertBox');
-    // Upewnij się, że element alertBox istnieje w Twoim HTML
-    if (alertBox) {
-        alertBox.innerHTML = `
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${msg}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>`;
-    } else {
-        // Jeśli nie ma dedykowanego miejsca, użyj standardowego alertu
-        alert(msg);
-    }
+      /**
+       * Uniwersalna funkcja do zapytań API, obsługująca błędy i format JSON.
+       * @param {string} url - Adres URL endpointu API.
+       * @param {object} options - Opcje dla `fetch`, np. `method`, `headers`, `body`.
+       * @returns {Promise<any>} - Rozstrzyga do sparsowanej odpowiedzi JSON.
+       */
+      async function fetchJSON(url, options) {
+        try {
+          const res = await fetch(url, options);
+          const text = await res.text();
+          const ct = res.headers.get('content-type') || '';
+
+          if (!ct.includes('application/json')) {
+            throw new Error(`Odpowiedź serwera nie jest w formacie JSON (HTTP ${res.status}) — ${text.slice(0, 200)}`);
+          }
+
+          const data = JSON.parse(text);
+          if (!res.ok) {
+            const msg = (data && (data.error || data.message)) || `Błąd serwera (HTTP ${res.status})`;
+            throw new Error(msg);
+          }
+          return data;
+        } catch (e) {
+          // Przekaż dalej błąd, aby mógł być obsłużony w wywołującej funkcji
+          throw e;
+        }
+      }
+
+      /** Inicjalizuje kontrolki Select2 w formularzu dodawania/edycji grupy. */
+      function initGroupFormSelect2() {
+        $('#therapistSelect, #assistantTherapistSelect').select2({
+          theme: 'bootstrap-5',
+          dropdownParent: $('#groupModal'),
+          placeholder: 'Wybierz terapeutę',
+          allowClear: true,
+          width: '100%'
+        });
+
+
+        $('#clientSelect').select2({
+          theme: 'bootstrap-5',
+          dropdownParent: $('#groupModal'),
+          placeholder: 'Wybierz uczestników',
+          width: '100%'
+        });
+      }
+
+       function showAlert(msg, type = "success") {
+    const alertBox = document.getElementById('alertBox');
+    // Upewnij się, że element alertBox istnieje w Twoim HTML
+    if (alertBox) {
+        alertBox.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${msg}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>`;
+    } else {
+        // Jeśli nie ma dedykowanego miejsca, użyj standardowego alertu
+        alert(msg);
+    }
 }
 
-      // ==========================================================
-      // === GŁÓWNE FUNKCJE ŁADUJĄCE DANE =========================
-      // ==========================================================
+      // ==========================================================
+      // === GŁÓWNE FUNKCJE ŁADUJĄCE DANE =========================
+      // ==========================================================
 
-      /** Ładuje i wyświetla listę wszystkich grup na stronie głównej. */
-      async function loadGroups() {
-            try {
-                const groups = await fetchJSON(`${API_BASE}/api/tus/groups-summary`);
-                const $container = $('#groupsContainer').empty();
+      /** Ładuje i wyświetla listę wszystkich grup na stronie głównej. */
+      async function loadGroups() {
+            try {
+                const groups = await fetchJSON(`${API_BASE}/api/tus/groups-summary`);
+                const $container = $('#groupsContainer').empty();
 
-                if (!groups || !groups.length) {
-                    $container.html('<div class="col-12"><p class="text-center text-muted">Brak grup. Stwórz pierwszą!</p></div>');
-                    return;
-                }
+                if (!groups || !groups.length) {
+                    $container.html('<div class="col-12"><p class="text-center text-muted">Brak grup. Stwórz pierwszą!</p></div>');
+                    return;
+                }
 
-                groups.forEach(g => {
-                    const progressPercent = (g.target_points > 0) ? (g.total_points_collected / g.target_points * 100) : 0;
+                groups.forEach(g => {
+                    const progressPercent = (g.target_points > 0) ? (g.total_points_collected / g.target_points * 100) : 0;
 
-                    // --- POCZĄTEK POPRAWKI ---
-                    // Wprowadzamy nową, potrójną logikę dla statusu celu.
-                    const statusMessage = g.target_points > 0
-                        ? (g.points_remaining > 0 ? `${g.points_remaining} pkt do celu` : 'Cel osiągnięty! 🎉')
-                        : 'Nie ustawiono celu';
-                    // --- KONIEC POPRAWKI ---
+                    // --- POCZĄTEK POPRAWKI ---
+                    // Wprowadzamy nową, potrójną logikę dla statusu celu.
+                    const statusMessage = g.target_points > 0
+                        ? (g.points_remaining > 0 ? `${g.points_remaining} pkt do celu` : 'Cel osiągnięty! 🎉')
+                        : 'Nie ustawiono celu';
+                    // --- KONIEC POPRAWKI ---
 
-                    const cardHtml = `
-                      <div class="col-md-6 col-lg-4">
-                        <div class="card h-100">
-                          <div class="card-header">
-                            <h5 class="card-title mb-0">${g.name}</h5>
-                            <small class="text-muted">${g.therapist_name ?? 'Brak terapeuty'}</small>
-                          </div>
-                          <div class="card-body">
-                            <p class="card-text mb-2"><strong>Uczestnicy:</strong> ${g.member_count}</p>
-                            <p class="card-text"><strong>Ostatni temat:</strong> ${g.last_topic || '<em>Brak sesji</em>'}</p>
-                            <hr>
-                            <h6 class="card-subtitle mb-2 text-muted">Postęp w tym półroczu</h6>
-                            <p class="mb-1"><strong>Zebrano:</strong> ${g.total_points_collected} / ${g.target_points > 0 ? g.target_points : '?'} pkt</p>
-                            <div class="progress mb-2" style="height: 20px;">
-                              <div class="progress-bar" role="progressbar" style="width: ${progressPercent}%"
-                                   aria-valuenow="${g.total_points_collected}" aria-valuemin="0" aria-valuemax="${g.target_points}">
-                              </div>
-                            </div>
-                            <small class="d-block text-center text-muted mt-1">
-                                ${statusMessage}
-                            </small>
-                            <p class="card-text mt-2"><strong>Nagroda:</strong> ${g.reward || '<em>Nie ustawiono</em>'}</p>
-                          </div>
-                          <div class="card-footer d-flex gap-2 justify-content-end">
-                            <button class="btn btn-outline-primary btn-sm view-group-btn" data-group-id="${g.id}">Zarządzaj</button>
-                            <button class="btn btn-secondary btn-sm edit-group-btn" data-group-id="${g.id}">Edytuj</button>
-                          </div>
-                        </div>
-                      </div>`;
-                    $container.append(cardHtml);
-                });
-            } catch (e) {
-                console.error(e);
-                $('#groupsContainer').html(`<div class="col-12"><div class="alert alert-danger">Nie można załadować grup: ${e.message}</div></div>`);
-            }
-        }
+                    const cardHtml = `
+                      <div class="col-md-6 col-lg-4">
+                        <div class="card h-100">
+                          <div class="card-header">
+                            <h5 class="card-title mb-0">${g.name}</h5>
+                            <small class="text-muted">${g.therapist_name ?? 'Brak terapeuty'}</small>
+                          </div>
+                          <div class="card-body">
+                            <p class="card-text mb-2"><strong>Uczestnicy:</strong> ${g.member_count}</p>
+                            <p class="card-text"><strong>Ostatni temat:</strong> ${g.last_topic || '<em>Brak sesji</em>'}</p>
+                            <hr>
+                            <h6 class="card-subtitle mb-2 text-muted">Postęp w tym półroczu</h6>
+                            <p class="mb-1"><strong>Zebrano:</strong> ${g.total_points_collected} / ${g.target_points > 0 ? g.target_points : '?'} pkt</p>
+                            <div class="progress mb-2" style="height: 20px;">
+                              <div class="progress-bar" role="progressbar" style="width: ${progressPercent}%"
+                                   aria-valuenow="${g.total_points_collected}" aria-valuemin="0" aria-valuemax="${g.target_points}">
+                              </div>
+                            </div>
+                            <small class="d-block text-center text-muted mt-1">
+                                ${statusMessage}
+                            </small>
+                            <p class="card-text mt-2"><strong>Nagroda:</strong> ${g.reward || '<em>Nie ustawiono</em>'}</p>
+                          </div>
+                          <div class="card-footer d-flex gap-2 justify-content-end">
+                            <button class="btn btn-outline-primary btn-sm view-group-btn" data-group-id="${g.id}">Zarządzaj</button>
+                            <button class="btn btn-secondary btn-sm edit-group-btn" data-group-id="${g.id}">Edytuj</button>
+                          </div>
+                        </div>
+                      </div>`;
+                    $container.append(cardHtml);
+                });
+            } catch (e) {
+                console.error(e);
+                $('#groupsContainer').html(`<div class="col-12"><div class="alert alert-danger">Nie można załadować grup: ${e.message}</div></div>`);
+            }
+        }
 
-      /**
-       * Pobiera listy terapeutów i klientów, a następnie wypełnia nimi kontrolki Select2 w formularzu grupy.
-       * @param {object} [prefill] - Opcjonalny obiekt z danymi do wstępnego wypełnienia formularza (edycja).
-       */
-      async function loadTherapistsAndClients(prefill = {}) {
-        const [therapists, clients] = await Promise.all([
-          fetchJSON(`${API_BASE}/api/therapists`),
-          fetchJSON(`${API_BASE}/api/clients`)
-        ]);
+      /**
+       * Pobiera listy terapeutów i klientów, a następnie wypełnia nimi kontrolki Select2 w formularzu grupy.
+       * @param {object} [prefill] - Opcjonalny obiekt z danymi do wstępnego wypełnienia formularza (edycja).
+       */
+      async function loadTherapistsAndClients(prefill = {}) {
+        const [therapists, clients] = await Promise.all([
+          fetchJSON(`${API_BASE}/api/therapists`),
+          fetchJSON(`${API_BASE}/api/clients`)
+        ]);
 
-        const activeTherapists = (therapists || []).filter(t => t.active);
-        const activeClients = (clients || []).filter(c => c.active);
+        const activeTherapists = (therapists || []).filter(t => t.active);
+        const activeClients = (clients || []).filter(c => c.active);
 
-        const $therapistSelect = $('#therapistSelect').empty().append(new Option('', ''));
-        const $assistantSelect = $('#assistantTherapistSelect').empty().append(new Option('', ''));
-        activeTherapists.forEach(t => {
-          $therapistSelect.append(new Option(t.full_name, String(t.id)));
-          $assistantSelect.append(new Option(t.full_name, String(t.id)));
-        });
+        const $therapistSelect = $('#therapistSelect').empty().append(new Option('', ''));
+        const $assistantSelect = $('#assistantTherapistSelect').empty().append(new Option('', ''));
+        activeTherapists.forEach(t => {
+          $therapistSelect.append(new Option(t.full_name, String(t.id)));
+          $assistantSelect.append(new Option(t.full_name, String(t.id)));
+        });
 
-        const $clientSelect = $('#clientSelect').empty();
-        activeClients.forEach(c => $clientSelect.append(new Option(c.full_name, String(c.client_id || c.id))));
+        const $clientSelect = $('#clientSelect').empty();
+        activeClients.forEach(c => $clientSelect.append(new Option(c.full_name, String(c.client_id || c.id))));
 
-        initGroupFormSelect2(); // Zainicjuj Select2 po wypełnieniu opcji
+        initGroupFormSelect2(); // Zainicjuj Select2 po wypełnieniu opcji
 
-        // Wypełnij formularz danymi, jeśli są dostępne (tryb edycji)
-        if (prefill.name) $('#groupName').val(prefill.name);
-        if (prefill.therapist_id) $('#therapistSelect').val(String(prefill.therapist_id)).trigger('change');
-        if (prefill.assistant_therapist_id) $('#assistantTherapistSelect').val(String(prefill.assistant_therapist_id)).trigger('change');
-        if (prefill.client_ids) $('#clientSelect').val(prefill.client_ids.map(String)).trigger('change');
-      }
+        // Wypełnij formularz danymi, jeśli są dostępne (tryb edycji)
+        if (prefill.name) $('#groupName').val(prefill.name);
+        if (prefill.therapist_id) $('#therapistSelect').val(String(prefill.therapist_id)).trigger('change');
+        if (prefill.assistant_therapist_id) $('#assistantTherapistSelect').val(String(prefill.assistant_therapist_id)).trigger('change');
+        if (prefill.client_ids) $('#clientSelect').val(prefill.client_ids.map(String)).trigger('change');
+      }
 
-      /** Pobiera listę tematów i wyświetla ją w modalu tematów. */
-      async function loadTopicsModalList() {
-        const $list = $('#topicsList').html('<li class="list-group-item text-muted">Ładowanie...</li>');
-        try {
-          const topics = await fetchJSON(`${API_BASE}/api/tus/topics`);
-          $list.empty();
-          if (!topics || topics.length === 0) {
-            $list.append('<li class="list-group-item text-muted">Brak zdefiniowanych tematów.</li>');
-            return;
-          }
-          topics.forEach(t => $list.append(`<li class="list-group-item">${t.title}</li>`));
-        } catch (e) {
-          console.error(e);
-          $list.html('<li class="list-group-item text-danger">Błąd ładowania tematów.</li>');
-        }
-      }
+      /** Pobiera listę tematów i wyświetla ją w modalu tematów. */
+      async function loadTopicsModalList() {
+        const $list = $('#topicsList').html('<li class="list-group-item text-muted">Ładowanie...</li>');
+        try {
+          const topics = await fetchJSON(`${API_BASE}/api/tus/topics`);
+          $list.empty();
+          if (!topics || topics.length === 0) {
+            $list.append('<li class="list-group-item text-muted">Brak zdefiniowanych tematów.</li>');
+            return;
+          }
+          topics.forEach(t => $list.append(`<li class="list-group-item">${t.title}</li>`));
+        } catch (e) {
+          console.error(e);
+          $list.html('<li class="list-group-item text-danger">Błąd ładowania tematów.</li>');
+        }
+      }
 
-      /** Pobiera listę zachowań i wyświetla ją w modalu zachowań. */
-      async function reloadBehaviorsModal() {
-        const $list = $('#behaviorsList').html('<li class="list-group-item text-muted">Ładowanie…</li>');
-        try {
-          const items = await fetchJSON(`${API_BASE}/api/tus/behaviors`);
-          $list.empty();
-          if (!items || !items.length) {
-            $list.append('<li class="list-group-item text-muted">Brak zdefiniowanych zachowań.</li>');
-            return;
-          }
-          items.forEach(b => {
-            $list.append(`
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                <span>${b.title} <small class="text-muted">(domyślny max ${b.default_max_points ?? 3})</small></span>
-                <button class="btn btn-outline-danger btn-sm del-beh" data-id="${b.id}">Usuń</button>
-              </li>`);
-          });
-        } catch (e) {
-          console.error(e);
-          $list.html('<li class="list-group-item text-danger">Błąd ładowania zachowań.</li>');
-        }
-      }
-
-
-      // ==========================================================
-      // === FUNKCJE ZARZĄDZAJĄCE MODALAMI ========================
-      // ==========================================================
+      /** Pobiera listę zachowań i wyświetla ją w modalu zachowań. */
+      async function reloadBehaviorsModal() {
+        const $list = $('#behaviorsList').html('<li class="list-group-item text-muted">Ładowanie…</li>');
+        try {
+          const items = await fetchJSON(`${API_BASE}/api/tus/behaviors`);
+          $list.empty();
+          if (!items || !items.length) {
+            $list.append('<li class="list-group-item text-muted">Brak zdefiniowanych zachowań.</li>');
+            return;
+          }
+          items.forEach(b => {
+            $list.append(`
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>${b.title} <small class="text-muted">(domyślny max ${b.default_max_points ?? 3})</small></span>
+                <button class="btn btn-outline-danger btn-sm del-beh" data-id="${b.id}">Usuń</button>
+              </li>`);
+          });
+        } catch (e) {
+          console.error(e);
+          $list.html('<li class="list-group-item text-danger">Błąd ładowania zachowań.</li>');
+        }
+      }
 
 
- async function saveSchedule(groupId, scheduleDays) {
-        try {
-            const response = await fetch(`/api/tus/groups/${groupId}/schedule`, {
-                method: 'PUT', // <-- UPEWNIJ SIĘ, ŻE JEST TUTAJ 'PUT'
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ schedule_days: scheduleDays }),
-            });
+      // ==========================================================
+      // === FUNKCJE ZARZĄDZAJĄCE MODALAMI ========================
+      // ==========================================================
 
-            if (!response.ok) {
-                throw new Error('Błąd serwera: ' + response.status);
-            }
 
-            // Sukces
-            console.log("Harmonogram zapisany!");
+ async function saveSchedule(groupId, scheduleDays) {
+        try {
+            const response = await fetch(`/api/tus/groups/${groupId}/schedule`, {
+                method: 'PUT', // <-- UPEWNIJ SIĘ, ŻE JEST TUTAJ 'PUT'
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ schedule_days: scheduleDays }),
+            });
 
-        } catch (error) {
-            console.error("Nie udało się zapisać harmonogramu:", error);
-        }
-    }
+            if (!response.ok) {
+                throw new Error('Błąd serwera: ' + response.status);
+            }
 
-      /**
-       * Otwiera główny, interaktywny modal ze szczegółami grupy, sesjami i opcjami.
-       * @param {number} groupId - ID grupy do wyświetlenia.
-       */
-      // W pliku tus.html znajdź i podmień tę funkcję
+            // Sukces
+            console.log("Harmonogram zapisany!");
+
+        } catch (error) {
+            console.error("Nie udało się zapisać harmonogramu:", error);
+        }
+    }
+
+      /**
+       * Otwiera główny, interaktywny modal ze szczegółami grupy, sesjami i opcjami.
+       * @param {number} groupId - ID grupy do wyświetlenia.
+       */
+      // W pliku tus.html znajdź i podmień tę funkcję
 
 async function openGroupDetails(groupId) {
     try {
@@ -587,22 +590,19 @@ async function openGroupDetails(groupId) {
             DOW_SHORT.forEach(day => gridHtml += `<div class="session-calendar-dow">${day}</div>`);
             for (let i = 0; i < startDay; i++) { gridHtml += `<div class="session-calendar-day other-month"></div>`; }
 
-                  for (let i = 1; i <= lastOfMonth.getDate(); i++) {
+            for (let i = 1; i <= lastOfMonth.getDate(); i++) {
                 const dayDate = new Date(year, month, i);
-                
-                // UŻYJ TEGO SAMEGO FORMATU CO W LIŚCIE SESJI
-                const dateString = dayDate.toISOString().split('T')[0]; // Format YYYY-MM-DD
+                const dateString = fmtYYYYMMDD(dayDate);
                 const isScheduled = scheduledDates.has(dateString);
                 const isSelected = selectedDates.has(dateString);
-                
                 let classes = 'session-calendar-day';
                 if (isScheduled) classes += ' scheduled';
                 if (isSelected) classes += ' is-selected-day';
                 gridHtml += `<div class="${classes}" data-date="${dateString}">${i}</div>`;
-                    }
-                    gridHtml += `</div>`;
-                    calendarEl.innerHTML = `<div class="session-calendar">${headerHtml}${gridHtml}</div>`;
-              }
+            }
+            gridHtml += `</div>`;
+            calendarEl.innerHTML = `<div class="session-calendar">${headerHtml}${gridHtml}</div>`;
+        }
 
         // --- PRZYGOTOWANIE DANYCH ---
         const currentYear = new Date().getFullYear();
@@ -634,26 +634,21 @@ async function openGroupDetails(groupId) {
         const uniqueSessions = Array.from(sessionsMap.values());
         uniqueSessions.sort((a, b) => new Date(b.session_date) - new Date(a.session_date));
         const sessionsListHtml = uniqueSessions.map(s => {
-          let whenLabel = 'Błędna data';
-          try {
-              if (s.session_date) {
-                  const dateObj = new Date(s.session_date);
-                  if (!isNaN(dateObj.getTime())) {
-                      // UŻYJ TEGO SAMEGO FORMATU CO W KALENDARZU
-                      const dateString = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
-                      const timePart = s.session_time ? ` ${s.session_time.substring(0, 5)}` : '';
-                      whenLabel = dateObj.toLocaleDateString('pl-PL') + timePart;
-                      
-                      // DODATKOWO: Zapisz datę w tym samym formacie do scheduledDates
-                      scheduledDates.add(dateString);
-                  } else {
-                      whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time.substring(0,5) : ''}`;
-                  }
-              }
-          } catch (e) {
-              console.error('Błąd formatowania daty:', e);
-              whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time : ''}`;
-          }
+            let whenLabel = 'Błędna data';
+            try {
+                if (s.session_date) {
+                    const dateObj = new Date(s.session_date);
+                    if (!isNaN(dateObj.getTime())) {
+                        const timePart = s.session_time ? ` ${s.session_time.substring(0, 5)}` : '';
+                        whenLabel = dateObj.toLocaleDateString('pl-PL') + timePart;
+                    } else {
+                        whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time.substring(0,5) : ''}`;
+                    }
+                }
+            } catch (e) {
+                console.error('Błąd formatowania daty:', e);
+                whenLabel = `${s.session_date}${s.session_time ? ' ' + s.session_time : ''}`;
+            }
             return `<li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2"><span>${whenLabel} — ${s.topic_title || 'bez tematu'}</span><div class="btn-group btn-group-sm"><button class="btn btn-outline-success bonus-session-btn" data-session-id="${s.id}">Bonusy sesji</button><button class="btn btn-outline-primary score-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Oceń</button><button class="btn btn-outline-danger delete-session-btn" data-session-id="${s.id}" data-group-id="${g.id}">Usuń</button></div></li>`;
         }).join('') || '<li class="list-group-item text-muted">Brak sesji</li>';
         const bonusTableRowsHtml = (g.members || []).map(member => {
@@ -675,57 +670,62 @@ async function openGroupDetails(groupId) {
             </ul>
             <div class="tab-content pt-3">
               <div class="tab-pane fade show active" id="sessions-panel" role="tabpanel">
-    <h6>Lista Sesji</h6>
-    <ul class="list-group mb-3">${sessionsListHtml}</ul>
-    <hr>
+    <h6>Lista Sesji</h6>
+    <ul class="list-group mb-3">${sessionsListHtml}</ul>
+    <hr>
 
-    <form id="addSessionForm" data-group-id="${g.id}">
-                <div class="row g-3">
-                        <div class="col-lg-3 col-md-4">
-                <label class="form-label mb-1 fw-bold">Obecność (dla nowej sesji):</label>
-                <div class="p-2 border rounded bg-white" style="max-height: 250px; overflow-y: auto;">
-                    ${membersChecklistHtml}
-                </div>
-            </div>
-            
-                        <div class="col-lg-4 col-md-4">
-                <label class="form-label mb-1 fw-bold">Szablon dni:</label>
-                <div id="sessionCalendar"></div>
-                <div class="d-grid mt-2">
-                    <button type="button" id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button>
-                </div>
-            </div>
-            
-                        <div class="col-lg-5 col-md-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h6 class="card-title">Dodaj nową sesję</h6>
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <label for="sessionDateInput" class="form-label">Data</label>
-                                <input type="date" class="form-control" name="date" id="sessionDateInput" required>
-                            </div>
-                            <div class="col-6">
-                                <label for="sessionTimeInput" class="form-label">Godzina</label>
-                                <input type="time" class="form-control" name="time" id="sessionTimeInput" required>
-                            </div>
-                            <div class="col-12">
-                                <label for="sessionTopicInput" class="form-label">Temat</label>
-                                <input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required>
-                            </div>
-                            <div class="col-12">
-                                <label for="sessionBehaviorsSelect" class="form-label">Zachowania do modelowania (max 4)</label>
-                                <select id="sessionBehaviorsSelect" class="form-select" multiple></select>
-                            </div>
-                        </div>
-                        <div class="col-12 mt-3">
-                            <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-            </form>
+    <form id="addSessionForm" data-group-id="${g.id}">
+        <!-- ZMIENIONA SEKCJA - ELEMENTY OBOK SIEBIE -->
+        <div class="row g-3">
+            <!-- Lewa kolumna - Obecność -->
+            <div class="col-lg-3 col-md-4">
+                <label class="form-label mb-1 fw-bold">Obecność (dla nowej sesji):</label>
+                <div class="p-2 border rounded bg-white" style="max-height: 250px; overflow-y: auto;">
+                    ${membersChecklistHtml}
+                </div>
+            </div>
+            
+            <!-- Środkowa kolumna - Kalendarz -->
+            <div class="col-lg-4 col-md-4">
+                <label class="form-label mb-1 fw-bold">Szablon dni:</label>
+                <div id="sessionCalendar"></div>
+                <div class="d-grid mt-2">
+                    <button type="button" id="saveScheduleBtn" class="btn btn-info btn-sm">Zapisz zaznaczone dni</button>
+                </div>
+            </div>
+            
+            <!-- Prawa kolumna - Formularz sesji -->
+            <div class="col-lg-5 col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">Dodaj nową sesję</h6>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label for="sessionDateInput" class="form-label">Data</label>
+                                <input type="date" class="form-control" name="date" id="sessionDateInput" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="sessionTimeInput" class="form-label">Godzina</label>
+                                <input type="time" class="form-control" name="time" id="sessionTimeInput" required>
+                            </div>
+                            <div class="col-12">
+                                <label for="sessionTopicInput" class="form-label">Temat</label>
+                                <input type="text" id="sessionTopicInput" class="form-control" placeholder="Wpisz temat zajęć..." required>
+                            </div>
+                            <div class="col-12">
+                                <label for="sessionBehaviorsSelect" class="form-label">Zachowania do modelowania (max 4)</label>
+                                <select id="sessionBehaviorsSelect" class="form-select" multiple></select>
+                            </div>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- KONIEC ZMIENIONEJ SEKCJI -->
+    </form>
 </div>
                             <div class="tab-pane fade" id="bonuses-panel" role="tabpanel">
                 <h5>Zbiorcza punktacja</h5><div class="table-responsive mb-4"><table class="table table-bordered table-striped"><thead class="table-light"><tr><th>Uczestnik</th><th class="text-center border-end">Pkt. za zachowania</th><th class="text-center">Bonusy z sesji</th><th class="text-center">Super bonusy</th><th class="text-center">SUMA PUNKTÓW</th></tr></thead><tbody>${bonusTableRowsHtml}</tbody></table></div><hr/>
@@ -756,7 +756,7 @@ async function openGroupDetails(groupId) {
         }
         const saveScheduleBtn = document.getElementById('saveScheduleBtn');
         if (saveScheduleBtn) {
-            saveScheduleBtn.setAttribute('type', 'button'); 
+            saveScheduleBtn.setAttribute('type', 'button'); 
             saveScheduleBtn.addEventListener('click', async () => {
                 try {
                     const payload = { schedule_days: Array.from(selectedDates) };
@@ -780,45 +780,45 @@ async function openGroupDetails(groupId) {
     }
 }
 
-      /**
-       * Otwiera modal do przyznawania bonusów indywidualnych dla danej sesji.
-       * @param {number} sessionId - ID sesji.
-       */
-      async function openBonusModal(sessionId) {
-        const $container = $('#bonusParticipantsContainer').html('<p class="text-muted">Ładowanie...</p>');
-        $('#saveBonusesBtn').data('session-id', sessionId);
-        bonusModal.show();
+      /**
+       * Otwiera modal do przyznawania bonusów indywidualnych dla danej sesji.
+       * @param {number} sessionId - ID sesji.
+       */
+      async function openBonusModal(sessionId) {
+        const $container = $('#bonusParticipantsContainer').html('<p class="text-muted">Ładowanie...</p>');
+        $('#saveBonusesBtn').data('session-id', sessionId);
+        bonusModal.show();
 
-        try {
-          const [session, existingBonuses] = await Promise.all([
-            fetchJSON(`${API_BASE}/api/tus/sessions/${sessionId}`),
-            fetchJSON(`${API_BASE}/api/tus/sessions/${sessionId}/bonuses`)
-          ]);
+        try {
+          const [session, existingBonuses] = await Promise.all([
+            fetchJSON(`${API_BASE}/api/tus/sessions/${sessionId}`),
+            fetchJSON(`${API_BASE}/api/tus/sessions/${sessionId}/bonuses`)
+          ]);
 
-          const sessionDate = new Date(session.session_date).toLocaleDateString('pl-PL');
-          $('#bonusModalTitle').text(`Bonusy dla sesji z dnia ${sessionDate}`);
-          $('#bonusModalSessionInfo').html(`<strong>Temat:</strong> ${session.topic_title || 'Brak'}`);
+          const sessionDate = new Date(session.session_date).toLocaleDateString('pl-PL');
+          $('#bonusModalTitle').text(`Bonusy dla sesji z dnia ${sessionDate}`);
+          $('#bonusModalSessionInfo').html(`<strong>Temat:</strong> ${session.topic_title || 'Brak'}`);
 
-          if (!session.members || session.members.length === 0) {
-            $container.html('<p class="text-danger">Brak uczestników w tej sesji.</p>');
-            return;
-          }
+          if (!session.members || session.members.length === 0) {
+            $container.html('<p class="text-danger">Brak uczestników w tej sesji.</p>');
+            return;
+          }
 
-          const participantsHtml = session.members.map(member => `
-            <div class="input-group mb-2">
-              <span class="input-group-text w-75">${member.full_name}</span>
-              <input type="number" class="form-control bonus-points-input"
-                     data-client-id="${member.id}"
-                     min="0"
-                     value="${existingBonuses[member.id] || 0}">
-            </div>`).join('');
-          $container.html(participantsHtml);
-        } catch (err) {
-          $container.html(`<p class="text-danger">Błąd ładowania danych: ${err.message}</p>`);
-        }
-      }
+          const participantsHtml = session.members.map(member => `
+            <div class="input-group mb-2">
+              <span class="input-group-text w-75">${member.full_name}</span>
+              <input type="number" class="form-control bonus-points-input"
+                     data-client-id="${member.id}"
+                     min="0"
+                     value="${existingBonuses[member.id] || 0}">
+            </div>`).join('');
+          $container.html(participantsHtml);
+        } catch (err) {
+          $container.html(`<p class="text-danger">Błąd ładowania danych: ${err.message}</p>`);
+        }
+      }
 
-      /**
+      /**
        * Otwiera modal do oceniania zachowań dla danej sesji.
        * @param {number} sessionId - ID sesji.
        * @param {number} groupId - ID grupy (do odświeżenia widoku).
@@ -873,7 +873,7 @@ async function openGroupDetails(groupId) {
                 });
                 sumTd = `<td class="sum-cell text-end fw-bold">${sum}</td>`;
               }
-              
+              
               // Złóż wiersz
               tbody += `<tr data-cid="${m.id}">
                           ${attendanceTd}
@@ -892,7 +892,7 @@ async function openGroupDetails(groupId) {
                   <tbody>${tbody}</tbody>
                 </table>
               </div>`);
-            
+            
             // Włącz przycisk zapisu
             $('#saveScoresBtn').prop('disabled', false);
           }
@@ -907,119 +907,119 @@ async function openGroupDetails(groupId) {
         }
       }
 
-      /**
-       * Odświeża i wyświetla podsumowanie bonusów dla grupy w danym roku.
-       * @param {number} groupId - ID grupy.
-       * @param {number} year - Rok do wyświetlenia.
-       */
-      async function refreshBonusesSummary(groupId, schoolYearStart) {
-        const container = $('#bonusesSummary').html(`<div class="alert alert-info mb-0">Ładowanie podsumowania bonusów…</div>`);
-        try {
-            const data = await fetchJSON(`${API_BASE}/api/tus/groups/${groupId}/bonuses?school_year_start=${schoolYearStart}`);
+      /**
+       * Odświeża i wyświetla podsumowanie bonusów dla grupy w danym roku.
+       * @param {number} groupId - ID grupy.
+       * @param {number} year - Rok do wyświetlenia.
+       */
+      async function refreshBonusesSummary(groupId, schoolYearStart) {
+        const container = $('#bonusesSummary').html(`<div class="alert alert-info mb-0">Ładowanie podsumowania bonusów…</div>`);
+        try {
+            const data = await fetchJSON(`${API_BASE}/api/tus/groups/${groupId}/bonuses?school_year_start=${schoolYearStart}`);
 
-            const createPanel = (semesterData, semesterNum, yearLabel) => {
-                const scopeLabel = semesterNum === 1 ? 'I Półrocze' : 'II Półrocze';
-                return `
-                  <div class="col-lg-6">
-                    <div class="card h-100">
-                      <div class="card-header fw-bold">${scopeLabel} ${yearLabel}</div>
-                      <div class="card-body">
-                        <p class="mb-1"><strong>Cel:</strong> ${semesterData.target_points} pkt</p>
-                        <p class="mb-3"><strong>Nagroda:</strong> ${semesterData.reward}</p>
-                        <h6 class="card-title">Postęp</h6>
-                        <p class="mb-1"><strong>Zebrano bonusów:</strong> ${semesterData.points_collected} pkt</p>
-                        <p class="mb-0 fs-5"><strong>Pozostało do celu: <span class="fw-bold text-primary">${semesterData.points_remaining} pkt</span></strong></p>
-                      </div>
-                    </div>
-                  </div>`;
-            };
+            const createPanel = (semesterData, semesterNum, yearLabel) => {
+                const scopeLabel = semesterNum === 1 ? 'I Półrocze' : 'II Półrocze';
+                return `
+                  <div class="col-lg-6">
+                    <div class="card h-100">
+                      <div class="card-header fw-bold">${scopeLabel} ${yearLabel}</div>
+                      <div class="card-body">
+                        <p class="mb-1"><strong>Cel:</strong> ${semesterData.target_points} pkt</p>
+                        <p class="mb-3"><strong>Nagroda:</strong> ${semesterData.reward}</p>
+                        <h6 class="card-title">Postęp</h6>
+                        <p class="mb-1"><strong>Zebrano bonusów:</strong> ${semesterData.points_collected} pkt</p>
+                        <p class="mb-0 fs-5"><strong>Pozostało do celu: <span class="fw-bold text-primary">${semesterData.points_remaining} pkt</span></strong></p>
+                      </div>
+                    </div>
+                  </div>`;
+            };
 
-            container.html(`
-                <div class="row g-3">
-                    ${createPanel(data.semester_1, 1, data.school_year_label)}
-                    ${createPanel(data.semester_2, 2, data.school_year_label)}
-                </div>`);
-            $('#hideBonusesBtn').show();
-        } catch (e) {
-            console.error(e);
-            container.html(`<div class="alert alert-danger">${e.message}</div>`);
-        }
-    }
+            container.html(`
+                <div class="row g-3">
+                    ${createPanel(data.semester_1, 1, data.school_year_label)}
+                    ${createPanel(data.semester_2, 2, data.school_year_label)}
+                </div>`);
+            $('#hideBonusesBtn').show();
+        } catch (e) {
+            console.error(e);
+            container.html(`<div class="alert alert-danger">${e.message}</div>`);
+        }
+    }
 
-      // ==========================================================
-      // === GŁÓWNY BLOK EVENT LISTENERÓW =========================
-      // ==========================================================
+      // ==========================================================
+      // === GŁÓWNY BLOK EVENT LISTENERÓW =========================
+      // ==========================================================
 
-      // --- Przyciski na stronie głównej ---
-      $('#addGroupBtn').on('click', async () => {
-        currentGroupId = null;
-        $('#groupModalTitle').text('Nowa grupa');
-        $('#groupForm')[0].reset();
-        try {
-          await loadTherapistsAndClients();
-          groupModal.show();
-        } catch (e) {
-          console.error(e);
-          alert('Nie udało się pobrać list terapeutów i uczestników.');
-        }
-      });
+      // --- Przyciski na stronie głównej ---
+      $('#addGroupBtn').on('click', async () => {
+        currentGroupId = null;
+        $('#groupModalTitle').text('Nowa grupa');
+        $('#groupForm')[0].reset();
+        try {
+          await loadTherapistsAndClients();
+          groupModal.show();
+        } catch (e) {
+          console.error(e);
+          alert('Nie udało się pobrać list terapeutów i uczestników.');
+        }
+      });
 
-      $('#groupsContainer').on('click', '.view-group-btn', function() {
-        openGroupDetails($(this).data('group-id'));
-      });
+      $('#groupsContainer').on('click', '.view-group-btn', function() {
+        openGroupDetails($(this).data('group-id'));
+      });
 
-      $('#groupsContainer').on('click', '.edit-group-btn', async function() {
-        const gid = $(this).data('group-id');
-        try {
-          const g = await fetchJSON(`${API_BASE}/api/tus/groups/${gid}`);
-          currentGroupId = g.id;
-          $('#groupModalTitle').text(`Edytuj grupę: ${g.name}`);
-          await loadTherapistsAndClients({
-            name: g.name,
-            therapist_id: g.therapist_id,
-            assistant_therapist_id: g.assistant_therapist_id,
-            client_ids: (g.members || []).map(m => m.id)
-          });
-          groupModal.show();
-        } catch (e) {
-          console.error(e);
-          alert('Nie udało się pobrać danych grupy do edycji.');
-        }
-      });
+      $('#groupsContainer').on('click', '.edit-group-btn', async function() {
+        const gid = $(this).data('group-id');
+        try {
+          const g = await fetchJSON(`${API_BASE}/api/tus/groups/${gid}`);
+          currentGroupId = g.id;
+          $('#groupModalTitle').text(`Edytuj grupę: ${g.name}`);
+          await loadTherapistsAndClients({
+            name: g.name,
+            therapist_id: g.therapist_id,
+            assistant_therapist_id: g.assistant_therapist_id,
+            client_ids: (g.members || []).map(m => m.id)
+          });
+          groupModal.show();
+        } catch (e) {
+          console.error(e);
+          alert('Nie udało się pobrać danych grupy do edycji.');
+        }
+      });
 
-      // --- Formularz dodawania/edycji grupy ---
-      $('#groupForm').on('submit', async function(e) {
-        e.preventDefault();
-        const payload = {
-          name: ($('#groupName').val() || '').trim(),
-          therapist_id: parseInt($('#therapistSelect').val(), 10) || null,
-          assistant_therapist_id: parseInt($('#assistantTherapistSelect').val(), 10) || null,
-          client_ids: ($('#clientSelect').val() || []).map(v => parseInt(v, 10))
-        };
+      // --- Formularz dodawania/edycji grupy ---
+      $('#groupForm').on('submit', async function(e) {
+        e.preventDefault();
+        const payload = {
+          name: ($('#groupName').val() || '').trim(),
+          therapist_id: parseInt($('#therapistSelect').val(), 10) || null,
+          assistant_therapist_id: parseInt($('#assistantTherapistSelect').val(), 10) || null,
+          client_ids: ($('#clientSelect').val() || []).map(v => parseInt(v, 10))
+        };
 
-        if (!payload.name || !payload.therapist_id || payload.client_ids.length === 0) {
-          return alert('Nazwa grupy, terapeuta prowadzący i co najmniej jeden uczestnik są wymagani.');
-        }
+        if (!payload.name || !payload.therapist_id || payload.client_ids.length === 0) {
+          return alert('Nazwa grupy, terapeuta prowadzący i co najmniej jeden uczestnik są wymagani.');
+        }
 
-        const url = currentGroupId ? `${API_BASE}/api/tus/groups/${currentGroupId}` : `${API_BASE}/api/tus/groups`;
-        const method = currentGroupId ? 'PUT' : 'POST';
+        const url = currentGroupId ? `${API_BASE}/api/tus/groups/${currentGroupId}` : `${API_BASE}/api/tus/groups`;
+        const method = currentGroupId ? 'PUT' : 'POST';
 
-        try {
-          await fetchJSON(url, {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          groupModal.hide();
-          await loadGroups();
-        } catch (err) {
-          console.error(err);
-          alert('Nie udało się zapisać grupy: ' + err.message);
-        }
-      });
+        try {
+          await fetchJSON(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          groupModal.hide();
+          await loadGroups();
+        } catch (err) {
+          console.error(err);
+          alert('Nie udało się zapisać grupy: ' + err.message);
+        }
+      });
 
-      // ZASTĄP CAŁY TEN BLOK - OD 'submit' DO KOŃCOWEGO '});'
-      $(document).on('submit', '#addSessionForm', async function(e) {
+      // ZASTĄP CAŁY TEN BLOK - OD 'submit' DO KOŃCOWEGO '});'
+      $(document).on('submit', '#addSessionForm', async function(e) {
           e.preventDefault();
           const $form = $(this);
           const gid = $form.data('group-id');
@@ -1069,174 +1069,188 @@ async function openGroupDetails(groupId) {
               alert('Nie udało się dodać sesji: ' + err.message);
           }
       });
-      // KONIEC BLOKU DO ZASTĄPIENIA
-      $(document).on('click', '.delete-session-btn', async function() {
-    const sid = $(this).data('session-id');
-    const gid = $(this).data('group-id');
+      // KONIEC BLOKU DO ZASTĄPIENIA
+      $(document).on('click', '.delete-session-btn', async function() {
+    const sid = $(this).data('session-id');
+    const gid = $(this).data('group-id');
 
-    // --- POCZĄTEK NOWEJ LOGIKI PYTAŃ ---
-    // Pytanie 1: Potwierdzenie usunięcia sesji
-    if (!confirm('Czy na pewno chcesz usunąć tę sesję? Spowoduje to usunięcie punktów za zachowania i bonusów PRZYPISANYCH do tej konkretnej sesji.')) {
-        return; // Anuluj, jeśli użytkownik kliknie "Anuluj"
-    }
+    // --- POCZĄTEK NOWEJ LOGIKI PYTAŃ ---
+    // Pytanie 1: Potwierdzenie usunięcia sesji
+    if (!confirm('Czy na pewno chcesz usunąć tę sesję? Spowoduje to usunięcie punktów za zachowania i bonusów PRZYPISANYCH do tej konkretnej sesji.')) {
+        return; // Anuluj, jeśli użytkownik kliknie "Anuluj"
+    }
 
-    // Pytanie 2: Opcjonalne usunięcie wszystkich bonusów w grupie
-    const deleteAllBonuses = confirm(
-        'PYTANIE DODATKOWE:\n\nCzy chcesz usunąć również WSZYSTKIE bonusy (sesyjne i ogólne) dla całej grupy?\n\n' +
-        '-> Kliknij "OK", aby wyczyścić wszystkie bonusy w tej grupie.\n' +
-        '-> Kliknij "Anuluj", aby usunąć tylko tę jedną sesję i jej punkty.'
-    );
-    // --- KONIEC NOWEJ LOGIKI PYTAŃ ---
+    // Pytanie 2: Opcjonalne usunięcie wszystkich bonusów w grupie
+    const deleteAllBonuses = confirm(
+        'PYTANIE DODATKOWE:\n\nCzy chcesz usunąć również WSZYSTKIE bonusy (sesyjne i ogólne) dla całej grupy?\n\n' +
+        '-> Kliknij "OK", aby wyczyścić wszystkie bonusy w tej grupie.\n' +
+        '-> Kliknij "Anuluj", aby usunąć tylko tę jedną sesję i jej punkty.'
+    );
+    // --- KONIEC NOWEJ LOGIKI PYTAŃ ---
 
-    try {
-        // Dodajemy nowy parametr do zapytania, informujący serwer o decyzji użytkownika
-        await fetchJSON(`${API_BASE}/api/tus/sessions/${sid}?delete_all_bonuses=${deleteAllBonuses}`, {
-            method: 'DELETE'
-        });
+    try {
+        // Dodajemy nowy parametr do zapytania, informujący serwer o decyzji użytkownika
+        await fetchJSON(`${API_BASE}/api/tus/sessions/${sid}?delete_all_bonuses=${deleteAllBonuses}`, {
+            method: 'DELETE'
+        });
 
-        alert('✅ Sesja została usunięta.');
-        await openGroupDetails(gid);
+        alert('✅ Sesja została usunięta.');
+        await openGroupDetails(gid);
 
-    } catch (e) {
-        alert('Nie udało się usunąć sesji: ' + e.message);
-    }
+    } catch (e) {
+        alert('Nie udało się usunąć sesji: ' + e.message);
+    }
 });
 
-      $(document).on('click', '.score-session-btn', function() {
-        openScoringModal($(this).data('session-id'), $(this).data('group-id'));
-      });
+      $(document).on('click', '.score-session-btn', function() {
+        openScoringModal($(this).data('session-id'), $(this).data('group-id'));
+      });
 
-      $(document).on('click', '.bonus-session-btn', function() {
-        openBonusModal($(this).data('session-id'));
-      });
+      $(document).on('click', '.bonus-session-btn', function() {
+        openBonusModal($(this).data('session-id'));
+      });
 
-      $(document).on('submit', '#groupTargetForm', async function(e) {
-            e.preventDefault();
-            const $form = $(this);
-            const gid = $form.data('group-id');
+      $(document).on('submit', '#groupTargetForm', async function(e) {
+            e.preventDefault();
+            const $form = $(this);
+            const gid = $form.data('group-id');
 
-            // --- POPRAWIONE ODCZYTYWANIE WARTOŚCI Z FORMULARZA ---
-            const payload = {
-                school_year_start: parseInt($form.find('select[name="school_year_start"]').val(), 10),
-                semester: parseInt($form.find('select[name="semester"]').val(), 10),
-                points: parseInt($form.find('input[name="points"]').val(), 10),
-                reward: ($form.find('input[name="reward"]').val() || '').trim()
-            };
+            // --- POPRAWIONE ODCZYTYWANIE WARTOŚCI Z FORMULARZA ---
+            const payload = {
+                school_year_start: parseInt($form.find('select[name="school_year_start"]').val(), 10),
+                semester: parseInt($form.find('select[name="semester"]').val(), 10),
+                points: parseInt($form.find('input[name="points"]').val(), 10),
+                reward: ($form.find('input[name="reward"]').val() || '').trim()
+            };
 
-            // --- POPRAWIONA WALIDACJA ---
-            if (!payload.school_year_start || isNaN(payload.points)) {
-                alert('Rok szkolny i cel (punkty) są wymagane.');
-                return;
-            }
+            // --- POPRAWIONA WALIDACJA ---
+            if (!payload.school_year_start || isNaN(payload.points)) {
+                alert('Rok szkolny i cel (punkty) są wymagane.');
+                return;
+            }
 
-            try {
-                await fetchJSON(`${API_BASE}/api/tus/groups/${gid}/target`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+            try {
+                await fetchJSON(`${API_BASE}/api/tus/groups/${gid}/target`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-                alert('✅ Cel został zapisany.');
+                alert('✅ Cel został zapisany.');
 
-                // Automatycznie odśwież widok podsumowania po zapisaniu celu
-                await refreshBonusesSummary(gid, payload.school_year_start);
+                // Automatycznie odśwież widok podsumowania po zapisaniu celu
+                await refreshBonusesSummary(gid, payload.school_year_start);
 
-            } catch (err) {
-                console.error(err);
-                alert('Nie udało się zapisać celu: ' + err.message);
-            }
-        });
+            } catch (err) {
+                console.error(err);
+                alert('Nie udało się zapisać celu: ' + err.message);
+            }
+        });
 
-      $(document).on('click', '#bonusScopeRefreshBtn', function() {
-        const gid = $(this).data('group-id');
-        // === POPRAWKA 1: Zmieniono ID z #bonusYearInput na #bonusYearSelect ===
-        const year = parseInt($('#bonusYearSelect').val(), 10) || new Date().getFullYear();
-        refreshBonusesSummary(gid, year);
-      });
+      $(document).on('click', '#bonusScopeRefreshBtn', function() {
+        const gid = $(this).data('group-id');
+        const year = parseInt($('#bonusYearInput').val(), 10) || new Date().getFullYear();
+        refreshBonusesSummary(gid, year);
+      });
 
-      $(document).on('click', '#hideBonusesBtn', function() {
-        $('#bonusesSummary').empty();
-        $(this).hide();
-      });
+      $(document).on('click', '#hideBonusesBtn', function() {
+        $('#bonusesSummary').empty();
+        $(this).hide();
+      });
 
-      $(document).on('click', '#showTopicHistoryBtn', async function() {
-        const gid = $(this).data('group-id');
-        const $body = $('#topicHistoryBody').html('<p class="text-center text-muted">Ładowanie...</p>');
-        topicHistoryModal.show();
+      $(document).on('click', '#showTopicHistoryBtn', async function() {
+        const gid = $(this).data('group-id');
+        const $body = $('#topicHistoryBody').html('<p class="text-center text-muted">Ładowanie...</p>');
+        topicHistoryModal.show();
 
-        try {
-          const historyData = await fetchJSON(`${API_BASE}/api/tus/groups/${gid}/topic-history`);
-          if (Object.keys(historyData).length === 0) {
-            $body.html('<p class="text-center">Brak danych do wyświetlenia.</p>');
-            return;
-          }
-          let finalHtml = '';
-          for (const clientId in historyData) {
-            const clientData = historyData[clientId];
-            const itemsHtml = clientData.history.map(item => {
-              const date = new Date(item.date).toLocaleDateString('pl-PL');
-              return `<li><strong>${item.topic}</strong> <small class="text-muted">(${date} w: ${item.group_name})</small></li>`;
-            }).join('');
-            finalHtml += `<h6 class="mt-3 border-bottom pb-1">${clientData.client_name}</h6><ul class="list-unstyled">${itemsHtml}</ul>`;
-          }
-          $body.html(finalHtml);
-        } catch (err) {
-          $body.html(`<div class="alert alert-danger">${err.message}</div>`);
-        }
-      });
+        try {
+          const historyData = await fetchJSON(`${API_BASE}/api/tus/groups/${gid}/topic-history`);
+          if (Object.keys(historyData).length === 0) {
+            $body.html('<p class="text-center">Brak danych do wyświetlenia.</p>');
+            return;
+          }
+          let finalHtml = '';
+          for (const clientId in historyData) {
+            const clientData = historyData[clientId];
+            const itemsHtml = clientData.history.map(item => {
+              const date = new Date(item.date).toLocaleDateString('pl-PL');
+              return `<li><strong>${item.topic}</strong> <small class="text-muted">(${date} w: ${item.group_name})</small></li>`;
+            }).join('');
+            finalHtml += `<h6 class="mt-3 border-bottom pb-1">${clientData.client_name}</h6><ul class="list-unstyled">${itemsHtml}</ul>`;
+          }
+          $body.html(finalHtml);
+        } catch (err) {
+          $body.html(`<div class="alert alert-danger">${err.message}</div>`);
+        }
+      });
 
-      $(document).on('submit', '#awardGeneralBonusForm', async function(e) {
-        e.preventDefault();
-        const $form = $(this);
-        const gid = $form.data('group-id');
-        const payload = {
-          client_id: parseInt($form.find('select[name="client_id"]').val(), 10),
-          points: parseInt($form.find('input[name="points"]').val(), 10),
-          reason: ($form.find('input[name="reason"]').val() || '').trim()
-        };
+      $(document).on('submit', '#awardGeneralBonusForm', async function(e) {
+        e.preventDefault();
+        const $form = $(this);
+        const gid = $form.data('group-id');
+        const payload = {
+          client_id: parseInt($form.find('select[name="client_id"]').val(), 10),
+          points: parseInt($form.find('input[name="points"]').val(), 10),
+          reason: ($form.find('input[name="reason"]').val() || '').trim()
+        };
 
-        if (!payload.client_id || !payload.points || payload.points <= 0) {
-          return alert('Wybierz uczestnika i podaj poprawną liczbę punktów (większą od 0).');
-        }
+        if (!payload.client_id || !payload.points || payload.points <= 0) {
+          return alert('Wybierz uczestnika i podaj poprawną liczbę punktów (większą od 0).');
+        }
 
-        try {
-          await fetchJSON(`${API_BASE}/api/tus/groups/${gid}/award-general-bonus`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
+        try {
+          await fetchJSON(`${API_BASE}/api/tus/groups/${gid}/award-general-bonus`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
 
-          alert('✅ Bonus został przyznany!');
-          await openGroupDetails(gid);
+          alert('✅ Bonus został przyznany!');
+          await openGroupDetails(gid);
 
-        } catch (err) {
-          alert('Nie udało się przyznać bonusu: ' + err.message);
-        }
-      });
+        } catch (err) {
+          alert('Nie udało się przyznać bonusu: ' + err.message);
+        }
+      });
 
-      // === POPRAWKA 2: Usunięto zduplikowany listener dla #saveScheduleBtn ===
-      // (Prawidłowy listener znajduje się wewnątrz funkcji openGroupDetails)
+            const saveScheduleBtn = document.getElementById('saveScheduleBtn');
+            if(saveScheduleBtn) {
+                saveScheduleBtn.addEventListener('click', async () => {
+                    try {
+                        // Zapisujemy tablicę dat, a nie dni tygodnia
+                        const payload = { schedule_days: Array.from(selectedDates) };
+                        await fetchJSON(`/api/tus/groups/${groupId}/schedule`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        showAlert('Szablon tygodnia został zapisany!', 'success');
+                    } catch (err) {
+                        showAlert(`Błąd zapisu szablonu: ${err.message}`, 'danger');
+                    }
+                });
+            }
 
 
-      // --- Akcje w modalu oceniania (scoring) ---
-      $(document).on('input', '.score-input', function() {
-        const $row = $(this).closest('tr');
-        let sum = 0;
-        $row.find('.score-input').each(function() {
-          sum += parseInt($(this).val() || '0', 10);
-        });
-        $row.find('.sum-cell').text(sum);
-      });
+      // --- Akcje w modalu oceniania (scoring) ---
+      $(document).on('input', '.score-input', function() {
+        const $row = $(this).closest('tr');
+        let sum = 0;
+        $row.find('.score-input').each(function() {
+          sum += parseInt($(this).val() || '0', 10);
+        });
+        $row.find('.sum-cell').text(sum);
+      });
 
-      $('#saveScoresBtn').on('click', async function() {
+      $('#saveScoresBtn').on('click', async function() {
         const sid = parseInt($('#scoringSessionId').val(), 10);
         const gid = parseInt($('#scoringGroupId').val(), 10);
-        
+        
         const payload = { scores: [], attendance: [] };
 
         $('#scoringBody tbody tr').each(function() {
           const client_id = parseInt($(this).data('cid'), 10);
-          
+          
           // Zbieranie danych o obecności (zawsze)
           const is_present = $(this).find('.attendance-check').is(':checked');
           payload.attendance.push({ client_id, is_present });
@@ -1271,122 +1285,141 @@ async function openGroupDetails(groupId) {
         }
       });
 
-      // --- Akcje w modalu bonusów ---
-      $('#saveBonusesBtn').on('click', async function() {
-        const sessionId = $(this).data('session-id');
-        const bonuses = [];
-        $('.bonus-points-input').each(function() {
-          bonuses.push({
-            client_id: $(this).data('client-id'),
-            points: parseInt($(this).val(), 10) || 0
-          });
-        });
+      // --- Akcje w modalu bonusów ---
+      $('#saveBonusesBtn').on('click', async function() {
+        const sessionId = $(this).data('session-id');
+        const bonuses = [];
+        $('.bonus-points-input').each(function() {
+          bonuses.push({
+            client_id: $(this).data('client-id'),
+            points: parseInt($(this).val(), 10) || 0
+          });
+        });
 
-        try {
-          await fetchJSON(`${API_BASE}/api/tus/sessions/${sessionId}/bonuses`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bonuses })
-          });
-          bonusModal.hide();
-          alert('✅ Bonusy zostały zapisane.');
-          // Automatyczne odświeżenie widoku grupy, jeśli jest otwarty
-          const activeModal = document.querySelector('#groupDetailsModal.show');
-          if(activeModal){
-            const groupId = $(activeModal).find('#deleteGroupFromDetailsBtn').data('group-id');
-            if(groupId){
-              await openGroupDetails(groupId);
-            }
-          }
-        } catch (err) {
-          alert(`Błąd zapisu bonusów: ${err.message}`);
-        }
-      });
+        try {
+          await fetchJSON(`${API_BASE}/api/tus/sessions/${sessionId}/bonuses`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bonuses })
+          });
+          bonusModal.hide();
+          alert('✅ Bonusy zostały zapisane.');
+          // Automatyczne odświeżenie widoku grupy, jeśli jest otwarty
+          const activeModal = document.querySelector('#groupDetailsModal.show');
+          if(activeModal){
+            const groupId = $(activeModal).find('#deleteGroupFromDetailsBtn').data('group-id');
+            if(groupId){
+              await openGroupDetails(groupId);
+            }
+          }
+        } catch (err) {
+          alert(`Błąd zapisu bonusów: ${err.message}`);
+        }
+      });
 
-      // --- Akcje w modalu Tematów ---
-      $('#topicsModal').on('shown.bs.modal', loadTopicsModalList);
-      $('#addTopicForm').on('submit', async function(e) {
-        e.preventDefault();
-        const title = ($('#newTopicTitle').val() || '').trim();
-        if (!title) return;
-        try {
-          // === GŁÓWNA POPRAWKA: Usunięto błędną linię tekstu ===
-          await fetchJSON(`${API_BASE}/api/tus/topics`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title })
-          });
-          $('#newTopicTitle').val('');
-          await loadTopicsModalList();
-        } catch (err) {
-          alert('Nie udało się dodać tematu: ' + err.message);
-        }
-      });
+      // --- Akcje w modalu Tematów ---
+      $('#topicsModal').on('shown.bs.modal', loadTopicsModalList);
+      $('#addTopicForm').on('submit', async function(e) {
+        e.preventDefault();
+        const title = ($('#newTopicTitle').val() || '').trim();
+        if (!title) return;
+        try {
+          await fetchJSON(`${API_BASE}/api/tus/topics`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title })
+          });
+          $('#newTopicTitle').val('');
+          await loadTopicsModalList();
+        } catch (err) {
+          alert('Nie udało się dodać tematu: ' + err.message);
+        }
+      });
 
-      // --- Akcje w modalu Zachowań ---
-      $('#behaviorsModal').on('shown.bs.modal', reloadBehaviorsModal);
-      $('#addBehaviorForm').on('submit', async function(e) {
-        e.preventDefault();
-        const payload = {
-          title: ($('#newBehaviorTitle').val() || '').trim(),
-          default_max_points: parseInt($('#newBehaviorMax').val() || '3', 10)
-        };
-        if (!payload.title) return;
-        try {
-          await fetchJSON(`${API_BASE}/api/tus/behaviors`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          $('#newBehaviorTitle').val('');
-          $('#newBehaviorMax').val('3');
-          await reloadBehaviorsModal();
-        } catch (err) {
-          alert('Nie udało się dodać zachowania: ' + err.message);
-        }
-      });
+      // --- Akcje w modalu Zachowań ---
+      $('#behaviorsModal').on('shown.bs.modal', reloadBehaviorsModal);
+      $('#addBehaviorForm').on('submit', async function(e) {
+        e.preventDefault();
+        const payload = {
+          title: ($('#newBehaviorTitle').val() || '').trim(),
+          default_max_points: parseInt($('#newBehaviorMax').val() || '3', 10)
+        };
+        if (!payload.title) return;
+        try {
+          await fetchJSON(`${API_BASE}/api/tus/behaviors`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          $('#newBehaviorTitle').val('');
+          $('#newBehaviorMax').val('3');
+          await reloadBehaviorsModal();
+        } catch (err) {
+          alert('Nie udało się dodać zachowania: ' + err.message);
+        }
+      });
 
-      $(document).on('click', '.del-beh', async function() {
-        const id = $(this).data('id');
-        if (!confirm('Usunąć to zachowanie ze słownika?')) return;
-        try {
-          await fetchJSON(`${API_BASE}/api/tus/behaviors/${id}`, { method: 'DELETE' });
-          await reloadBehaviorsModal();
-        } catch (err) {
-          alert('Nie udało się usunąć zachowania: ' + err.message);
-        }
-      });
+      $(document).on('click', '.del-beh', async function() {
+        const id = $(this).data('id');
+        if (!confirm('Usunąć to zachowanie ze słownika?')) return;
+        try {
+          await fetchJSON(`${API_BASE}/api/tus/behaviors/${id}`, { method: 'DELETE' });
+          await reloadBehaviorsModal();
+        } catch (err) {
+          alert('Nie udało się usunąć zachowania: ' + err.message);
+        }
+      });
 
-      // ==========================================================
-      // === FUNKCJE URUCHOMIENIOWE ===============================
-      // ==========================================================
+      // ==========================================================
+      // === FUNKCJE URUCHOMIENIOWE ===============================
+      // ==========================================================
 
-      /**
-       * Sprawdza, czy w URL znajduje się parametr `openGroup` i jeśli tak,
-       * automatycznie otwiera modal szczegółów dla wskazanej grupy.
-       */
-      function openGroupFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const groupIdToOpen = urlParams.get('openGroup');
-        if (groupIdToOpen) {
-          setTimeout(() => {
-            console.log(`Próba automatycznego otwarcia grupy o ID: ${groupIdToOpen}`);
-            openGroupDetails(groupIdToOpen).catch(err => {
-              console.error(`Nie udało się otworzyć grupy z URL: ${err.message}`);
-              alert(`Nie można było otworzyć grupy o ID ${groupIdToOpen}. Być może została usunięta.`);
-            });
-          }, 500); // Opóźnienie, aby dać UI czas na załadowanie
-        }
-      }
+      /**
+       * Sprawdza, czy w URL znajduje się parametr `openGroup` i jeśli tak,
+       * automatycznie otwiera modal szczegółów dla wskazanej grupy.
+       */
+      function openGroupFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupIdToOpen = urlParams.get('openGroup');
+        if (groupIdToOpen) {
+          setTimeout(() => {
+            console.log(`Próba automatycznego otwarcia grupy o ID: ${groupIdToOpen}`);
+            openGroupDetails(groupIdToOpen).catch(err => {
+              console.error(`Nie udało się otworzyć grupy z URL: ${err.message}`);
+              alert(`Nie można było otworzyć grupy o ID ${groupIdToOpen}. Być może została usunięta.`);
+            });
+          }, 500); // Opóźnienie, aby dać UI czas na załadowanie
+        }
+      }
 
-      // Inicjalne załadowanie grup i sprawdzenie URL
-      loadGroups();
-      openGroupFromUrl();
+      // Inicjalne załadowanie grup i sprawdzenie URL
+      loadGroups();
+      openGroupFromUrl();
 
-    });
+    });
 
 
-  </script>
+  </script>
 </body>
 
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
