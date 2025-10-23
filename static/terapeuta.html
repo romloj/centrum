@@ -823,41 +823,60 @@ if (!document.querySelector('#collision-styles')) {
 
     // Otwórz modal edycji
     function openEditModal(eventData) {
-      console.log('=== OPENING MODAL ===');
-      console.log('Event data:', eventData);
+    console.log('=== OPENING EDIT MODAL ===');
+    console.log('📋 DANE Z API:', eventData);
+    
+    const eventId = eventData.slot_id;
 
-      const eventId = eventData.slot_id;
-
-      if (!eventId) {
+    if (!eventId) {
         console.error('❌ BRAK slot_id!');
         showAlert('Błąd: Brak ID wizyty (slot_id) w danych z API.', 'danger');
         return;
-      }
-
-      document.getElementById('editEventId').value = eventId || '';
-      document.getElementById('editTherapistId').value = eventData.therapist_id || '';
-      document.getElementById('editClientName').value = eventData.client_name || eventData.group_name || `Klient #${eventData.client_id || ''}`;
-
-      const startDate = parseLocalTimestamp(eventData.starts_at);
-      const endDate = parseLocalTimestamp(eventData.ends_at);
-
-      if (startDate) {
-        document.getElementById('editDate').value = fmtYYYYMMDD(startDate);
-        document.getElementById('editStartTime').value = startDate.toTimeString().slice(0, 5);
-      }
-      if (endDate) {
-        document.getElementById('editEndTime').value = endDate.toTimeString().slice(0, 5);
-      }
-
-      document.getElementById('editPlace').value = eventData.place_to || '';
-      document.getElementById('editStatus').value = eventData.status || 'planned';
-
-      document.getElementById('collisionWarning').classList.add('d-none');
-
-      const modal = new bootstrap.Modal(document.getElementById('editEventModal'));
-      modal.show();
     }
 
+    // DEBUG: Sprawdź co przyszło z API
+    console.log('🔍 SZCZEGÓŁY CZASU Z API:');
+    console.log('  starts_at (raw):', eventData.starts_at);
+    console.log('  ends_at (raw):', eventData.ends_at);
+    
+    const startDate = parseLocalTimestamp(eventData.starts_at);
+    const endDate = parseLocalTimestamp(eventData.ends_at);
+    
+    console.log('  starts_at (parsed):', startDate);
+    console.log('  ends_at (parsed):', endDate);
+    
+    if (startDate) {
+        console.log('  Start (local):', startDate.toLocaleString('pl-PL'));
+        console.log('  Start (ISO):', startDate.toISOString());
+    }
+    if (endDate) {
+        console.log('  End (local):', endDate.toLocaleString('pl-PL'));
+    }
+
+    document.getElementById('editEventId').value = eventId || '';
+    document.getElementById('editTherapistId').value = eventData.therapist_id || '';
+    document.getElementById('editClientName').value = eventData.client_name || eventData.group_name || `Klient #${eventData.client_id || ''}`;
+
+    if (startDate) {
+        document.getElementById('editDate').value = fmtYYYYMMDD(startDate);
+        document.getElementById('editStartTime').value = startDate.toTimeString().slice(0, 5);
+        console.log('✏️  USTAWIAM W FORMULARZU:');
+        console.log('  Data:', fmtYYYYMMDD(startDate));
+        console.log('  Start:', startDate.toTimeString().slice(0, 5));
+    }
+    if (endDate) {
+        document.getElementById('editEndTime').value = endDate.toTimeString().slice(0, 5);
+        console.log('  End:', endDate.toTimeString().slice(0, 5));
+    }
+
+    document.getElementById('editPlace').value = eventData.place_to || '';
+    document.getElementById('editStatus').value = eventData.status || 'planned';
+
+    document.getElementById('collisionWarning').classList.add('d-none');
+
+    const modal = new bootstrap.Modal(document.getElementById('editEventModal'));
+    modal.show();
+}
     // Sprawdź kolizje przy zapisie
     async function checkCollisionOnSave() {
       const eventId = document.getElementById('editEventId').value;
@@ -988,6 +1007,7 @@ async function saveEventChanges() {
       document.getElementById("tpRefDate").value = t.toISOString().slice(0,10);
       document.getElementById("tpRefMonth").value = t.toISOString().slice(0,7);
       _state.refDate = t; _state.refMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+      
 
       try{
         const res = await fetch(`${API}/api/therapists`);
@@ -1043,7 +1063,11 @@ async function saveEventChanges() {
       addDebugButton();
       reloadData();
       // Uruchom debugowanie API przy starcie
-    setTimeout(debugAPI, 1000);
+    //setTimeout(debugAPI, 1000);
+      setTimeout(() => {
+          console.log('🕒 TEST TIMEZONE PRZY STARCIE:');
+          testTimezone();
+          }, 1000);
     })();
 
     function switchMode(mode, reload=true){
@@ -1147,9 +1171,8 @@ async function debugAPI() {
     }
 }
 
-// ZOSTAW TYLKO JEDNĄ WERSJĘ - ta poniżej jest poprawna:
 async function createNewEvent() {
-    console.log('=== CREATE NEW EVENT START ===');
+    console.log('=== CREATE NEW EVENT - PEŁNE DEBUGOWANIE ===');
 
     // 1. POBIERZ WARTOŚCI WSPÓLNE
     const therapistId = _state.therapistId === 'all'
@@ -1162,21 +1185,38 @@ async function createNewEvent() {
     const place = document.getElementById('addPlace').value;
     const type = document.getElementById('addType').value;
 
-    // DEBUG: Sprawdź co jest wpisane w formularzu
-    console.log('FORMULARZ - Data:', date, 'Start:', startTime, 'End:', endTime);
+    // DEBUG: Dokładne logowanie inputów
+    console.log('📝 INPUTY FORMULARZA:');
+    console.log('  Data:', date);
+    console.log('  Start:', startTime);
+    console.log('  End:', endTime);
+    console.log('  Terapeuta:', therapistId);
 
-    // 2. WALIDACJA PÓL WSPÓLNYCH
+    // 2. WALIDACJA
     if (!therapistId || !date || !startTime || !endTime) {
         showAlert('Proszę wypełnić wszystkie wymagane pola (Terapeuta, Data, Czas)', 'danger');
         return;
     }
 
-    // 3. UŻYJ JEDNOLITEGO FORMATU Z TIMEZONE
-    // Dodaj 'Z' na końcu aby wskazać UTC
-    const starts_at = `${date}T${startTime}:00Z`;  // Dodaj 'Z' dla UTC
-    const ends_at = `${date}T${endTime}:00Z`;      // Dodaj 'Z' dla UTC
+    // 3. PRZYGOTUJ DANE - testuj różne formaty
+    const formats = [
+        `${date}T${startTime}:00`,           // Format bez timezone
+        `${date}T${startTime}:00Z`,          // Format UTC
+        `${date}T${startTime}:00.000Z`,      // Format z milisekundami
+    ];
 
-    console.log('WYSYŁANE DO API:', { starts_at, ends_at });
+    console.log('🕒 FORMATY CZASU DO TESTOWANIA:');
+    formats.forEach((fmt, i) => {
+        console.log(`  Format ${i + 1}:`, fmt, '->', new Date(fmt));
+    });
+
+    // Użyj pierwszego formatu (bez timezone) - serwer powinien traktować jako lokalny
+    const starts_at = formats[0];
+    const ends_at = `${date}T${endTime}:00`;
+
+    console.log('📤 WYSYŁANE DO API:');
+    console.log('  starts_at:', starts_at);
+    console.log('  ends_at:', ends_at);
 
     let payload = {
         therapist_id: Number(therapistId),
@@ -1186,90 +1226,50 @@ async function createNewEvent() {
         status: 'planned'
     };
 
-    // 3. LOGIKA WARUNKOWA DLA TYPU WIZYTY
-    if (type === 'tus') {
-        // --- Tryb grupowy ---
-        const groupId = document.getElementById('addGroup').value;
-        if (!groupId) {
-            showAlert('Proszę wybrać grupę', 'danger');
-            return;
-        }
-        payload.group_id = Number(groupId); 
-        payload.kind = 'tus';
-    } else {
-        // --- Tryb indywidualny ---
-        const clientId = document.getElementById('addClient').value;
-        const newClientName = document.getElementById('addNewClientName').value.trim();
+    // ... reszta kodu dla klienta/grupy ...
 
-        if ((!clientId || clientId === '') && !newClientName) {
-            showAlert('Proszę wybrać klienta z listy lub wpisać nazwisko nowego klienta', 'danger');
-            return;
-        }
-
-        let finalClientId = clientId && clientId !== '' ? clientId : null;
-
-        // Tworzenie nowego klienta jeśli potrzeba
-        if (newClientName && (!finalClientId || finalClientId === '')) {
-            try {
-                console.log('Creating new client:', newClientName);
-                const createClientRes = await fetch(`${API}/api/clients`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ full_name: newClientName, active: true })
-                });
-
-                if (!createClientRes.ok) {
-                    const errorText = await createClientRes.text();
-                    throw new Error(`Nie można utworzyć nowego klienta: ${errorText}`);
-                }
-
-                const newClient = await createClientRes.json();
-                finalClientId = newClient.id || newClient.client_id;
-                console.log('New client created with ID:', finalClientId);
-
-                if (!finalClientId) {
-                    throw new Error('Serwer nie zwrócił ID nowego klienta');
-                }
-                _clientsCache = null; // Unieważnij cache klientów
-
-            } catch (e) {
-                console.error('Error creating client:', e);
-                showAlert(`Błąd tworzenia klienta: ${e.message}`, 'danger');
-                return;
-            }
-        }
-
-        if (!finalClientId) {
-            showAlert('Błąd: Nie udało się pobrać ID klienta.', 'danger');
-            return;
-        }
-        
-        payload.client_id = Number(finalClientId);
-        payload.kind = 'therapy';
-    }
-
-    console.log('=== FINAL PAYLOAD ===');
-    console.log('Payload:', payload);
+    console.log('🎯 FINALNY PAYLOAD:', JSON.stringify(payload, null, 2));
 
     // 4. WYŚLIJ ŻĄDANIE
     try {
-        console.log(`Sending POST to ${API}/api/schedule`);
+        console.log(`📡 Wysyłanie POST do ${API}/api/schedule`);
         const response = await fetch(`${API}/api/schedule`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
+        console.log('📨 ODPOWIEDŹ SERWERA:', {
+            status: response.status,
+            ok: response.ok
+        });
+
         if (response.ok) {
             const result = await response.json();
-            console.log('✅ Success! Response:', result);
+            console.log('✅ SUKCES! ODPOWIEDŹ SERWERA:', result);
+            
+            // SPRAWDŹ CO SERWER ZAPISAŁ
+            console.log('🔍 CO SERWER ZAPISAŁ:');
+            console.log('  Oryginalne inputy:', { date, startTime, endTime });
+            console.log('  Serwer zwrócił starts_at:', result.starts_at);
+            console.log('  Serwer zwrócił ends_at:', result.ends_at);
+            
+            if (result.starts_at) {
+                const serverStart = new Date(result.starts_at);
+                const serverEnd = new Date(result.ends_at);
+                console.log('  Zparsowane z serwera:');
+                console.log('    Start:', serverStart.toLocaleString('pl-PL'));
+                console.log('    End:', serverEnd.toLocaleString('pl-PL'));
+                console.log('    Różnica godzin:', serverStart.getHours() - parseInt(startTime));
+            }
+
             showAlert('✅ Wizyta została dodana', 'success');
             bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
             await reloadData();
             return;
         } else {
             const errorData = await response.json();
-            console.log(`❌ POST failed: ${response.status}`, errorData);
+            console.log('❌ BŁĄD SERWERA:', errorData);
             
             if (errorData.conflicts && errorData.conflicts.length > 0) {
                 showCollisionDetails(errorData.conflicts, starts_at, ends_at);
@@ -1279,7 +1279,7 @@ async function createNewEvent() {
             return;
         }
     } catch (e) {
-        console.error('Error with POST:', e);
+        console.error('💥 BŁĄD POŁĄCZENIA:', e);
         showAlert(`Błąd połączenia: ${e.message}`, 'danger');
         return;
     }
@@ -1797,10 +1797,30 @@ function debugTimeIssue() {
         endDate: new Date(ends_at)
     });
 }
+
+    function testTimezone() {
+    console.log('=== TEST TIMEZONE ===');
+    const now = new Date();
+    console.log('Aktualny czas:', now.toString());
+    console.log('Timezone offset (min):', now.getTimezoneOffset());
+    console.log('Locale string:', now.toLocaleString('pl-PL'));
+    console.log('ISO string:', now.toISOString());
+    
+    // Test różnych formatów
+    const testDate = '2025-10-23';
+    const testTime = '14:30';
+    
+    const withoutTZ = `${testDate}T${testTime}:00`;
+    const withUTC = `${testDate}T${testTime}:00Z`;
+    
+    console.log('Format bez TZ:', withoutTZ, '->', new Date(withoutTZ));
+    console.log('Format z UTC:', withUTC, '->', new Date(withUTC));
+}
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
