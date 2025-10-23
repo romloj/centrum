@@ -413,6 +413,22 @@
         ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
     }
 
+
+        // DODAJ TE FUNKCJE POMOCNICZE
+function convertToServerTime(date, time) {
+    // Serwer dodaje 2 godziny, więc my odejmijmy 2 godziny przed wysłaniem
+    const localDate = new Date(`${date}T${time}:00`);
+    const serverDate = new Date(localDate.getTime() - (2 * 60 * 60 * 1000)); // minus 2 godziny
+    return serverDate.toISOString();
+}
+
+function convertFromServerTime(serverTime) {
+    // Serwer odsyła czas +2h, więc konwertujmy go z powrotem
+    const serverDate = new Date(serverTime);
+    const localDate = new Date(serverDate.getTime() + (2 * 60 * 60 * 1000)); // plus 2 godziny
+    return localDate;
+}
+    
     function initials(name){
       if(!name) return "";
       return name.split(/\s+/).filter(Boolean).slice(0,3).map(w=>w[0].toUpperCase()).join("");
@@ -830,44 +846,37 @@ if (!document.querySelector('#collision-styles')) {
 
     if (!eventId) {
         console.error('❌ BRAK slot_id!');
-        showAlert('Błąd: Brak ID wizyty (slot_id) w danych z API.', 'danger');
+        showAlert('Błąd: Brak ID wizyty w danych z API.', 'danger');
         return;
     }
 
-    // DEBUG: Sprawdź co przyszło z API
-    console.log('🔍 SZCZEGÓŁY CZASU Z API:');
-    console.log('  starts_at (raw):', eventData.starts_at);
-    console.log('  ends_at (raw):', eventData.ends_at);
-    
-    const startDate = parseLocalTimestamp(eventData.starts_at);
-    const endDate = parseLocalTimestamp(eventData.ends_at);
-    
-    console.log('  starts_at (parsed):', startDate);
-    console.log('  ends_at (parsed):', endDate);
-    
-    if (startDate) {
-        console.log('  Start (local):', startDate.toLocaleString('pl-PL'));
-        console.log('  Start (ISO):', startDate.toISOString());
-    }
-    if (endDate) {
-        console.log('  End (local):', endDate.toLocaleString('pl-PL'));
-    }
+    // DEBUG
+    console.log('🔍 CZAS Z API (raw):', {
+        starts_at: eventData.starts_at,
+        ends_at: eventData.ends_at
+    });
+
+    // KOREKTA: Serwer zwraca czas +2h, więc konwertujmy z powrotem
+    const startDate = convertFromServerTime(eventData.starts_at);
+    const endDate = convertFromServerTime(eventData.ends_at);
+
+    console.log('🔄 PO KOREKCIE:');
+    console.log('  Start:', startDate.toLocaleString('pl-PL'));
+    console.log('  End:', endDate.toLocaleString('pl-PL'));
 
     document.getElementById('editEventId').value = eventId || '';
     document.getElementById('editTherapistId').value = eventData.therapist_id || '';
     document.getElementById('editClientName').value = eventData.client_name || eventData.group_name || `Klient #${eventData.client_id || ''}`;
 
-    if (startDate) {
-        document.getElementById('editDate').value = fmtYYYYMMDD(startDate);
-        document.getElementById('editStartTime').value = startDate.toTimeString().slice(0, 5);
-        console.log('✏️  USTAWIAM W FORMULARZU:');
-        console.log('  Data:', fmtYYYYMMDD(startDate));
-        console.log('  Start:', startDate.toTimeString().slice(0, 5));
-    }
-    if (endDate) {
-        document.getElementById('editEndTime').value = endDate.toTimeString().slice(0, 5);
-        console.log('  End:', endDate.toTimeString().slice(0, 5));
-    }
+    // USTAW SKORYGOWANY CZAS W FORMULARZU
+    document.getElementById('editDate').value = fmtYYYYMMDD(startDate);
+    document.getElementById('editStartTime').value = startDate.toTimeString().slice(0, 5);
+    document.getElementById('editEndTime').value = endDate.toTimeString().slice(0, 5);
+
+    console.log('✏️  USTAWIAM W FORMULARZU:');
+    console.log('  Data:', fmtYYYYMMDD(startDate));
+    console.log('  Start:', startDate.toTimeString().slice(0, 5));
+    console.log('  End:', endDate.toTimeString().slice(0, 5));
 
     document.getElementById('editPlace').value = eventData.place_to || '';
     document.getElementById('editStatus').value = eventData.status || 'planned';
@@ -1184,20 +1193,22 @@ async function createNewEvent() {
     const place = document.getElementById('addPlace').value;
     const type = document.getElementById('addType').value;
 
-    console.log('📝 INPUTY:', { date, startTime, endTime, type });
+    console.log('📝 INPUTY UŻYTKOWNIKA:', { date, startTime, endTime });
 
     if (!therapistId || !date || !startTime || !endTime) {
         showAlert('Proszę wypełnić wszystkie wymagane pola', 'danger');
         return;
     }
 
-    // ROZWIĄZANIE: Wyślij czas jako ISO string
-    const starts_at = new Date(`${date}T${startTime}:00`).toISOString();
-    const ends_at = new Date(`${date}T${endTime}:00`).toISOString();
+    // ROZWIĄZANIE: Kompensacja 2-godzinnego przesunięcia serwera
+    const starts_at = convertToServerTime(date, startTime);
+    const ends_at = convertToServerTime(date, endTime);
 
-    console.log('📤 WYSYŁANE JAKO ISO:');
+    console.log('📤 WYSYŁANE (skorygowane):');
     console.log('  starts_at:', starts_at);
     console.log('  ends_at:', ends_at);
+    console.log('  Oryginalny czas:', `${startTime}-${endTime}`);
+    console.log('  Po konwersji:', new Date(starts_at).toLocaleTimeString('pl-PL'), '-', new Date(ends_at).toLocaleTimeString('pl-PL'));
 
     let payload = {
         therapist_id: Number(therapistId),
@@ -1206,7 +1217,6 @@ async function createNewEvent() {
         place_to: place || null,
         status: 'planned'
     };
-
     // === TUTAJ ROZGAŁĘZIENIE DLA KLIENTA/GRUPY ===
     
     if (type === 'tus') {
@@ -1840,10 +1850,14 @@ function debugTimeIssue() {
     console.log('Format bez TZ:', withoutTZ, '->', new Date(withoutTZ));
     console.log('Format z UTC:', withUTC, '->', new Date(withUTC));
 }
+
+
+    
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
