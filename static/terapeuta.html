@@ -643,6 +643,37 @@ async function openAddModal() {
     }
 }
 
+    async function deleteEvent() {
+      const eventId = document.getElementById('editEventId').value;
+
+      if (!eventId) {
+        showAlert('Brak ID wizyty do usunięcia', 'danger');
+        return;
+      }
+
+      const shouldDelete = confirm('⚠️ UWAGA!\n\nCzy na pewno chcesz TRWALE USUNĄĆ tę wizytę z bazy danych?\n\nTej operacji NIE MOŻNA cofnąć!');
+
+      if (!shouldDelete) return;
+
+      try {
+        const response = await fetch(`${API}/api/schedule/${eventId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Nie można usunąć wizyty. Status: ${response.status}`);
+        }
+
+        showAlert('✅ Wizyta została trwale usunięta z bazy danych', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
+        await reloadData();
+
+      } catch (e) {
+        showAlert(`❌ Błąd usuwania: ${e.message}`, 'danger');
+      }
+    }
+
     async function checkCollisionOnAdd() {
   const therapistId = _state.therapistId === 'all'
     ? document.getElementById('addTherapist').value
@@ -894,9 +925,11 @@ if (!document.querySelector('#collision-styles')) {
 
       if (!date || !startTime || !endTime) return false;
 
-      // Ta definicja była brakująca w Twoim kodzie
+      // DODAJ TE DWIE LINIE
       const newStart = new Date(`${date}T${startTime}:00`);
       const newEnd = new Date(`${date}T${endTime}:00`);
+
+      const hasCollision = _state.rows.some(r => {
       
       let hasCollision = false; // Używamy pętli 'for' dla bezpieczeństwa
 
@@ -1130,8 +1163,8 @@ async function createNewEvent() {
     }
 
      // ROZWIĄZANIE: Wyślij CZYSTY czas bez żadnych konwersji
-    const starts_at = `${date} ${startTime}:00`;  // Format: "2025-10-23 14:30:00"
-    const ends_at = `${date} ${endTime}:00`;      // Format: "2025-10-23 15:30:00"
+   const starts_at = convertToUTC(date, startTime);
+    const ends_at = convertToUTC(date, endTime);
 
     console.log('📤 WYSYŁANE (skorygowane):');
     console.log('  starts_at:', starts_at);
@@ -1786,6 +1819,7 @@ function debugTimeIssue() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
