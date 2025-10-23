@@ -885,119 +885,49 @@ if (!document.querySelector('#collision-styles')) {
     const modal = new bootstrap.Modal(document.getElementById('editEventModal'));
     modal.show();
 }
-    // Sprawdź kolizje przy zapisie
     async function checkCollisionOnSave() {
-      const eventId = document.getElementById('editEventId').value;
-      const therapistId = document.getElementById('editTherapistId').value;
-      const date = document.getElementById('editDate').value;
-      const startTime = document.getElementById('editStartTime').value;
-      const endTime = document.getElementById('editEndTime').value;
+      const eventId = document.getElementById('editEventId').value;
+      const therapistId = document.getElementById('editTherapistId').value;
+      const date = document.getElementById('editDate').value;
+      const startTime = document.getElementById('editStartTime').value;
+      const endTime = document.getElementById('editEndTime').value;
 
-      if (!date || !startTime || !endTime) return false;
+      if (!date || !startTime || !endTime) return false;
 
-      const starts_at = `${date} ${startTime}:00`;
-    const ends_at = `${date} ${endTime}:00`;
+      // Ta definicja była brakująca w Twoim kodzie
+      const newStart = new Date(`${date}T${startTime}:00`);
+      const newEnd = new Date(`${date}T${endTime}:00`);
+      
+      let hasCollision = false; // Używamy pętli 'for' dla bezpieczeństwa
 
-      const hasCollision = _state.rows.some(r => {
-        if (r.slot_id == eventId) return false;
-        if (r.therapist_id != therapistId) return false;
+      for (const r of _state.rows) {
+        if (r.slot_id == eventId) continue;
+        if (r.therapist_id != therapistId) continue;
 
-        const rStart = parseLocalTimestamp(r.starts_at);
-        const rEnd = parseLocalTimestamp(r.ends_at);
+        const rStart = parseLocalTimestamp(r.starts_at);
+        const rEnd = parseLocalTimestamp(r.ends_at);
 
-        if (!rStart || !rEnd) return false;
-        if (fmtYYYYMMDD(rStart) !== date) return false;
+        if (!rStart || !rEnd) continue;
+        if (fmtYYYYMMDD(rStart) !== date) continue;
 
-        return newStart < rEnd && rStart < newEnd;
-      });
+        // Tutaj 'newStart' będzie już poprawnie rozpoznane
+        if (newStart < rEnd && rStart < newEnd) {
+            hasCollision = true;
+            break; 
+        }
+      }
 
-      const warning = document.getElementById('collisionWarning');
-      if (hasCollision) {
-        warning.classList.remove('d-none');
-      } else {
-        warning.classList.add('d-none');
-      }
+      const warning = document.getElementById('collisionWarning');
+      if (hasCollision) {
+        warning.classList.remove('d-none');
+      } else {
+        warning.classList.add('d-none');
+      }
 
-      return hasCollision;
-    }
+      return hasCollision;
+    }
 
-   // Zmodyfikowana funkcja saveEventChanges
-async function saveEventChanges() {
-    const eventId = document.getElementById('editEventId').value;
-    const date = document.getElementById('editDate').value;
-    const startTime = document.getElementById('editStartTime').value;
-    const endTime = document.getElementById('editEndTime').value;
-    const place = document.getElementById('editPlace').value;
-    const status = document.getElementById('editStatus').value;
-
-    if (!eventId || !date || !startTime || !endTime) {
-        showAlert('Proszę wypełnić wszystkie pola oznaczone gwiazdką (*)', 'danger');
-        return;
-    }
-
-    const starts_at = `${date}T${startTime}:00`;
-    const ends_at = `${date}T${endTime}:00`;
-
-    const payload = {
-        starts_at: starts_at,
-        ends_at: ends_at,
-        place_to: place,
-        status: status
-    };
-
-    try {
-        const response = await fetch(`${API}/api/schedule/${eventId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-            showAlert('Wizyta została zaktualizowana', 'success');
-            bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
-            await reloadData();
-        } else {
-            const errorData = await response.json();
-            showAlert(`Błąd: ${errorData.error || 'Nieznany błąd'}`, 'danger');
-        }
-    } catch (e) {
-        console.error('Error updating event:', e);
-        showAlert('Błąd podczas aktualizacji wizyty', 'danger');
-    }
-}
-
-    // Usuń wizytę
-    async function deleteEvent() {
-      const eventId = document.getElementById('editEventId').value;
-
-      if (!eventId) {
-        showAlert('Brak ID wizyty do usunięcia', 'danger');
-        return;
-      }
-
-      const shouldDelete = confirm('⚠️ UWAGA!\n\nCzy na pewno chcesz TRWALE USUNĄĆ tę wizytę z bazy danych?\n\nTej operacji NIE MOŻNA cofnąć!');
-
-      if (!shouldDelete) return;
-
-      try {
-        const response = await fetch(`${API}/api/schedule/${eventId}`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (!response.ok) {
-          throw new Error(`Nie można usunąć wizyty. Status: ${response.status}`);
-        }
-
-        showAlert('✅ Wizyta została trwale usunięta z bazy danych', 'success');
-        bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
-        await reloadData();
-
-      } catch (e) {
-        showAlert(`❌ Błąd usuwania: ${e.message}`, 'danger');
-      }
-    }
-
+  
     // — stan —
     const TP_START_HOUR = 7, TP_END_HOUR=20, PX_PER_MIN=24/30;
     let _state = {
@@ -1856,6 +1786,7 @@ function debugTimeIssue() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
