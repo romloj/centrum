@@ -413,7 +413,20 @@
         ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
     }
 
+/**
+     * Konwertuje datę i czas lokalny (z formularza) na string UTC 
+     * w formacie YYYY-MM-DD HH:MM:SS, którego oczekuje serwer.
+     */
+    function convertToUTC(date, time) {
+        // 1. Utwórz datę zakładając, że to czas lokalny
+        const localDate = new Date(`${date}T${time}:00`);
+        
+        // 2. Pobierz string ISO w UTC (np. "2025-10-23T12:30:00.000Z")
+        const isoString = localDate.toISOString(); 
 
+        // 3. Sformatuj go tak, jak chce serwer (np. "2025-10-23 12:30:00")
+        return isoString.replace('T', ' ').substring(0, 19);
+    }
     
     function initials(name){
       if(!name) return "";
@@ -751,9 +764,9 @@ async function saveEventChanges() {
         return;
     }
 
-    // UŻYJ TEGO SAMEGO FORMATU
-    const starts_at = `${date}T${startTime}:00Z`;  // Dodaj 'Z'
-    const ends_at = `${date}T${endTime}:00Z`;      // Dodaj 'Z'
+    // KONWERSJA: Wyślij czas lokalny jako string UTC
+    const starts_at = convertToUTC(date, startTime); // np. "2025-10-23 12:30:00"
+    const ends_at = convertToUTC(date, endTime);
 
     console.log('WYSYŁANE DO API (edycja):', { starts_at, ends_at });
 
@@ -1843,6 +1856,7 @@ function debugTimeIssue() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
