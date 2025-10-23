@@ -916,7 +916,8 @@ if (!document.querySelector('#collision-styles')) {
     const modal = new bootstrap.Modal(document.getElementById('editEventModal'));
     modal.show();
 }
-    async function checkCollisionOnSave() {
+    // Sprawdź kolizje przy zapisie
+    async function checkCollisionOnSave() {
       const eventId = document.getElementById('editEventId').value;
       const therapistId = document.getElementById('editTherapistId').value;
       const date = document.getElementById('editDate').value;
@@ -925,28 +926,30 @@ if (!document.querySelector('#collision-styles')) {
 
       if (!date || !startTime || !endTime) return false;
 
-      // DODAJ TE DWIE LINIE
+      // Definicja newStart i newEnd
       const newStart = new Date(`${date}T${startTime}:00`);
       const newEnd = new Date(`${date}T${endTime}:00`);
-
-      const hasCollision = _state.rows.some(r => {
       
-      let hasCollision = false; // Używamy pętli 'for' dla bezpieczeństwa
+      let hasCollision = false; // Zmienna do śledzenia kolizji
 
       for (const r of _state.rows) {
+        // Pomiń sprawdzanie wizyty samej ze sobą
         if (r.slot_id == eventId) continue;
+        
+        // Pomiń wizyty innych terapeutów
         if (r.therapist_id != therapistId) continue;
 
         const rStart = parseLocalTimestamp(r.starts_at);
         const rEnd = parseLocalTimestamp(r.ends_at);
 
+        // Pomiń błędne dane lub wizyty z innego dnia
         if (!rStart || !rEnd) continue;
         if (fmtYYYYMMDD(rStart) !== date) continue;
 
-        // Tutaj 'newStart' będzie już poprawnie rozpoznane
+        // Sprawdź nakładanie się czasu
         if (newStart < rEnd && rStart < newEnd) {
             hasCollision = true;
-            break; 
+            break; // Znaleziono kolizję, przerwij pętlę
         }
       }
 
@@ -959,7 +962,6 @@ if (!document.querySelector('#collision-styles')) {
 
       return hasCollision;
     }
-    )
 
   
     // — stan —
@@ -1820,6 +1822,7 @@ function debugTimeIssue() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
