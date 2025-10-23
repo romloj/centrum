@@ -3562,7 +3562,8 @@ def create_schedule_slot():
         return jsonify({"error": f"Błąd tworzenia wizyty: {str(e)}"}), 500
 
 
-@app.put("/api/schedule/<int:slot_id>")
+
+@app.route('/api/schedule/<int:slot_id>', methods=['PUT'])
 def update_schedule_slot(slot_id):
     """Aktualizuje istniejącą wizytę w harmonogramie"""
     data = request.get_json(silent=True) or {}
@@ -3575,7 +3576,7 @@ def update_schedule_slot(slot_id):
             # Sprawdź czy slot istnieje
             slot = conn.execute(
                 text("""
-                    SELECT id, therapist_id, client_id, group_id 
+                    SELECT id, therapist_id, client_id, group_id, starts_at, ends_at
                     FROM schedule_slots 
                     WHERE id = :id
                 """),
@@ -6103,58 +6104,6 @@ def update_schedule(slot_id):
 
 
 
-@app.route('/api/schedule/<int:slot_id>', methods=['PUT'])
-def update_schedule_slot(slot_id):
-    """Aktualizuje sesję"""
-    data = request.get_json()
-
-    try:
-        with engine.begin() as conn:
-            # Sprawdź czy slot istnieje
-            slot = conn.execute(
-                text('SELECT id FROM schedule_slots WHERE id = :id'),
-                {"id": slot_id}
-            ).scalar()
-
-            if not slot:
-                return jsonify({'error': 'Sesja nie znaleziona'}), 404
-
-            # Przygotuj update
-            update_fields = []
-            params = {"id": slot_id}
-
-            if 'label' in data:
-                update_fields.append("label = :label")
-                params["label"] = data['label']
-
-            if 'starts_at' in data:
-                update_fields.append("starts_at = :starts_at")
-                params["starts_at"] = data['starts_at']
-
-            if 'ends_at' in data:
-                update_fields.append("ends_at = :ends_at")
-                params["ends_at"] = data['ends_at']
-
-            if 'place_to' in data:
-                update_fields.append("place_to = :place_to")
-                params["place_to"] = data['place_to']
-
-            if not update_fields:
-                return jsonify({'error': 'Brak danych do aktualizacji'}), 400
-
-            # Wykonaj update
-            set_clause = ", ".join(update_fields)
-            conn.execute(
-                text(f'UPDATE schedule_slots SET {set_clause} WHERE id = :id'),
-                params
-            )
-
-            return jsonify({'message': 'Sesja zaktualizowana'}), 200
-
-    except Exception as e:
-        print(f"Błąd aktualizacji sesji: {e}")
-        return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/drivers/<int:driver_id>/schedule', methods=['GET'])
 def get_driver_schedule(driver_id):
@@ -7453,6 +7402,7 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
