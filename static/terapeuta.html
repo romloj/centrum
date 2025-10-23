@@ -611,140 +611,7 @@ async function openAddModal() {
   return hasCollision;
 }
 
-async function createNewEvent() {
-    console.log('=== CREATE NEW EVENT START ===');
 
-    // 1. POBIERZ WARTOŚCI WSPÓLNE
-    const therapistId = _state.therapistId === 'all'
-        ? document.getElementById('addTherapist').value
-        : _state.therapistId;
-    
-    const date = document.getElementById('addDate').value;
-    const startTime = document.getElementById('addStartTime').value;
-    const endTime = document.getElementById('addEndTime').value;
-    const place = document.getElementById('addPlace').value;
-    const type = document.getElementById('addType').value;
-
-    // 2. WALIDACJA PÓL WSPÓLNYCH
-    if (!therapistId || !date || !startTime || !endTime) {
-        showAlert('Proszę wypełnić wszystkie wymagane pola (Terapeuta, Data, Czas)', 'danger');
-        return;
-    }
-
-    // Przygotuj daty w formacie ISO
-    const starts_at = `${date}T${startTime}:00`;
-    const ends_at = `${date}T${endTime}:00`;
-
-    let payload = {
-        therapist_id: Number(therapistId),
-        starts_at: starts_at,
-        ends_at: ends_at,
-        place_to: place || null,
-        status: 'planned'
-    };
-
-    // 3. LOGIKA WARUNKOWA DLA TYPU WIZYTY
-    if (type === 'tus') {
-        // --- Tryb grupowy ---
-        const groupId = document.getElementById('addGroup').value;
-        if (!groupId) {
-            showAlert('Proszę wybrać grupę', 'danger');
-            return;
-        }
-        payload.group_id = Number(groupId); 
-        payload.kind = 'tus';
-        showAlert('Dodawanie grup TUS wymaga osobnej implementacji', 'warning');
-        return;
-
-    } else {
-        // --- Tryb indywidualny ---
-        const clientId = document.getElementById('addClient').value;
-        const newClientName = document.getElementById('addNewClientName').value.trim();
-
-        if ((!clientId || clientId === '') && !newClientName) {
-            showAlert('Proszę wybrać klienta z listy lub wpisać nazwisko nowego klienta', 'danger');
-            return;
-        }
-
-        let finalClientId = clientId && clientId !== '' ? clientId : null;
-
-        // Tworzenie nowego klienta jeśli potrzeba
-        if (newClientName && (!finalClientId || finalClientId === '')) {
-            try {
-                console.log('Creating new client:', newClientName);
-                const createClientRes = await fetch(`${API}/api/clients`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ full_name: newClientName, active: true })
-                });
-
-                if (!createClientRes.ok) {
-                    const errorText = await createClientRes.text();
-                    throw new Error(`Nie można utworzyć nowego klienta: ${errorText}`);
-                }
-
-                const newClient = await createClientRes.json();
-                finalClientId = newClient.id || newClient.client_id;
-                console.log('New client created with ID:', finalClientId);
-
-                if (!finalClientId) {
-                    throw new Error('Serwer nie zwrócił ID nowego klienta');
-                }
-                _clientsCache = null; // Unieważnij cache klientów
-
-            } catch (e) {
-                console.error('Error creating client:', e);
-                showAlert(`Błąd tworzenia klienta: ${e.message}`, 'danger');
-                return;
-            }
-        }
-
-        if (!finalClientId) {
-            showAlert('Błąd: Nie udało się pobrać ID klienta.', 'danger');
-            return;
-        }
-        
-        payload.client_id = Number(finalClientId);
-        payload.kind = 'therapy';
-    }
-
-    console.log('=== FINAL PAYLOAD ===');
-    console.log('Payload:', payload);
-
-    // 4. WYŚLIJ ŻĄDANIE DO NOWEGO ENDPOINTU
-    try {
-        console.log(`Sending POST to ${API}/api/schedule`);
-        const response = await fetch(`${API}/api/schedule`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Success! Response:', result);
-            showAlert('✅ Wizyta została dodana', 'success');
-            bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
-            await reloadData();
-            return;
-        } else {
-            const errorData = await response.json();
-            console.log(`❌ POST failed: ${response.status}`, errorData);
-            
-            if (errorData.conflicts && errorData.conflicts.length > 0) {
-                // POKAŻ SZCZEGÓŁOWE INFORMACJE O KOLIZJACH
-                showCollisionDetails(errorData.conflicts, starts_at, ends_at);
-            } else {
-                showAlert(`Błąd ${response.status}: ${errorData.error || 'Nieznany błąd'}`, 'danger');
-            }
-            return;
-        }
-    } catch (e) {
-        console.error('Error with POST:', e);
-        showAlert(`Błąd połączenia: ${e.message}`, 'danger');
-        return;
-    }
-}
 
 // NOWA FUNKCJA DO POKAZYWANIA SZCZEGÓŁÓW KOLIZJI
 function showCollisionDetails(conflicts, newStartTime, newEndTime) {
@@ -1840,6 +1707,7 @@ function addDebugButton() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
