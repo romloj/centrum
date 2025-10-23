@@ -772,70 +772,66 @@ def _score_cd_row(r):
     return 0.5 * rec + 0.3 * done + 0.2 * min(1.0, n / 10.0) + 0.1 * min(1.0, mins / 600.0)
 
 
-def find_overlaps(conn, *, driver_id=None, therapist_id=None, starts_at=None, ends_at=None):
+# Poprawiona funkcja find_overlaps z wykluczeniem aktualnie edytowanego slotu
+def find_overlaps(conn, *, driver_id=None, therapist_id=None, starts_at=None, ends_at=None, exclude_slot_id=None):
     """
-        Zwraca listę kolidujących slotów dla driver_id/therapist_id i podanego zakresu czasu,
-        sprawdzając ZARÓWNO kalendarz indywidualny, jak i grupowy TUS.
-        """
+    Zwraca listę kolidujących slotów z możliwością wykluczenia konkretnego slot_id
+    """
     if starts_at is None or ends_at is None:
         return []
 
-    # --- POCZĄTEK POPRAWKI ---
-    # Jeśli sprawdzamy terapeutę, musimy przeszukać oba kalendarze.
     if therapist_id is not None:
         sql = text("""
-                -- 1. Konflikty z kalendarza indywidualnego
-                SELECT
-                  ss.id, 'individual' as schedule_type, ss.kind, ss.starts_at, ss.ends_at, ss.status,
-                  t.full_name AS therapist_name, c.full_name AS client_name
-                FROM schedule_slots ss
-                JOIN therapists t ON t.id = ss.therapist_id
-                LEFT JOIN clients c ON c.id = ss.client_id
-                WHERE ss.therapist_id = :person_id
-                  AND tstzrange(ss.starts_at, ss.ends_at, '[)') && tstzrange(:s, :e, '[)')
+            -- Konflikty z kalendarza indywidualnego
+            SELECT
+                ss.id, 'individual' as schedule_type, ss.kind, ss.starts_at, ss.ends_at, ss.status,
+                t.full_name AS therapist_name, c.full_name AS client_name
+            FROM schedule_slots ss
+            JOIN therapists t ON t.id = ss.therapist_id
+            LEFT JOIN clients c ON c.id = ss.client_id
+            WHERE ss.therapist_id = :person_id
+                AND ss.status != 'cancelled'
+                AND tstzrange(ss.starts_at, ss.ends_at, '[)') && tstzrange(:s, :e, '[)')
+                AND (:exclude_id IS NULL OR ss.id != :exclude_id)
 
-                UNION ALL
+            UNION ALL
 
-                -- 2. Konflikty z kalendarza grupowego TUS
-                SELECT
-                  s.id, 'tus_group' as schedule_type, 'therapy' as kind,
-                  (s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
-                  (s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
-                  'planned' as status, t.full_name AS therapist_name, g.name AS client_name
-                FROM tus_sessions s
-                JOIN tus_groups g ON s.group_id = g.id
-                JOIN therapists t ON t.id = :person_id
-                WHERE (g.therapist_id = :person_id OR g.assistant_therapist_id = :person_id)
-                  AND tstzrange(
-                      (s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw',
-                      (s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw',
-                      '[)'
-                  ) && tstzrange(:s, :e, '[)')
-            """)
-        params = {"person_id": therapist_id, "s": starts_at, "e": ends_at}
+            -- Konflikty z kalendarza grupowego TUS
+            SELECT
+                s.id, 'tus_group' as schedule_type, 'therapy' as kind,
+                (s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw' AS starts_at,
+                (s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw' AS ends_at,
+                'planned' as status, t.full_name AS therapist_name, g.name AS client_name
+            FROM tus_sessions s
+            JOIN tus_groups g ON s.group_id = g.id
+            JOIN therapists t ON t.id = :person_id
+            WHERE (g.therapist_id = :person_id OR g.assistant_therapist_id = :person_id)
+                AND tstzrange(
+                    (s.session_date + COALESCE(s.session_time, '00:00:00'::time)) AT TIME ZONE 'Europe/Warsaw',
+                    (s.session_date + COALESCE(s.session_time, '00:00:00'::time) + INTERVAL '60 minutes') AT TIME ZONE 'Europe/Warsaw',
+                    '[)'
+                ) && tstzrange(:s, :e, '[)')
+        """)
+        params = {"person_id": therapist_id, "s": starts_at, "e": ends_at, "exclude_id": exclude_slot_id}
 
-    # Dla kierowców logika pozostaje bez zmian (sprawdzamy tylko schedule_slots)
     elif driver_id is not None:
         sql = text("""
-                SELECT
-                  ss.id, 'individual' as schedule_type, ss.kind, ss.starts_at, ss.ends_at, ss.status,
-                  d.full_name AS driver_name, c.full_name AS client_name
-                FROM schedule_slots ss
-                JOIN drivers d ON d.id = ss.driver_id
-                LEFT JOIN clients c ON c.id = ss.client_id
-                WHERE ss.driver_id = :person_id
-                  AND tstzrange(ss.starts_at, ss.ends_at, '[)') && tstzrange(:s, :e, '[)')
-            """)
-        params = {"person_id": driver_id, "s": starts_at, "e": ends_at}
+            SELECT
+                ss.id, 'individual' as schedule_type, ss.kind, ss.starts_at, ss.ends_at, ss.status,
+                d.full_name AS driver_name, c.full_name AS client_name
+            FROM schedule_slots ss
+            JOIN drivers d ON d.id = ss.driver_id
+            LEFT JOIN clients c ON c.id = ss.client_id
+            WHERE ss.driver_id = :person_id
+                AND ss.status != 'cancelled'
+                AND tstzrange(ss.starts_at, ss.ends_at, '[)') && tstzrange(:s, :e, '[)')
+                AND (:exclude_id IS NULL OR ss.id != :exclude_id)
+        """)
+        params = {"person_id": driver_id, "s": starts_at, "e": ends_at, "exclude_id": exclude_slot_id}
     else:
         return []
 
-    stmt = sql.bindparams(
-        bindparam("s", type_=TIMESTAMP(timezone=True)),
-        bindparam("e", type_=TIMESTAMP(timezone=True)),
-    )
-    return [dict(r) for r in conn.execute(stmt, params).mappings().all()]
-
+    return [dict(r) for r in conn.execute(sql, params).mappings().all()]
 
 def ensure_shared_run_id_for_driver(conn, driver_id, starts_at, ends_at):
     """Znajduje lub tworzy wspólne ID dla kursów odbywających się w tym samym czasie."""
@@ -876,6 +872,56 @@ def ensure_shared_session_id_for_therapist(conn, therapist_id, starts_at, ends_a
         )
         return new_sid
     return row["session_id"]
+
+# Endpoint do pobierania dostępnych terapeutów dla formularza dodawania
+@app.get("/api/available-therapists")
+def get_available_therapists():
+    """Zwraca listę aktywnych terapeutów dla formularza dodawania wizyt"""
+    try:
+        with engine.begin() as conn:
+            therapists = conn.execute(text("""
+                SELECT id, full_name, specialization
+                FROM therapists 
+                WHERE active = true
+                ORDER BY full_name
+            """)).mappings().all()
+
+            return jsonify([dict(t) for t in therapists]), 200
+    except Exception as e:
+        print(f"Błąd pobierania terapeutów: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# Endpoint do sprawdzania dostępności terapeuty
+@app.post("/api/check-availability")
+def check_availability():
+    """Sprawdza dostępność terapeuty w danym czasie"""
+    data = request.get_json(silent=True) or {}
+    
+    therapist_id = data.get('therapist_id')
+    starts_at = data.get('starts_at')
+    ends_at = data.get('ends_at')
+    exclude_slot_id = data.get('exclude_slot_id')
+
+    if not all([therapist_id, starts_at, ends_at]):
+        return jsonify({"error": "Brak wymaganych pól"}), 400
+
+    try:
+        starts_at_dt = datetime.fromisoformat(starts_at.replace('Z', '+00:00')).astimezone(TZ)
+        ends_at_dt = datetime.fromisoformat(ends_at.replace('Z', '+00:00')).astimezone(TZ)
+
+        with engine.begin() as conn:
+            conflicts = find_overlaps(conn, therapist_id=therapist_id,
+                                    starts_at=starts_at_dt, ends_at=ends_at_dt,
+                                    exclude_slot_id=exclude_slot_id)
+
+            return jsonify({
+                "available": len(conflicts) == 0,
+                "conflicts": conflicts
+            }), 200
+
+    except Exception as e:
+        print(f"Błąd sprawdzania dostępności: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 # === DEKORATORY I HOOKI FLASK ===
@@ -3412,6 +3458,247 @@ def create_group_with_slots():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+
+@app.post("/api/schedule")
+def create_schedule_slot():
+    """Tworzy nową wizytę w harmonogramie"""
+    data = request.get_json(silent=True) or {}
+    
+    print(f"=== CREATE SCHEDULE SLOT ===")
+    print(f"Otrzymane dane: {data}")
+
+    # Walidacja wymaganych pól
+    required_fields = ['therapist_id', 'client_id', 'starts_at', 'ends_at']
+    missing_fields = [field for field in required_fields if not data.get(field)]
+    if missing_fields:
+        return jsonify({"error": f"Brak wymaganych pól: {', '.join(missing_fields)}"}), 400
+
+    try:
+        with engine.begin() as conn:
+            # Sprawdź czy terapeuta i klient istnieją
+            therapist_exists = conn.execute(
+                text("SELECT 1 FROM therapists WHERE id = :id AND active = true"),
+                {"id": data['therapist_id']}
+            ).scalar()
+            
+            client_exists = conn.execute(
+                text("SELECT 1 FROM clients WHERE id = :id AND active = true"),
+                {"id": data['client_id']}
+            ).scalar()
+
+            if not therapist_exists:
+                return jsonify({"error": "Terapeuta nie istnieje lub jest nieaktywny"}), 404
+            if not client_exists:
+                return jsonify({"error": "Klient nie istnieje lub jest nieaktywny"}), 404
+
+            # Sprawdź kolizje czasowe
+            starts_at = datetime.fromisoformat(data['starts_at'].replace('Z', '+00:00')).astimezone(TZ)
+            ends_at = datetime.fromisoformat(data['ends_at'].replace('Z', '+00:00')).astimezone(TZ)
+
+            conflicts = find_overlaps(conn, therapist_id=data['therapist_id'], 
+                                    starts_at=starts_at, ends_at=ends_at)
+            
+            if conflicts:
+                return jsonify({
+                    "error": "Konflikt czasowy z istniejącymi zajęciami",
+                    "conflicts": conflicts
+                }), 409
+
+            # Utwórz grupę wydarzeń
+            group_id = uuid.uuid4()
+            conn.execute(text("""
+                INSERT INTO event_groups (id, client_id, label)
+                VALUES (:id, :client_id, :label)
+            """), {
+                "id": group_id,
+                "client_id": data['client_id'],
+                "label": f"Terapia {data['client_id']} - {starts_at.strftime('%Y-%m-%d %H:%M')}"
+            })
+
+            # Utwórz session_id dla terapeuty
+            session_id = ensure_shared_session_id_for_therapist(conn, data['therapist_id'], starts_at, ends_at)
+
+            # Wstaw nowy slot
+            result = conn.execute(text("""
+                INSERT INTO schedule_slots (
+                    group_id, client_id, therapist_id, kind,
+                    starts_at, ends_at, place_to, status, session_id
+                ) VALUES (
+                    :group_id, :client_id, :therapist_id, 'therapy',
+                    :starts_at, :ends_at, :place_to, :status, :session_id
+                ) RETURNING id
+            """), {
+                "group_id": str(group_id),
+                "client_id": data['client_id'],
+                "therapist_id": data['therapist_id'],
+                "starts_at": starts_at,
+                "ends_at": ends_at,
+                "place_to": data.get('place_to'),
+                "status": data.get('status', 'planned'),
+                "session_id": session_id
+            })
+
+            new_slot_id = result.scalar_one()
+
+            # Utwórz wpis o obecności
+            conn.execute(text("""
+                INSERT INTO individual_session_attendance (slot_id, status)
+                VALUES (:slot_id, 'obecny')
+            """), {"slot_id": new_slot_id})
+
+            print(f"✅ Utworzono nową wizytę ID: {new_slot_id}")
+
+            return jsonify({
+                "success": True,
+                "slot_id": new_slot_id,
+                "group_id": str(group_id),
+                "message": "Wizyta została utworzona"
+            }), 201
+
+    except Exception as e:
+        print(f"❌ Błąd tworzenia wizyty: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Błąd tworzenia wizyty: {str(e)}"}), 500
+
+
+@app.put("/api/schedule/<int:slot_id>")
+def update_schedule_slot(slot_id):
+    """Aktualizuje istniejącą wizytę w harmonogramie"""
+    data = request.get_json(silent=True) or {}
+    
+    print(f"=== UPDATE SCHEDULE SLOT {slot_id} ===")
+    print(f"Otrzymane dane: {data}")
+
+    try:
+        with engine.begin() as conn:
+            # Sprawdź czy slot istnieje
+            slot = conn.execute(
+                text("""
+                    SELECT id, therapist_id, client_id, group_id 
+                    FROM schedule_slots 
+                    WHERE id = :id
+                """),
+                {"id": slot_id}
+            ).mappings().first()
+
+            if not slot:
+                return jsonify({"error": "Wizyta nie znaleziona"}), 404
+
+            # Przygotuj pola do aktualizacji
+            update_fields = []
+            params = {"id": slot_id}
+
+            if 'starts_at' in data:
+                starts_at = datetime.fromisoformat(data['starts_at'].replace('Z', '+00:00')).astimezone(TZ)
+                update_fields.append("starts_at = :starts_at")
+                params["starts_at"] = starts_at
+
+            if 'ends_at' in data:
+                ends_at = datetime.fromisoformat(data['ends_at'].replace('Z', '+00:00')).astimezone(TZ)
+                update_fields.append("ends_at = :ends_at")
+                params["ends_at"] = ends_at
+
+            if 'place_to' in data:
+                update_fields.append("place_to = :place_to")
+                params["place_to"] = data['place_to']
+
+            if 'status' in data:
+                update_fields.append("status = :status")
+                params["status"] = data['status']
+
+            if not update_fields:
+                return jsonify({"error": "Brak danych do aktualizacji"}), 400
+
+            # Sprawdź kolizje jeśli zmieniany jest czas
+            if 'starts_at' in data or 'ends_at' in data:
+                final_starts_at = params.get("starts_at") or slot['starts_at']
+                final_ends_at = params.get("ends_at") or slot['ends_at']
+                
+                conflicts = find_overlaps(conn, therapist_id=slot['therapist_id'],
+                                        starts_at=final_starts_at, ends_at=final_ends_at,
+                                        exclude_slot_id=slot_id)
+                
+                if conflicts:
+                    return jsonify({
+                        "error": "Konflikt czasowy z istniejącymi zajęciami",
+                        "conflicts": conflicts
+                    }), 409
+
+            # Wykonaj aktualizację
+            set_clause = ", ".join(update_fields)
+            conn.execute(text(f"""
+                UPDATE schedule_slots 
+                SET {set_clause}
+                WHERE id = :id
+            """), params)
+
+            print(f"✅ Zaktualizowano wizytę ID: {slot_id}")
+
+            return jsonify({
+                "success": True,
+                "slot_id": slot_id,
+                "message": "Wizyta została zaktualizowana"
+            }), 200
+
+    except Exception as e:
+        print(f"❌ Błąd aktualizacji wizyty: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Błąd aktualizacji wizyty: {str(e)}"}), 500
+
+@app.delete("/api/schedule/<int:slot_id>")
+def delete_schedule_slot(slot_id):
+    """Usuwa wizytę z harmonogramu"""
+    print(f"=== DELETE SCHEDULE SLOT {slot_id} ===")
+
+    try:
+        with engine.begin() as conn:
+            # Sprawdź czy slot istnieje
+            slot = conn.execute(
+                text("SELECT id, group_id FROM schedule_slots WHERE id = :id"),
+                {"id": slot_id}
+            ).mappings().first()
+
+            if not slot:
+                return jsonify({"error": "Wizyta nie znaleziona"}), 404
+
+            # Usuń wpis o obecności
+            conn.execute(
+                text("DELETE FROM individual_session_attendance WHERE slot_id = :slot_id"),
+                {"slot_id": slot_id}
+            )
+
+            # Usuń slot
+            conn.execute(
+                text("DELETE FROM schedule_slots WHERE id = :id"),
+                {"id": slot_id}
+            )
+
+            # Sprawdź czy grupa ma jeszcze jakieś sloty, jeśli nie - usuń grupę
+            remaining_slots = conn.execute(
+                text("SELECT 1 FROM schedule_slots WHERE group_id = :group_id"),
+                {"group_id": slot['group_id']}
+            ).scalar()
+
+            if not remaining_slots:
+                conn.execute(
+                    text("DELETE FROM event_groups WHERE id = :group_id"),
+                    {"group_id": slot['group_id']}
+                )
+
+            print(f"✅ Usunięto wizytę ID: {slot_id}")
+
+            return jsonify({
+                "success": True,
+                "message": "Wizyta została usunięta"
+            }), 200
+
+    except Exception as e:
+        print(f"❌ Błąd usuwania wizyty: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Błąd usuwania wizyty: {str(e)}"}), 500
 
 # NOWY ENDPOINT W odnowa.py
 @app.get("/api/clients/<int:client_id>/tus-groups")
@@ -7191,6 +7478,7 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
