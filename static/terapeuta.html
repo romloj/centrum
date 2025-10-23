@@ -1372,8 +1372,6 @@ async function createNewEvent() {
 
     console.log('=== ALL ATTEMPTS FAILED ===');
 }
-
-// Zmodyfikowana funkcja reloadData z lepszą obsługą błędów
 async function reloadData(){
     _state.therapistId = document.getElementById("tpTherapistSelect").value || "all";
 
@@ -1390,6 +1388,7 @@ async function reloadData(){
             // Dla wszystkich terapeutów
             const promises = _state.therapists.map(async t => {
                 try {
+                    // UŻYJ POPRAWNEGO ENDPOINTU
                     const res = await fetch(`${API}/api/therapists/${t.id}/schedule?month=${encodeURIComponent(mk)}`);
                     if (res.ok) {
                         const rows = await res.json();
@@ -1414,6 +1413,7 @@ async function reloadData(){
             // Dla konkretnego terapeuty
             const tid = Number(_state.therapistId);
             try {
+                // UŻYJ POPRAWNEGO ENDPOINTU
                 const res = await fetch(`${API}/api/therapists/${tid}/schedule?month=${encodeURIComponent(mk)}`);
                 if (res.ok) {
                     const data = await res.json();
@@ -1442,12 +1442,10 @@ async function reloadData(){
             <div class="alert alert-danger">
                 <h5>Błąd ładowania danych</h5>
                 <p>${e.message}</p>
-                <button class="btn btn-sm btn-outline-primary" onclick="debugAPI()">Zdebuguj API</button>
                 <button class="btn btn-sm btn-outline-secondary" onclick="reloadData()">Spróbuj ponownie</button>
             </div>`;
     }
 }
-
 // Dodaj przycisk debugowania do interfejsu
 function addDebugButton() {
     const toolbar = document.querySelector('.toolbar');
@@ -1863,6 +1861,7 @@ function addDebugButton() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
