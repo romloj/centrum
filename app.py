@@ -6101,31 +6101,6 @@ def update_schedule(slot_id):
 
 # DODAJ TE ENDPOINTY DO BACKENDU:
 
-@app.route('/api/schedule/<int:slot_id>', methods=['DELETE'])
-def delete_schedule_slot(slot_id):
-    """Usuwa pojedynczą sesję (slot)"""
-    try:
-        with engine.begin() as conn:
-            # Sprawdź czy slot istnieje
-            slot = conn.execute(
-                text('SELECT id FROM schedule_slots WHERE id = :id'),
-                {"id": slot_id}
-            ).scalar()
-
-            if not slot:
-                return jsonify({'error': 'Sesja nie znaleziona'}), 404
-
-            # Usuń slot
-            conn.execute(
-                text('DELETE FROM schedule_slots WHERE id = :id'),
-                {"id": slot_id}
-            )
-
-            return jsonify({'message': 'Sesja usunięta pomyślnie'}), 200
-
-    except Exception as e:
-        print(f"Błąd usuwania sesji: {e}")
-        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/schedule/<int:slot_id>', methods=['PUT'])
@@ -7478,6 +7453,7 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
