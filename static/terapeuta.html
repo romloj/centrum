@@ -1181,18 +1181,18 @@ async function saveEventChanges() {
     }
 
     // Funkcja do debugowania dostępnych endpointów API
+// Zmodyfikowana funkcja debugAPI - testuje tylko istniejące endpointy
 async function debugAPI() {
     console.log('=== DEBUG API ENDPOINTS ===');
     
+    // Testuj tylko endpointy które faktycznie istnieją w Twoim backendzie
     const testEndpoints = [
         `${API}/api/therapists`,
         `${API}/api/clients`,
-        `${API}/api/schedule`,
-        `${API}/api/visits`,
-        `${API}/api/appointments`,
-        `${API}/api/events`,
-        `${API}/api/slots`,
-        `${API}/api/sessions`
+        `${API}/api/drivers`,
+        `${API}/api/tus/groups-summary`,
+        `${API}/api/available-therapists`, // Nowy endpoint
+        `${API}/api/check-availability`    // Nowy endpoint
     ];
 
     for (const endpoint of testEndpoints) {
@@ -1208,6 +1208,35 @@ async function debugAPI() {
         } catch (e) {
             console.log(`❌ GET ${endpoint}: ERROR ${e.message}`);
         }
+    }
+
+    // Testuj endpointy schedule z konkretnymi parametrami
+    console.log('=== TESTING SCHEDULE ENDPOINTS ===');
+    
+    // Pobierz pierwszego terapeutę do testów
+    try {
+        const therapistsRes = await fetch(`${API}/api/therapists`);
+        if (therapistsRes.ok) {
+            const therapists = await therapistsRes.json();
+            if (therapists.length > 0) {
+                const testTherapistId = therapists[0].id;
+                const testMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+                
+                // Testuj endpoint harmonogramu terapeuty
+                const scheduleEndpoint = `${API}/api/therapists/${testTherapistId}/schedule?month=${testMonth}`;
+                console.log(`Testing GET ${scheduleEndpoint}`);
+                
+                const scheduleRes = await fetch(scheduleEndpoint);
+                if (scheduleRes.ok) {
+                    const scheduleData = await scheduleRes.json();
+                    console.log(`✅ GET ${scheduleEndpoint}: OK`, scheduleData.length || 'events');
+                } else {
+                    console.log(`❌ GET ${scheduleEndpoint}: ${scheduleRes.status}`);
+                }
+            }
+        }
+    } catch (e) {
+        console.log(`Error testing schedule: ${e.message}`);
     }
 }
 
@@ -1299,43 +1328,39 @@ async function createNewEvent() {
 
     console.log('Final payload:', payload);
 
-    // 4. SPRÓBUJMY RÓŻNYCH ENDPOINTÓW
-    const endpointsToTry = [
-        { method: 'POST', url: `${API}/api/visits` },
-        { method: 'POST', url: `${API}/api/appointments` },
-        { method: 'POST', url: `${API}/api/schedule` },
-        { method: 'POST', url: `${API}/api/events` },
-        { method: 'POST', url: `${API}/api/slots` },
-        { method: 'PUT', url: `${API}/api/visits` },
-        { method: 'PUT', url: `${API}/api/schedule` }
-    ];
+    // 4. WYŚLIJ ŻĄDANIE DO NOWEGO ENDPOINTU - TYLKO JEDEN ENDPOINT
+    try {
+        console.log(`Sending POST to ${API}/api/schedule`);
+        const response = await fetch(`${API}/api/schedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
 
-    for (const endpoint of endpointsToTry) {
-        try {
-            console.log(`Trying ${endpoint.method} ${endpoint.url}`);
-            const response = await fetch(endpoint.url, {
-                method: endpoint.method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            console.log(`Response status: ${response.status}`);
-
-            if (response.ok) {
-                const result = await response.json();
-                console.log('✅ Success! Response:', result);
-                showAlert('✅ Wizyta została dodana', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
-                await reloadData();
-                return;
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Success! Response:', result);
+            showAlert('✅ Wizyta została dodana', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
+            await reloadData();
+            return;
+        } else {
+            const errorData = await response.json();
+            console.log(`❌ POST failed: ${response.status}`, errorData);
+            
+            if (errorData.conflicts && errorData.conflicts.length > 0) {
+                showCollisionDetails(errorData.conflicts, starts_at, ends_at);
             } else {
-                console.log(`❌ ${endpoint.method} ${endpoint.url} failed: ${response.status}`);
-                // Kontynuuj do następnego endpointu
+                showAlert(`Błąd ${response.status}: ${errorData.error || 'Nieznany błąd'}`, 'danger');
             }
-        } catch (e) {
-            console.log(`Error with ${endpoint.method} ${endpoint.url}:`, e);
+            return;
         }
+    } catch (e) {
+        console.error('Error with POST:', e);
+        showAlert(`Błąd połączenia: ${e.message}`, 'danger');
+        return;
     }
+}
 
     // 5. JEŚLI WSZYSTKO ZAWIEDZIE, POKAŻ BŁĄD I ZAPROPONUJ DEBUG
     showAlert(`
@@ -1838,6 +1863,7 @@ function addDebugButton() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
