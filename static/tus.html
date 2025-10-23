@@ -790,50 +790,88 @@ async function openGroupDetails(groupId) {
       }
 
       /**
-       * Otwiera modal do oceniania zachowań dla danej sesji.
-       * @param {number} sessionId - ID sesji.
-       * @param {number} groupId - ID grupy (do odświeżenia widoku).
-       */
-      async function openScoringModal(sessionId, groupId) {
-        try {
-          const data = await fetchJSON(`${API_BASE}/api/tus/sessions/${sessionId}/scores`);
+       * Otwiera modal do oceniania zachowań dla danej sesji. (Wersja 2.0 - z poprawką)
+       * @param {number} sessionId - ID sesji.
+       * @param {number} groupId - ID grupy (do odświeżenia widoku).
+       */
+      async function openScoringModal(sessionId, groupId) {
+        try {
+          const data = await fetchJSON(`${API_BASE}/api/tus/sessions/${sessionId}/scores`);
 
-          if (!data.behaviors || data.behaviors.length === 0) {
-            $('#scoringBody').html(`<div class="alert alert-warning mb-0">Do tej sesji nie przypisano żadnych zachowań do modelowania.</div>`);
-          } else {
-            let thead = '<tr><th>Osoba</th>';
-            data.behaviors.forEach(b => thead += `<th>${b.title}<br><small>max ${b.max_points}</small></th>`);
-            thead += '<th class="text-end">Suma</th></tr>';
+          // 1. Najpierw sprawdź, czy w ogóle są członkowie
+          if (!data.members || data.members.length === 0) {
+            $('#scoringBody').html(`<div class="alert alert-warning mb-0">Do tej sesji nie przypisano żadnych uczestników.</div>`);
+            // Wyłącz przycisk zapisu, jeśli nie ma kogo zapisać
+            $('#saveScoresBtn').prop('disabled', true);
+          } else {
+            // 2. Buduj nagłówek (thead) - kolumny obecności i osoby są ZAWSZE
+            let thead = '<tr><th class="text-center">Obecność</th><th>Osoba</th>';
+            const hasBehaviors = data.behaviors && data.behaviors.length > 0;
 
-            let tbody = '';
-            data.members.forEach(m => {
-              let sum = 0;
-              let tds = '';
-              data.behaviors.forEach(b => {
-                const val = (data.scores?.[m.id]?.[b.behavior_id]) ?? 0;
-                sum += Number(val) || 0;
-                tds += `<td style="width:120px"><input type="number" class="form-control form-control-sm score-input" data-cid="${m.id}" data-bid="${b.behavior_id}" value="${val}" min="0" max="${b.max_points}"></td>`;
-              });
-              tbody += `<tr data-cid="${m.id}"><td>${m.full_name}</td>${tds}<td class="sum-cell text-end fw-bold">${sum}</td></tr>`;
-            });
+            // Dodaj kolumny zachowań i sumy tylko jeśli zachowania istnieją
+            if (hasBehaviors) {
+              data.behaviors.forEach(b => thead += `<th>${b.title}<br><small>max ${b.max_points}</small></th>`);
+              thead += '<th class="text-end">Suma</th>';
+            }
+            thead += '</tr>';
 
-            $('#scoringBody').html(`
-              <div class="table-responsive">
-                <table class="table table-sm align-middle">
-                  <thead>${thead}</thead>
-                  <tbody>${tbody}</tbody>
-                </table>
-              </div>`);
-          }
+            // 3. Buduj ciało tabeli (tbody)
+            let tbody = '';
+            data.members.forEach(m => {
+              // Komórka obecności (zawsze)
+              const isPresent = m.is_present === undefined ? true : m.is_present;
+              const checkedAttr = isPresent ? 'checked' : '';
+              const attendanceTd = `<td class="text-center align-middle"><input class="form-check-input attendance-check" type="checkbox" ${checkedAttr}></td>`;
 
-          $('#scoringSessionId').val(String(sessionId));
-          $('#scoringGroupId').val(String(groupId));
-          scoringModal.show();
-        } catch (e) {
-          console.error(e);
-          alert('Nie udało się wczytać danych do punktacji: ' + e.message);
-        }
-      }
+              // Komórka imienia (zawsze)
+              const nameTd = `<td>${m.full_name}</td>`;
+
+              let scoreTds = '';
+              let sumTd = '';
+              let sum = 0;
+
+              // Dodaj komórki ocen i sumy tylko jeśli zachowania istnieją
+              if (hasBehaviors) {
+                data.behaviors.forEach(b => {
+                  const val = (data.scores?.[m.id]?.[b.behavior_id]) ?? 0;
+                  sum += Number(val) || 0;
+                  scoreTds += `<td style="width:120px"><input type="number" class="form-control form-control-sm score-input" data-cid="${m.id}" data-bid="${b.behavior_id}" value="${val}" min="0" max="${b.max_points}"></td>`;
+                });
+                sumTd = `<td class="sum-cell text-end fw-bold">${sum}</td>`;
+              }
+              
+              // Złóż wiersz
+              tbody += `<tr data-cid="${m.id}">
+                          ${attendanceTd}
+                          ${nameTd}
+                          ${scoreTds}
+                          ${sumTd}
+                        </tr>`;
+            });
+
+            // 4. Wstaw gotowy HTML do modala
+            $('#scoringBody').html(`
+              ${!hasBehaviors ? '<div class="alert alert-info mb-2">Brak zachowań do oceny. Możesz zapisać tylko obecność.</div>' : ''}
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle">
+                  <thead>${thead}</thead>
+                  <tbody>${tbody}</tbody>
+                </table>
+              </div>`);
+            
+            // Włącz przycisk zapisu
+            $('#saveScoresBtn').prop('disabled', false);
+          }
+
+          // Ustaw ID i pokaż modal (bez zmian)
+          $('#scoringSessionId').val(String(sessionId));
+          $('#scoringGroupId').val(String(groupId));
+          scoringModal.show();
+        } catch (e) {
+          console.error(e);
+          alert('Nie udało się wczytać danych do punktacji: ' + e.message);
+        }
+      }
 
       /**
        * Odświeża i wyświetla podsumowanie bonusów dla grupy w danym roku.
@@ -1313,3 +1351,4 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
