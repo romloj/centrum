@@ -741,13 +741,19 @@ async function saveEventChanges() {
     const place = document.getElementById('editPlace').value;
     const status = document.getElementById('editStatus').value;
 
+    // DEBUG
+    console.log('EDYCJA - Data:', date, 'Start:', startTime, 'End:', endTime);
+
     if (!eventId || !date || !startTime || !endTime) {
         showAlert('Proszę wypełnić wszystkie pola oznaczone gwiazdką (*)', 'danger');
         return;
     }
 
-    const starts_at = `${date}T${startTime}:00`;
-    const ends_at = `${date}T${endTime}:00`;
+    // UŻYJ TEGO SAMEGO FORMATU
+    const starts_at = `${date}T${startTime}:00Z`;  // Dodaj 'Z'
+    const ends_at = `${date}T${endTime}:00Z`;      // Dodaj 'Z'
+
+    console.log('WYSYŁANE DO API (edycja):', { starts_at, ends_at });
 
     const payload = {
         starts_at: starts_at,
@@ -755,7 +761,6 @@ async function saveEventChanges() {
         place_to: place,
         status: status
     };
-
     try {
         const response = await fetch(`${API}/api/schedule/${eventId}`, {
             method: 'PUT',
@@ -1796,6 +1801,7 @@ function debugTimeIssue() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
