@@ -1084,7 +1084,7 @@ async function debugAPI() {
     }
 }
 
-// Zmodyfikowana funkcja createNewEvent z lepszym debugowaniem
+// ZOSTAW TYLKO JEDNĄ WERSJĘ - ta poniżej jest poprawna:
 async function createNewEvent() {
     console.log('=== CREATE NEW EVENT START ===');
 
@@ -1099,33 +1099,36 @@ async function createNewEvent() {
     const place = document.getElementById('addPlace').value;
     const type = document.getElementById('addType').value;
 
-    const starts_at = `${date}T${startTime}:00`;
-    const ends_at = `${date}T${endTime}:00`; 
-
     // 2. WALIDACJA PÓL WSPÓLNYCH
     if (!therapistId || !date || !startTime || !endTime) {
         showAlert('Proszę wypełnić wszystkie wymagane pola (Terapeuta, Data, Czas)', 'danger');
         return;
     }
-    
+
+    // UŻYJ POPRAWNEGO FORMATU Z 'T'
+    const starts_at = `${date}T${startTime}:00`;
+    const ends_at = `${date}T${endTime}:00`;
+
     let payload = {
         therapist_id: Number(therapistId),
-        starts_at,
-        ends_at,
+        starts_at: starts_at,
+        ends_at: ends_at,
         place_to: place || null,
         status: 'planned'
     };
 
     // 3. LOGIKA WARUNKOWA DLA TYPU WIZYTY
     if (type === 'tus') {
+        // --- Tryb grupowy ---
         const groupId = document.getElementById('addGroup').value;
         if (!groupId) {
             showAlert('Proszę wybrać grupę', 'danger');
             return;
         }
         payload.group_id = Number(groupId); 
-        payload.kind = 'tus'; 
+        payload.kind = 'tus';
     } else {
+        // --- Tryb indywidualny ---
         const clientId = document.getElementById('addClient').value;
         const newClientName = document.getElementById('addNewClientName').value.trim();
 
@@ -1136,6 +1139,7 @@ async function createNewEvent() {
 
         let finalClientId = clientId && clientId !== '' ? clientId : null;
 
+        // Tworzenie nowego klienta jeśli potrzeba
         if (newClientName && (!finalClientId || finalClientId === '')) {
             try {
                 console.log('Creating new client:', newClientName);
@@ -1146,13 +1150,18 @@ async function createNewEvent() {
                 });
 
                 if (!createClientRes.ok) {
-                    throw new Error(`Nie można utworzyć nowego klienta: ${createClientRes.status}`);
+                    const errorText = await createClientRes.text();
+                    throw new Error(`Nie można utworzyć nowego klienta: ${errorText}`);
                 }
 
                 const newClient = await createClientRes.json();
                 finalClientId = newClient.id || newClient.client_id;
                 console.log('New client created with ID:', finalClientId);
-                _clientsCache = null;
+
+                if (!finalClientId) {
+                    throw new Error('Serwer nie zwrócił ID nowego klienta');
+                }
+                _clientsCache = null; // Unieważnij cache klientów
 
             } catch (e) {
                 console.error('Error creating client:', e);
@@ -1170,9 +1179,10 @@ async function createNewEvent() {
         payload.kind = 'therapy';
     }
 
-    console.log('Final payload:', payload);
+    console.log('=== FINAL PAYLOAD ===');
+    console.log('Payload:', payload);
 
-    // 4. WYŚLIJ ŻĄDANIE DO NOWEGO ENDPOINTU - TYLKO JEDEN ENDPOINT
+    // 4. WYŚLIJ ŻĄDANIE
     try {
         console.log(`Sending POST to ${API}/api/schedule`);
         const response = await fetch(`${API}/api/schedule`, {
@@ -1204,17 +1214,6 @@ async function createNewEvent() {
         showAlert(`Błąd połączenia: ${e.message}`, 'danger');
         return;
     }
-
-
-    // 5. JEŚLI WSZYSTKO ZAWIEDZIE, POKAŻ BŁĄD I ZAPROPONUJ DEBUG
-    showAlert(`
-        <strong>Nie można dodać wizyty.</strong><br>
-        <small>Wszystkie próby zapisu zakończyły się niepowodzeniem.<br>
-        <button class="btn btn-sm btn-outline-primary mt-2" onclick="debugAPI()">Zdebuguj API</button>
-        </small>
-    `, 'danger');
-
-    console.log('=== ALL ATTEMPTS FAILED ===');
 }
 
     
@@ -1707,6 +1706,7 @@ function addDebugButton() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
