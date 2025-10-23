@@ -1360,7 +1360,7 @@ async function createNewEvent() {
         showAlert(`Błąd połączenia: ${e.message}`, 'danger');
         return;
     }
-}
+
 
     // 5. JEŚLI WSZYSTKO ZAWIEDZIE, POKAŻ BŁĄD I ZAPROPONUJ DEBUG
     showAlert(`
@@ -1372,6 +1372,8 @@ async function createNewEvent() {
 
     console.log('=== ALL ATTEMPTS FAILED ===');
 }
+
+    
 async function reloadData(){
     _state.therapistId = document.getElementById("tpTherapistSelect").value || "all";
 
@@ -1861,6 +1863,7 @@ function addDebugButton() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
