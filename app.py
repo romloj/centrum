@@ -3474,76 +3474,118 @@ def create_group_with_slots():
 
 @app.route('/api/schedule', methods=['POST'])
 def create_schedule_slot():
-    """Tworzy nową wizytę w harmonogramie"""
+    """Tworzy nową wizytę w harmonogramie (indywidualną lub TUS)"""
     data = request.get_json(silent=True) or {}
-    
+
     print(f"=== CREATE SCHEDULE SLOT ===")
     print(f"Otrzymane dane: {data}")
 
-    # Walidacja wymaganych pól
-    required_fields = ['therapist_id', 'client_id', 'starts_at', 'ends_at']
-    missing_fields = [field for field in required_fields if not data.get(field)]
-    if missing_fields:
-        return jsonify({"error": f"Brak wymaganych pól: {', '.join(missing_fields)}"}), 400
+    # --- POPRAWIONA WALIDACJA ---
+    kind = data.get('kind') # Powinno być 'therapy' lub 'tus'
+    therapist_id = data.get('therapist_id')
+    starts_at_str = data.get('starts_at')
+    ends_at_str = data.get('ends_at')
+
+    # Sprawdzenie podstawowych pól
+    base_required = {'therapist_id': therapist_id, 'starts_at': starts_at_str, 'ends_at': ends_at_str, 'kind': kind}
+    missing_base = [k for k, v in base_required.items() if not v]
+    if missing_base:
+        return jsonify({"error": f"Brak podstawowych pól: {', '.join(missing_base)}"}), 400
+
+    # Sprawdzenie pól zależnych od 'kind'
+    if kind == 'therapy':
+        client_id = data.get('client_id')
+        if not client_id:
+            return jsonify({"error": "Brak wymaganego pola: client_id dla terapii indywidualnej"}), 400
+        group_id_db = None # Dla terapii indywidualnej używamy group_id z event_groups
+        client_or_group_id = client_id # ID klienta do dalszego użytku
+        target_name_field = 'client_name' # Do komunikatu błędu
+    elif kind == 'tus':
+        group_id = data.get('group_id')
+        if not group_id:
+            return jsonify({"error": "Brak wymaganego pola: group_id dla grupy TUS"}), 400
+        client_id = None # W slocie nie ma ID klienta dla TUS
+        group_id_db = group_id # ID grupy TUS do zapisu w schedule_slots (jeśli chcesz)
+        client_or_group_id = group_id # ID grupy do dalszego użytku
+        target_name_field = 'group_name' # Do komunikatu błędu
+    else:
+        return jsonify({"error": f"Nieznany typ wizyty (kind): {kind}. Oczekiwano 'therapy' lub 'tus'."}), 400
+    # --- KONIEC POPRAWIONEJ WALIDACJI ---
 
     try:
+        # Konwersja dat
+        starts_at = datetime.fromisoformat(starts_at_str.replace(' ', 'T')).replace(tzinfo=TZ)
+        ends_at = datetime.fromisoformat(ends_at_str.replace(' ', 'T')).replace(tzinfo=TZ)
+
         with engine.begin() as conn:
-            # Sprawdź czy terapeuta i klient istnieją
+            # Sprawdź czy terapeuta istnieje
             therapist_exists = conn.execute(
                 text("SELECT 1 FROM therapists WHERE id = :id AND active = true"),
-                {"id": data['therapist_id']}
+                {"id": therapist_id}
             ).scalar()
-            
-            client_exists = conn.execute(
-                text("SELECT 1 FROM clients WHERE id = :id AND active = true"),
-                {"id": data['client_id']}
-            ).scalar()
-
             if not therapist_exists:
                 return jsonify({"error": "Terapeuta nie istnieje lub jest nieaktywny"}), 404
-            if not client_exists:
-                return jsonify({"error": "Klient nie istnieje lub jest nieaktywny"}), 404
 
-            # Sprawdź kolizje czasowe
-            starts_at = datetime.fromisoformat(data['starts_at'].replace('Z', '+00:00')).astimezone(TZ)
-            ends_at = datetime.fromisoformat(data['ends_at'].replace('Z', '+00:00')).astimezone(TZ)
+            # Sprawdź czy klient lub grupa TUS istnieje (zależnie od 'kind')
+            if kind == 'therapy':
+                target_exists = conn.execute(
+                    text("SELECT 1 FROM clients WHERE id = :id AND active = true"),
+                    {"id": client_or_group_id}
+                ).scalar()
+                target_type = "Klient"
+            else: # kind == 'tus'
+                target_exists = conn.execute(
+                    text("SELECT 1 FROM tus_groups WHERE id = :id"),
+                    {"id": client_or_group_id}
+                ).scalar()
+                target_type = "Grupa TUS"
 
-            conflicts = find_overlaps(conn, therapist_id=data['therapist_id'], 
-                                    starts_at=starts_at, ends_at=ends_at)
-            
+            if not target_exists:
+                return jsonify({"error": f"{target_type} nie istnieje lub jest nieaktywny"}), 404
+
+            # Sprawdź kolizje czasowe dla terapeuty
+            conflicts = find_overlaps(conn, therapist_id=therapist_id,
+                                      starts_at=starts_at, ends_at=ends_at)
             if conflicts:
                 return jsonify({
                     "error": "Konflikt czasowy z istniejącymi zajęciami",
                     "conflicts": conflicts
                 }), 409
 
-            # Utwórz grupę wydarzeń
-            group_id = uuid.uuid4()
-            conn.execute(text("""
-                INSERT INTO event_groups (id, client_id, label)
-                VALUES (:id, :client_id, :label)
-            """), {
-                "id": group_id,
-                "client_id": data['client_id'],
-                "label": f"Terapia {data['client_id']} - {starts_at.strftime('%Y-%m-%d %H:%M')}"
-            })
+            # --- ZAPIS DO BAZY (z uwzględnieniem 'kind') ---
+            session_id = ensure_shared_session_id_for_therapist(conn, therapist_id, starts_at, ends_at)
 
-            # Utwórz session_id dla terapeuty
-            session_id = ensure_shared_session_id_for_therapist(conn, data['therapist_id'], starts_at, ends_at)
+            # Utwórz event_group tylko dla terapii indywidualnej
+            event_group_uuid = None
+            if kind == 'therapy':
+                event_group_uuid = uuid.uuid4()
+                conn.execute(text("""
+                    INSERT INTO event_groups (id, client_id, label)
+                    VALUES (:id, :client_id, :label)
+                """), {
+                    "id": event_group_uuid,
+                    "client_id": client_id,
+                    "label": f"Terapia {client_id} - {starts_at.strftime('%Y-%m-%d %H:%M')}"
+                })
+                group_id_for_slot = str(event_group_uuid) # Używamy UUID z event_groups
+            else:
+                 group_id_for_slot = None # Dla TUS nie tworzymy event_group, group_id może być puste w slocie
 
             # Wstaw nowy slot
             result = conn.execute(text("""
                 INSERT INTO schedule_slots (
-                    group_id, client_id, therapist_id, kind,
+                    group_id, client_id, therapist_id, kind, group_tus_id, -- Dodano group_tus_id
                     starts_at, ends_at, place_to, status, session_id
                 ) VALUES (
-                    :group_id, :client_id, :therapist_id, 'therapy',
+                    :group_id, :client_id, :therapist_id, :kind, :group_tus_id,
                     :starts_at, :ends_at, :place_to, :status, :session_id
                 ) RETURNING id
             """), {
-                "group_id": str(group_id),
-                "client_id": data['client_id'],
-                "therapist_id": data['therapist_id'],
+                "group_id": group_id_for_slot, # UUID event_groups lub None
+                "client_id": client_id, # ID klienta lub None dla TUS
+                "therapist_id": therapist_id,
+                "kind": kind,
+                "group_tus_id": group_id if kind == 'tus' else None, # ID grupy TUS lub None
                 "starts_at": starts_at,
                 "ends_at": ends_at,
                 "place_to": data.get('place_to'),
@@ -3553,18 +3595,21 @@ def create_schedule_slot():
 
             new_slot_id = result.scalar_one()
 
-            # Utwórz wpis o obecności
-            conn.execute(text("""
-                INSERT INTO individual_session_attendance (slot_id, status)
-                VALUES (:slot_id, 'obecny')
-            """), {"slot_id": new_slot_id})
+            # Utwórz wpis o obecności tylko dla terapii indywidualnej
+            if kind == 'therapy':
+                conn.execute(text("""
+                    INSERT INTO individual_session_attendance (slot_id, status)
+                    VALUES (:slot_id, 'obecny')
+                """), {"slot_id": new_slot_id})
 
-            print(f"✅ Utworzono nową wizytę ID: {new_slot_id}")
+            print(f"✅ Utworzono nową wizytę ({kind}) ID: {new_slot_id}")
 
             return jsonify({
                 "success": True,
                 "slot_id": new_slot_id,
-                "group_id": str(group_id),
+                "group_id": group_id_for_slot, # Zwracamy UUID dla indywidualnych
+                "group_tus_id": group_id if kind == 'tus' else None, # Zwracamy ID grupy TUS
+                "kind": kind,
                 "message": "Wizyta została utworzona"
             }), 201
 
@@ -7478,6 +7523,7 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
