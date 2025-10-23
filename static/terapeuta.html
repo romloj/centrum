@@ -414,20 +414,6 @@
     }
 
 
-        // DODAJ TE FUNKCJE POMOCNICZE
-function convertToServerTime(date, time) {
-    // Serwer dodaje 2 godziny, więc my odejmijmy 2 godziny przed wysłaniem
-    const localDate = new Date(`${date}T${time}:00`);
-    const serverDate = new Date(localDate.getTime() - (2 * 60 * 60 * 1000)); // minus 2 godziny
-    return serverDate.toISOString();
-}
-
-function convertFromServerTime(serverTime) {
-    // Serwer odsyła czas +2h, więc konwertujmy go z powrotem
-    const serverDate = new Date(serverTime);
-    const localDate = new Date(serverDate.getTime() + (2 * 60 * 60 * 1000)); // plus 2 godziny
-    return localDate;
-}
     
     function initials(name){
       if(!name) return "";
@@ -856,9 +842,9 @@ if (!document.querySelector('#collision-styles')) {
         ends_at: eventData.ends_at
     });
 
-    // KOREKTA: Serwer zwraca czas +2h, więc konwertujmy z powrotem
-    const startDate = convertFromServerTime(eventData.starts_at);
-    const endDate = convertFromServerTime(eventData.ends_at);
+   // Poprawna interpretacja czasu lokalnego z serwera
+    const startDate = parseLocalTimestamp(eventData.starts_at);
+    const endDate = parseLocalTimestamp(eventData.ends_at);
 
     console.log('🔄 PO KOREKCIE:');
     console.log('  Start:', startDate.toLocaleString('pl-PL'));
@@ -896,8 +882,8 @@ if (!document.querySelector('#collision-styles')) {
 
       if (!date || !startTime || !endTime) return false;
 
-      const newStart = new Date(`${date}T${startTime}:00`);
-      const newEnd = new Date(`${date}T${endTime}:00`);
+      const starts_at = `${date} ${startTime}:00`;
+    const ends_at = `${date} ${endTime}:00`;
 
       const hasCollision = _state.rows.some(r => {
         if (r.slot_id == eventId) return false;
@@ -1857,6 +1843,7 @@ function debugTimeIssue() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
