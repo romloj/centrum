@@ -426,7 +426,65 @@
 
     const dowShort = ["Pn","Wt","Śr","Cz","Pt","So","Nd"];
 
-   function detectCollisions(rows)
+   function detectCollisions(rows) {
+    const collisions = new Map();
+    
+    // Grupuj wizyty według terapeuty i daty
+    const eventsByTherapistAndDate = new Map();
+    
+    rows.forEach(event => {
+        const therapistId = event.therapist_id;
+        const eventDate = parseLocalTimestamp(event.starts_at);
+        if (!eventDate) return;
+        
+        const dateKey = fmtYYYYMMDD(eventDate);
+        const key = `${therapistId}-${dateKey}`;
+        
+        if (!eventsByTherapistAndDate.has(key)) {
+            eventsByTherapistAndDate.set(key, []);
+        }
+        eventsByTherapistAndDate.get(key).push(event);
+    });
+    
+    // Sprawdzaj kolizje dla każdego terapeuty w danym dniu
+    eventsByTherapistAndDate.forEach((events, key) => {
+        // Sortuj wydarzenia według czasu rozpoczęcia
+        events.sort((a, b) => {
+            const aStart = parseLocalTimestamp(a.starts_at);
+            const bStart = parseLocalTimestamp(b.starts_at);
+            return aStart - bStart;
+        });
+        
+        // Sprawdź nakładanie się kolejnych wydarzeń
+        for (let i = 0; i < events.length; i++) {
+            for (let j = i + 1; j < events.length; j++) {
+                const a = events[i], b = events[j];
+                
+                const aStart = parseLocalTimestamp(a.starts_at);
+                const aEnd = parseLocalTimestamp(a.ends_at);
+                const bStart = parseLocalTimestamp(b.starts_at);
+                const bEnd = parseLocalTimestamp(b.ends_at);
+                
+                if (!aStart || !aEnd || !bStart || !bEnd) continue;
+                
+                // Sprawdź nakładanie się przedziałów czasowych
+                if (aStart < bEnd && bStart < aEnd) {
+                    if (!collisions.has(a.slot_id)) collisions.set(a.slot_id, []);
+                    if (!collisions.has(b.slot_id)) collisions.set(b.slot_id, []);
+                    collisions.get(a.slot_id).push(b.slot_id);
+                    collisions.get(b.slot_id).push(a.slot_id);
+                }
+                
+                // Jeśli następne wydarzenie zaczyna się po zakończeniu obecnego, przerwij wewnętrzną pętlę
+                if (bStart >= aEnd) {
+                    break;
+                }
+            }
+        }
+    });
+    
+    return collisions;
+}
 
     // Załaduj listę klientów
     async function loadClients() {
@@ -1706,6 +1764,7 @@ function addDebugButton() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
