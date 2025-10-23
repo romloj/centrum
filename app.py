@@ -874,7 +874,7 @@ def ensure_shared_session_id_for_therapist(conn, therapist_id, starts_at, ends_a
     return row["session_id"]
 
 # Endpoint do pobierania dostępnych terapeutów dla formularza dodawania
-@app.get("/api/available-therapists")
+@app.route('/api/available-therapists', methods=['GET'])
 def get_available_therapists():
     """Zwraca listę aktywnych terapeutów dla formularza dodawania wizyt"""
     try:
@@ -892,7 +892,7 @@ def get_available_therapists():
         return jsonify({"error": str(e)}), 500
 
 # Endpoint do sprawdzania dostępności terapeuty
-@app.post("/api/check-availability")
+@app.route('/api/check-availability', methods=['POST'])
 def check_availability():
     """Sprawdza dostępność terapeuty w danym czasie"""
     data = request.get_json(silent=True) or {}
@@ -922,7 +922,6 @@ def check_availability():
     except Exception as e:
         print(f"Błąd sprawdzania dostępności: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
 
 # === DEKORATORY I HOOKI FLASK ===
 @app.before_request
@@ -3459,7 +3458,7 @@ def create_group_with_slots():
         return jsonify({"error": str(e)}), 500
 
 
-@app.post("/api/schedule")
+@app.route('/api/schedule', methods=['POST'])
 def create_schedule_slot():
     """Tworzy nową wizytę w harmonogramie"""
     data = request.get_json(silent=True) or {}
@@ -3648,7 +3647,7 @@ def update_schedule_slot(slot_id):
         traceback.print_exc()
         return jsonify({"error": f"Błąd aktualizacji wizyty: {str(e)}"}), 500
 
-@app.delete("/api/schedule/<int:slot_id>")
+@app.route('/api/schedule/<int:slot_id>', methods=['DELETE'])
 def delete_schedule_slot(slot_id):
     """Usuwa wizytę z harmonogramu"""
     print(f"=== DELETE SCHEDULE SLOT {slot_id} ===")
@@ -7420,6 +7419,7 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
