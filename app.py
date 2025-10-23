@@ -892,9 +892,23 @@ def get_available_therapists():
         return jsonify({"error": str(e)}), 500
 
 # Endpoint do sprawdzania dostępności terapeuty
-@app.route('/api/check-availability', methods=['POST'])
+@app.route('/api/check-availability', methods=['POST', 'GET'])  # Dodaj GET
 def check_availability():
     """Sprawdza dostępność terapeuty w danym czasie"""
+    
+    # Dla metody GET zwróć informację o endpointie
+    if request.method == 'GET':
+        return jsonify({
+            "message": "Endpoint check-availability jest aktywny",
+            "usage": "Wymaga metody POST z danymi: therapist_id, starts_at, ends_at",
+            "example_payload": {
+                "therapist_id": 1,
+                "starts_at": "2024-01-23T10:00:00",
+                "ends_at": "2024-01-23T11:00:00"
+            }
+        }), 200
+    
+    # Dla metody POST - oryginalna logika
     data = request.get_json(silent=True) or {}
     
     therapist_id = data.get('therapist_id')
@@ -7419,6 +7433,7 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
