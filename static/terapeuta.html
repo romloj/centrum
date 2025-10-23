@@ -636,7 +636,6 @@ async function openAddModal() {
       return hasCollision;
     }
 
-    // Utwórz nową wizytę
 async function createNewEvent() {
     console.log('=== CREATE NEW EVENT START ===');
 
@@ -651,19 +650,20 @@ async function createNewEvent() {
     const place = document.getElementById('addPlace').value;
     const type = document.getElementById('addType').value;
 
-    const starts_at = `${date} ${startTime}:00`;
-    const ends_at = `${date} ${endTime}:00`;
-
     // 2. WALIDACJA PÓL WSPÓLNYCH
     if (!therapistId || !date || !startTime || !endTime) {
         showAlert('Proszę wypełnić wszystkie wymagane pola (Terapeuta, Data, Czas)', 'danger');
         return;
     }
-    
+
+    // Przygotuj daty w formacie ISO
+    const starts_at = `${date}T${startTime}:00`;
+    const ends_at = `${date}T${endTime}:00`;
+
     let payload = {
         therapist_id: Number(therapistId),
-        starts_at,
-        ends_at,
+        starts_at: starts_at,
+        ends_at: ends_at,
         place_to: place || null,
         status: 'planned'
     };
@@ -676,8 +676,11 @@ async function createNewEvent() {
             showAlert('Proszę wybrać grupę', 'danger');
             return;
         }
+        // Dla grup TUS użyj specjalnego endpointu lub dodaj pole do payload
         payload.group_id = Number(groupId); 
-        payload.kind = 'tus'; 
+        payload.kind = 'tus';
+        showAlert('Dodawanie grup TUS wymaga osobnej implementacji', 'warning');
+        return;
 
     } else {
         // --- Tryb indywidualny ---
@@ -691,6 +694,7 @@ async function createNewEvent() {
 
         let finalClientId = clientId && clientId !== '' ? clientId : null;
 
+        // Tworzenie nowego klienta jeśli potrzeba
         if (newClientName && (!finalClientId || finalClientId === '')) {
             try {
                 console.log('Creating new client:', newClientName);
@@ -733,155 +737,43 @@ async function createNewEvent() {
     console.log('=== FINAL PAYLOAD ===');
     console.log('Payload:', payload);
 
-    // 4. SPRAWDŹ, KTÓRE ENDPOINTY DZIAŁAJĄ - NAJPIERW PRZETESTOJMY GET
-    console.log('=== TESTING ENDPOINTS ===');
-    
-    // Testujmy różne endpointy GET, żeby zobaczyć które istnieją
-    const testEndpoints = [
-        `${API}/api/schedule`,
-        `${API}/api/therapists/${therapistId}/schedule`,
-        `${API}/api/sessions`,
-        `${API}/api/appointments`,
-        `${API}/api/slots`,
-        `${API}/api/visits`,
-        `${API}/api/events`
-    ];
+    // 4. WYŚLIJ ŻĄDANIE DO NOWEGO ENDPOINTU
+    try {
+        console.log(`Sending POST to ${API}/api/schedule`);
+        const response = await fetch(`${API}/api/schedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
 
-    let workingEndpoint = null;
-    
-    for (const endpoint of testEndpoints) {
-        try {
-            console.log(`Testing GET ${endpoint}`);
-            const response = await fetch(endpoint, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
-            });
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Success! Response:', result);
+            showAlert('✅ Wizyta została dodana', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
+            await reloadData();
+            return;
+        } else {
+            const errorData = await response.json();
+            console.log(`❌ POST failed: ${response.status}`, errorData);
             
-            if (response.ok) {
-                console.log(`✅ GET works on: ${endpoint}`);
-                workingEndpoint = endpoint;
-                break;
+            if (errorData.conflicts && errorData.conflicts.length > 0) {
+                // Pokaz szczegóły konfliktów
+                const conflictDetails = errorData.conflicts.map(c => 
+                    `${c.client_name} (${c.starts_at})`
+                ).join(', ');
+                
+                showAlert(`❌ Konflikt czasowy z: ${conflictDetails}`, 'danger');
             } else {
-                console.log(`❌ GET failed on ${endpoint}: ${response.status}`);
+                showAlert(`Błąd ${response.status}: ${errorData.error || 'Nieznany błąd'}`, 'danger');
             }
-        } catch (e) {
-            console.log(`❌ GET error on ${endpoint}: ${e.message}`);
-        }
-    }
-
-    // 5. JEŚLI ZNALEŹLIŚMY DZIAŁAJĄCY ENDPOINT, SPRÓBUJMY WYSŁAĆ POST
-    if (workingEndpoint) {
-        try {
-            console.log(`Trying POST on working endpoint: ${workingEndpoint}`);
-            const response = await fetch(workingEndpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                console.log('✅ Success! Response:', result);
-                showAlert('✅ Wizyta została dodana', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
-                await reloadData();
-                return;
-            } else {
-                console.log(`❌ POST failed: ${response.status}`);
-                const errorText = await response.text();
-                showAlert(`Błąd ${response.status}: ${errorText}`, 'danger');
-                return;
-            }
-        } catch (e) {
-            console.error('Error with POST:', e);
-            showAlert(`Błąd wysyłania: ${e.message}`, 'danger');
             return;
         }
+    } catch (e) {
+        console.error('Error with POST:', e);
+        showAlert(`Błąd połączenia: ${e.message}`, 'danger');
+        return;
     }
-
-    // 6. JEŚLI NIE ZNALEŹLIŚMY DZIAŁAJĄCEGO ENDPOINTU, SPRÓBUJMY INNE METODY
-    console.log('=== TRYING ALTERNATIVE APPROACHES ===');
-    
-    // Próbujmy różnych kombinacji endpointów i metod
-    const alternativeEndpoints = [
-        { method: 'POST', url: `${API}/api/calendar/event` },
-        { method: 'POST', url: `${API}/api/calendar/appointment` },
-        { method: 'PUT', url: `${API}/api/schedule` },
-        { method: 'PUT', url: `${API}/api/visits` },
-        { method: 'POST', url: `${API}/api/therapist/${therapistId}/appointment` },
-        { method: 'POST', url: `${API}/api/create-appointment` }
-    ];
-
-    for (const endpoint of alternativeEndpoints) {
-        try {
-            console.log(`Trying ${endpoint.method} ${endpoint.url}`);
-            const response = await fetch(endpoint.url, {
-                method: endpoint.method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                console.log('✅ Success with alternative endpoint!');
-                showAlert('✅ Wizyta została dodana', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
-                await reloadData();
-                return;
-            }
-        } catch (e) {
-            console.log(`Error with ${endpoint.method} ${endpoint.url}:`, e);
-        }
-    }
-
-    // 7. OSTATECZNA PRÓBA - SPRAWDŹMY STRUKTURĘ DANYCH Z ISTNIEJĄCYCH WIZYT
-    if (_state.rows.length > 0) {
-        console.log('=== ANALYZING EXISTING DATA STRUCTURE ===');
-        console.log('First existing event:', _state.rows[0]);
-        
-        // Spróbujmy użyć tej samej struktury co istniejące wydarzenia
-        const existingEvent = _state.rows[0];
-        const adaptedPayload = {
-            ...payload,
-            // Dodaj pola, które mogą być wymagane przez API
-            id: null, // lub pomiń jeśli serwer generuje ID
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-        };
-
-        // Spróbujmy z endpointem który używasz do pobierania danych
-        const scheduleEndpoint = `${API}/api/therapists/${therapistId}/schedule`;
-        try {
-            console.log('Final attempt with adapted payload on:', scheduleEndpoint);
-            const response = await fetch(scheduleEndpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(adaptedPayload)
-            });
-
-            if (response.ok) {
-                showAlert('✅ Wizyta została dodana', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
-                await reloadData();
-                return;
-            }
-        } catch (e) {
-            console.error('Final attempt failed:', e);
-        }
-    }
-
-    // 8. JEŚLI WSZYSTKO ZAWIEDZIE, POKAŻ INSTRUKCJE
-    showAlert(`
-        <strong>Nie można dodać wizyty.</strong><br>
-        <small>Problem z połączeniem z serwerem. Sprawdź:<br>
-        1. Czy endpoint API akceptuje żądania POST<br>
-        2. Czy struktura danych jest poprawna<br>
-        3. Sprawdź konsolę przeglądarki dla szczegółów</small>
-    `, 'danger');
-
-    console.log('=== ALL ATTEMPTS FAILED ===');
-    console.log('Payload that was attempted:', payload);
-    console.log('Please check your API documentation for the correct endpoint and method');
 }
 
     // Otwórz modal edycji
@@ -957,69 +849,50 @@ async function createNewEvent() {
       return hasCollision;
     }
 
-    // Zapisz zmiany
-    async function saveEventChanges() {
-      const eventId = document.getElementById('editEventId').value;
-      const date = document.getElementById('editDate').value;
-      const startTime = document.getElementById('editStartTime').value;
-      const endTime = document.getElementById('editEndTime').value;
-      const place = document.getElementById('editPlace').value;
-      const status = document.getElementById('editStatus').value;
+   // Zmodyfikowana funkcja saveEventChanges
+async function saveEventChanges() {
+    const eventId = document.getElementById('editEventId').value;
+    const date = document.getElementById('editDate').value;
+    const startTime = document.getElementById('editStartTime').value;
+    const endTime = document.getElementById('editEndTime').value;
+    const place = document.getElementById('editPlace').value;
+    const status = document.getElementById('editStatus').value;
 
-      if (!eventId || !date || !startTime || !endTime) {
+    if (!eventId || !date || !startTime || !endTime) {
         showAlert('Proszę wypełnić wszystkie pola oznaczone gwiazdką (*)', 'danger');
         return;
-      }
+    }
 
-      const starts_at = `${date} ${startTime}:00`;
-      const ends_at = `${date} ${endTime}:00`;
+    const starts_at = `${date}T${startTime}:00`;
+    const ends_at = `${date}T${endTime}:00`;
 
-      const payload = {
-        starts_at,
-        ends_at,
+    const payload = {
+        starts_at: starts_at,
+        ends_at: ends_at,
         place_to: place,
-        status
-      };
+        status: status
+    };
 
-      const endpoints = [
-        { method: 'PATCH', url: `${API}/api/schedule/${eventId}` },
-        { method: 'PUT', url: `${API}/api/schedule/${eventId}` },
-        { method: 'POST', url: `${API}/api/schedule/${eventId}/update` },
-        { method: 'PATCH', url: `${API}/api/slots/${eventId}` },
-        { method: 'PUT', url: `${API}/api/slots/${eventId}` },
-        { method: 'POST', url: `${API}/api/therapist/schedule/${eventId}` }
-      ];
-
-      let success = false;
-      let lastError = null;
-
-      for (const endpoint of endpoints) {
-        try {
-          const response = await fetch(endpoint.url, {
-            method: endpoint.method,
+    try {
+        const response = await fetch(`${API}/api/schedule/${eventId}`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-          });
+        });
 
-          if (response.ok) {
-            success = true;
+        if (response.ok) {
             showAlert('Wizyta została zaktualizowana', 'success');
             bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
             await reloadData();
-            break;
-          } else if (response.status !== 405 && response.status !== 404) {
-            const errorText = await response.text();
-            lastError = `Błąd ${response.status}: ${errorText}`;
-          }
-        } catch (e) {
-          lastError = e.message;
+        } else {
+            const errorData = await response.json();
+            showAlert(`Błąd: ${errorData.error || 'Nieznany błąd'}`, 'danger');
         }
-      }
-
-      if (!success) {
-        showAlert(`Nie można zapisać zmian. ${lastError || ''}`, 'danger');
-      }
+    } catch (e) {
+        console.error('Error updating event:', e);
+        showAlert('Błąd podczas aktualizacji wizyty', 'danger');
     }
+}
 
     // Usuń wizytę
     async function deleteEvent() {
@@ -1825,6 +1698,7 @@ function addDebugButton() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
