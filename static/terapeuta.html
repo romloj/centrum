@@ -518,49 +518,73 @@
     }
 
     // Otwórz modal dodawania
-    async function openAddModal() {
-      console.log('=== OPENING ADD MODAL ===');
+    // Otwórz modal dodawania
+async function openAddModal() {
+  console.log('=== OPENING ADD MODAL ===');
 
-      // Resetuj formularz
-      document.getElementById('addClient').value = '';
-      document.getElementById('addNewClientName').value = '';
-      document.getElementById('addDate').value = fmtYYYYMMDD(new Date());
-      document.getElementById('addStartTime').value = '10:00';
-      document.getElementById('addEndTime').value = '11:00';
-      document.getElementById('addPlace').value = '';
-      document.getElementById('addType').value = 'therapy';
-      document.getElementById('addCollisionWarning').classList.add('d-none');
-      document.getElementById('addGroup').value = '';
+  // Resetuj formularz
+  document.getElementById('addClient').value = '';
+  document.getElementById('addNewClientName').value = '';
+  document.getElementById('addDate').value = fmtYYYYMMDD(new Date());
+  document.getElementById('addStartTime').value = '10:00';
+  document.getElementById('addEndTime').value = '11:00';
+  document.getElementById('addPlace').value = '';
+  document.getElementById('addType').value = 'therapy';
+  document.getElementById('addCollisionWarning').classList.add('d-none');
+  document.getElementById('addGroup').value = '';
 
-      // Ustaw poprawną widoczność pól PRZED pokazaniem modala
-      toggleClientGroupFields();
-
-      // Załaduj klientów i grupy równolegle
-      const [clients, groups] = await Promise.all([
-          loadClients(),
-          loadGroups()
-      ]);
-
-      // Wypełnij listę klientów
-      const clientSelect = document.getElementById('addClient');
-      const activeClients = clients.filter(c => c.active !== false);
-      const sortedClients = activeClients.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
-      clientSelect.innerHTML = '<option value="">-- wybierz klienta --</option>' +
-          sortedClients.map(c => {
-              const id = c.id || c.client_id;
-              const name = c.full_name || `Klient #${id}`;
-              return `<option value="${id}">${name}</option>`;
-          }).join('');
-
-      // Wypełnij listę grup
-      const groupSelect = document.getElementById('addGroup');
-      const sortedGroups = (groups || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      groupSelect.innerHTML = '<option value="">-- wybierz grupę --</option>' +
-          sortedGroups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
-
-      const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
-      modal.show();
+  // WYPEŁNIJ LISTĘ TERAPEUTÓW W FORMULARZU DODAWANIA
+  const therapistSelect = document.getElementById('addTherapist');
+  therapistSelect.innerHTML = '<option value="">-- wybierz terapeutę --</option>';
+  
+  // Jeśli wybrano konkretnego terapeuta w głównym filtrze, ustaw go jako domyślny
+  if (_state.therapistId !== 'all') {
+    const selectedTherapist = _state.therapists.find(t => t.id == _state.therapistId);
+    if (selectedTherapist) {
+      therapistSelect.innerHTML = `<option value="${selectedTherapist.id}" selected>${selectedTherapist.full_name}${selectedTherapist.specialization ? ` – ${selectedTherapist.specialization}` : ''}</option>`;
     }
+  } else {
+    // Jeśli wybrano "wszyscy terapeuci", pokaż wszystkich aktywnych terapeutów
+    const activeTherapists = _state.therapists.filter(t => t.active !== false);
+    const sortedTherapists = activeTherapists.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    
+    sortedTherapists.forEach(therapist => {
+      const option = document.createElement('option');
+      option.value = therapist.id;
+      option.textContent = `${therapist.full_name}${therapist.specialization ? ` – ${therapist.specialization}` : ''}`;
+      therapistSelect.appendChild(option);
+    });
+  }
+
+  // Ustaw poprawną widoczność pól PRZED pokazaniem modala
+  toggleClientGroupFields();
+
+  // Załaduj klientów i grupy równolegle
+  const [clients, groups] = await Promise.all([
+      loadClients(),
+      loadGroups()
+  ]);
+
+  // Wypełnij listę klientów
+  const clientSelect = document.getElementById('addClient');
+  const activeClients = clients.filter(c => c.active !== false);
+  const sortedClients = activeClients.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+  clientSelect.innerHTML = '<option value="">-- wybierz klienta --</option>' +
+      sortedClients.map(c => {
+          const id = c.id || c.client_id;
+          const name = c.full_name || `Klient #${id}`;
+          return `<option value="${id}">${name}</option>`;
+      }).join('');
+
+  // Wypełnij listę grup
+  const groupSelect = document.getElementById('addGroup');
+  const sortedGroups = (groups || []).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  groupSelect.innerHTML = '<option value="">-- wybierz grupę --</option>' +
+      sortedGroups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+
+  const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
+  modal.show();
+}
 
     // Sprawdź kolizje przy dodawaniu
     async function checkCollisionOnAdd() {
@@ -1579,4 +1603,5 @@ async function createNewEvent() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
