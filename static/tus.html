@@ -984,51 +984,56 @@ async function openGroupDetails(groupId) {
         }
       });
 
-      // ZASTĄP CAŁY TEN BLOK - OD 'submit' DO KOŃCOWEGO '});'
       $(document).on('submit', '#addSessionForm', async function(e) {
-          e.preventDefault();
-          const $form = $(this);
-          const gid = $form.data('group-id');
+          e.preventDefault();
+          const $form = $(this);
+          const gid = $form.data('group-id');
 
-          const dateValue = $form.find('input[name="date"]').val();
-          const timeValue = $form.find('input[name="time"]').val();
+          const dateValue = $form.find('input[name="date"]').val();
+          const timeValue = $form.find('input[name="time"]').val();
 
-          if (!dateValue || !timeValue) {
-              alert('Data i godzina są wymagane!');
-              return;
-          }
+          if (!dateValue || !timeValue) {
+              alert('Data i godzina są wymagane!');
+              return;
+          }
 
-          let timeFormatted = timeValue.length === 5 ? timeValue + ':00' : timeValue;
+          let timeFormatted = timeValue.length === 5 ? timeValue + ':00' : timeValue;
+          const topicTitle = ($('#sessionTopicInput').val() || '').trim();
 
-          // POPRAWKA: Pobieramy tekst z pola input i wysyłamy jako 'topic_title'
-          const topicTitle = ($('#sessionTopicInput').val() || '').trim();
+          const payload = {
+              group_id: gid,
+              topic_title: topicTitle,
+              session_date: `${dateValue}T${timeFormatted}`,
+              behavior_ids: ($('#sessionBehaviorsSelect').val() || []).map(v => parseInt(v, 10))
+          };
 
-          const payload = {
-              group_id: gid,
-              topic_title: topicTitle, // Zamiast topic_id
-              session_date: `${dateValue}T${timeFormatted}`,
-              behavior_ids: ($('#sessionBehaviorsSelect').val() || []).map(v => parseInt(v, 10))
-          };
+          // --- NOWA SEKCJA: Zbieranie obecności z formularza ---
+          const present_client_ids = [];
+          $form.find('.new-session-attendance:checked').each(function() {
+              present_client_ids.push(parseInt($(this).val(), 10));
+          });
+          payload.present_client_ids = present_client_ids;
+          // --- KONIEC NOWEJ SEKCJI ---
 
-          // POPRAWKA: Walidacja sprawdza 'topic_title'
-          if (!payload.topic_title) {
-              return alert('Temat jest wymagany.');
-          }
+          if (!payload.topic_title) {
+              return alert('Temat jest wymagany.');
+          }
 
-          console.log("Wysyłane dane sesji (z topic_title):", JSON.stringify(payload, null, 2));
+          // Zaktualizowany log, aby pokazać nowe dane
+          console.log("Wysyłane dane sesji (z topic_title i obecnością):", JSON.stringify(payload, null, 2));
 
-          try {
-              await fetchJSON(`${API_BASE}/api/tus/sessions`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(payload)
-              });
-              await openGroupDetails(gid); // Odśwież widok
-          } catch (err) {
-              console.error("Błąd podczas tworzenia sesji:", err);
-              alert('Nie udało się dodać sesji: ' + err.message);
-          }
-      });
+          try {
+              await fetchJSON(`${API_BASE}/api/tus/sessions`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload)
+              });
+              await openGroupDetails(gid); // Odśwież widok
+          } catch (err) {
+              console.error("Błąd podczas tworzenia sesji:", err);
+              alert('Nie udało się dodać sesji: ' + err.message);
+          }
+      });
       // KONIEC BLOKU DO ZASTĄPIENIA
       $(document).on('click', '.delete-session-btn', async function() {
     const sid = $(this).data('session-id');
@@ -1351,4 +1356,5 @@ async function openGroupDetails(groupId) {
 </body>
 
 </html>
+
 
