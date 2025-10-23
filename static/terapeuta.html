@@ -426,36 +426,7 @@
 
     const dowShort = ["Pn","Wt","Śr","Cz","Pt","So","Nd"];
 
-    // Wykrywanie kolizji
-    function detectCollisions(rows) {
-      const collisions = new Map();
-
-      for (let i = 0; i < rows.length; i++) {
-        for (let j = i + 1; j < rows.length; j++) {
-          const a = rows[i], b = rows[j];
-
-          if (a.therapist_id !== b.therapist_id) continue;
-
-          const aStart = parseLocalTimestamp(a.starts_at);
-          const aEnd = parseLocalTimestamp(a.ends_at);
-          const bStart = parseLocalTimestamp(b.starts_at);
-          const bEnd = parseLocalTimestamp(b.ends_at);
-
-          if (!aStart || !aEnd || !bStart || !bEnd) continue;
-
-          if (fmtYYYYMMDD(aStart) !== fmtYYYYMMDD(bStart)) continue;
-
-          if (aStart < bEnd && bStart < aEnd) {
-            if (!collisions.has(a.slot_id)) collisions.set(a.slot_id, []);
-            if (!collisions.has(b.slot_id)) collisions.set(b.slot_id, []);
-            collisions.get(a.slot_id).push(b.slot_id);
-            collisions.get(b.slot_id).push(a.slot_id);
-          }
-        }
-      }
-
-      return collisions;
-    }
+   function detectCollisions(rows)
 
     // Załaduj listę klientów
     async function loadClients() {
@@ -1865,6 +1836,7 @@ function addDebugButton() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
