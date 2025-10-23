@@ -1157,15 +1157,21 @@ async function createNewEvent() {
     const place = document.getElementById('addPlace').value;
     const type = document.getElementById('addType').value;
 
+    // DEBUG: Sprawdź co jest wpisane w formularzu
+    console.log('FORMULARZ - Data:', date, 'Start:', startTime, 'End:', endTime);
+
     // 2. WALIDACJA PÓL WSPÓLNYCH
     if (!therapistId || !date || !startTime || !endTime) {
         showAlert('Proszę wypełnić wszystkie wymagane pola (Terapeuta, Data, Czas)', 'danger');
         return;
     }
 
-    // UŻYJ POPRAWNEGO FORMATU Z 'T'
-    const starts_at = `${date}T${startTime}:00`;
-    const ends_at = `${date}T${endTime}:00`;
+    // 3. UŻYJ JEDNOLITEGO FORMATU Z TIMEZONE
+    // Dodaj 'Z' na końcu aby wskazać UTC
+    const starts_at = `${date}T${startTime}:00Z`;  // Dodaj 'Z' dla UTC
+    const ends_at = `${date}T${endTime}:00Z`;      // Dodaj 'Z' dla UTC
+
+    console.log('WYSYŁANE DO API:', { starts_at, ends_at });
 
     let payload = {
         therapist_id: Number(therapistId),
@@ -1760,10 +1766,37 @@ function addDebugButton() {
         const d = String(date.getDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
     }
+    // Dodaj tę funkcję do debugowania
+function debugTimeIssue() {
+    console.log('=== DEBUG CZASU ===');
+    const dateInput = document.getElementById('addDate').value;
+    const startInput = document.getElementById('addStartTime').value;
+    const endInput = document.getElementById('addEndTime').value;
+    
+    console.log('Inputy formularza:', {
+        date: dateInput,
+        start: startInput,
+        end: endInput
+    });
+    
+    const starts_at = `${dateInput}T${startInput}:00`;
+    const ends_at = `${dateInput}T${endInput}:00`;
+    
+    console.log('Wysłane do API:', {
+        starts_at: starts_at,
+        ends_at: ends_at
+    });
+    
+    console.log('Obiekty Date:', {
+        startDate: new Date(starts_at),
+        endDate: new Date(ends_at)
+    });
+}
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
