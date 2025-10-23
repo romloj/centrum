@@ -7393,7 +7393,25 @@ def get_client_all_sessions(client_id: int):
         return jsonify({"error": str(e)}), 500
 
 
+# Funkcja do znalezienia wszystkich duplikatów endpointów
+def debug_endpoints():
+    print("\n=== DEBUG: WSZYSTKIE ENDPOINTY ===")
+    endpoints = {}
+    
+    for rule in app.url_map.iter_rules():
+        key = f"{rule.rule}::{','.join(rule.methods)}"
+        if key in endpoints:
+            print(f"🚨 DUPLIKAT: {key}")
+            print(f"   Istniejący: {endpoints[key]}")
+            print(f"   Nowy: {rule.endpoint}")
+        else:
+            endpoints[key] = rule.endpoint
+    
+    print(f"✓ Łącznie endpointów: {len(endpoints)}")
+    return endpoints
 
+# Wywołaj diagnostykę
+debug_endpoints()
 
 
     # Wywołaj przy starcie aplikacji
@@ -7402,6 +7420,7 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
