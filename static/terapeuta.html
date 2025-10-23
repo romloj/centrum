@@ -1181,18 +1181,17 @@ async function saveEventChanges() {
     }
 
     // Funkcja do debugowania dostępnych endpointów API
-// Zmodyfikowana funkcja debugAPI - testuje tylko istniejące endpointy
+// Uproszczona funkcja debugAPI - testuje tylko GET endpoints
 async function debugAPI() {
-    console.log('=== DEBUG API ENDPOINTS ===');
+    console.log('=== DEBUG API ENDPOINTS (GET only) ===');
     
-    // Testuj tylko endpointy które faktycznie istnieją w Twoim backendzie
+    // Testuj tylko GET endpointy
     const testEndpoints = [
         `${API}/api/therapists`,
         `${API}/api/clients`,
         `${API}/api/drivers`,
         `${API}/api/tus/groups-summary`,
-        `${API}/api/available-therapists`, // Nowy endpoint
-        `${API}/api/check-availability`    // Nowy endpoint
+        `${API}/api/available-therapists`
     ];
 
     for (const endpoint of testEndpoints) {
@@ -1210,26 +1209,29 @@ async function debugAPI() {
         }
     }
 
-    // Testuj endpointy schedule z konkretnymi parametrami
+    console.log('=== POST ENDPOINTS (informacja) ===');
+    console.log('✅ POST /api/schedule - tworzenie wizyt');
+    console.log('✅ POST /api/check-availability - sprawdzanie dostępności');
+    console.log('✅ POST /api/clients - tworzenie klientów');
+    
+    // Test endpointów schedule
     console.log('=== TESTING SCHEDULE ENDPOINTS ===');
     
-    // Pobierz pierwszego terapeutę do testów
     try {
         const therapistsRes = await fetch(`${API}/api/therapists`);
         if (therapistsRes.ok) {
             const therapists = await therapistsRes.json();
             if (therapists.length > 0) {
                 const testTherapistId = therapists[0].id;
-                const testMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+                const testMonth = new Date().toISOString().slice(0, 7);
                 
-                // Testuj endpoint harmonogramu terapeuty
                 const scheduleEndpoint = `${API}/api/therapists/${testTherapistId}/schedule?month=${testMonth}`;
                 console.log(`Testing GET ${scheduleEndpoint}`);
                 
                 const scheduleRes = await fetch(scheduleEndpoint);
                 if (scheduleRes.ok) {
                     const scheduleData = await scheduleRes.json();
-                    console.log(`✅ GET ${scheduleEndpoint}: OK`, scheduleData.length || 'events');
+                    console.log(`✅ GET ${scheduleEndpoint}: OK (${scheduleData.length} events)`);
                 } else {
                     console.log(`❌ GET ${scheduleEndpoint}: ${scheduleRes.status}`);
                 }
@@ -1863,6 +1865,7 @@ function addDebugButton() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
