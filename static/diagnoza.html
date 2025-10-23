@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Diagnozy - Poradnia Psychologiczno-Pedagogiczna</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .scan-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .scan-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            background: #f0f4ff;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .form-content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 35px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-number {
+            background: #667eea;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="email"],
+        input[type="tel"],
+        select,
+        textarea {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .submit-section {
+            padding: 30px;
+            background: #f8f9fa;
+            text-align: center;
+        }
+
+        .success-message {
+            display: none;
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px;
+        }
+
+        .error-message {
+            display: none;
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 System Diagnozy Poradni Psychologiczno-Pedagogicznej</h1>
+            <p>Elektroniczny system do tworzenia i zarządzania opiniami diagnostycznymi</p>
+        </div>
+
+        <div class="scan-section">
+            <h2>🔍 Opcjonalnie: Zeskanuj dokument</h2>
+            <div class="upload-area" id="uploadArea">
+                <div style="font-size: 48px; margin-bottom: 15px;">📄</div>
+                <p><strong>Kliknij lub przeciągnij</strong> skan opinii tutaj</p>
+                <input type="file" id="fileInput" accept="image/*,.pdf">
+            </div>
+        </div>
+
+        <div class="success-message" id="successMessage"></div>
+        <div class="error-message" id="errorMessage"></div>
+
+        <form id="diagnozaForm" class="form-content">
+            <!-- Sekcja 1 -->
+            <div class="section">
+                <h3><span class="section-number">1</span>Dane Poradni i Opinii</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nazwaPoradni">Nazwa Poradni *</label>
+                        <input type="text" id="nazwaPoradni" name="nazwaPoradni" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="adresPoradni">Adres Poradni *</label>
+                        <input type="text" id="adresPoradni" name="adresPoradni" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="numerOpinii">Numer Opinii *</label>
+                        <input type="text" id="numerOpinii" name="numerOpinii" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sekcja 2 -->
+            <div class="section">
+                <h3><span class="section-number">2</span>Dane Dziecka/Ucznia</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="imieNazwisko">Imię i Nazwisko *</label>
+                        <input type="text" id="imieNazwisko" name="imieNazwisko" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="dataUrodzenia">Data Urodzenia *</label>
+                        <input type="date" id="dataUrodzenia" name="dataUrodzenia" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="pesel">PESEL</label>
+                        <input type="text" id="pesel" name="pesel" maxlength="11">
+                    </div>
+                    <div class="form-group">
+                        <label for="adresZamieszkania">Adres Zamieszkania *</label>
+                        <input type="text" id="adresZamieszkania" name="adresZamieszkania" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="szkola">Szkoła/Przedszkole *</label>
+                        <input type="text" id="szkola" name="szkola" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="klasa">Klasa</label>
+                        <input type="text" id="klasa" name="klasa">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sekcja 3 -->
+            <div class="section">
+                <h3><span class="section-number">3</span>Dane Wnioskodawcy</h3>
+                <div class="form-group">
+                    <label for="rodziceOpiekunowie">Rodzice/Opiekunowie Prawni *</label>
+                    <input type="text" id="rodziceOpiekunowie" name="rodziceOpiekunowie" required>
+                </div>
+            </div>
+
+            <!-- Sekcja 4 -->
+            <div class="section">
+                <h3><span class="section-number">4</span>Wnioski i Zalecenia</h3>
+                <div class="form-group">
+                    <label for="wnioski">Wnioski *</label>
+                    <textarea id="wnioski" name="wnioski" required placeholder="Synteza diagnozy..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="zaleceniaDlaUcznia">Zalecenia dla Ucznia</label>
+                    <textarea id="zaleceniaDlaUcznia" name="zaleceniaDlaUcznia"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="zaleceniaDlaRodzicow">Zalecenia dla Rodziców</label>
+                    <textarea id="zaleceniaDlaRodzicow" name="zaleceniaDlaRodzicow"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="zaleceniaDlaSzkoly">Zalecenia dla Szkoły</label>
+                    <textarea id="zaleceniaDlaSzkoly" name="zaleceniaDlaSzkoly"></textarea>
+                </div>
+            </div>
+
+            <!-- Sekcja 5 -->
+            <div class="section">
+                <h3><span class="section-number">5</span>Data Wydania</h3>
+                <div class="form-group">
+                    <label for="dataWydania">Data Wydania Opinii *</label>
+                    <input type="date" id="dataWydania" name="dataWydania" required>
+                </div>
+            </div>
+
+            <div class="submit-section">
+                <button type="submit" class="btn-submit">💾 Zapisz Opinię</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        document.getElementById('diagnozaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const data = {};
+            formData.forEach((value, key) => data[key] = value);
+
+            try {
+                const response = await fetch('http://localhost:3000/api/diagnoza', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('successMessage').textContent =
+                        `Opinia zapisana pomyślnie! ID: ${result.id}`;
+                    document.getElementById('successMessage').style.display = 'block';
+                    document.getElementById('errorMessage').style.display = 'none';
+                    e.target.reset();
+                } else {
+                    throw new Error(result.error || 'Błąd podczas zapisywania');
+                }
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = `Błąd: ${error.message}`;
+                document.getElementById('errorMessage').style.display = 'block';
+                document.getElementById('successMessage').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
