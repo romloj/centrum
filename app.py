@@ -7406,6 +7406,51 @@ def get_client_all_sessions(client_id: int):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/schedule/<int:slot_id>', methods=['GET'])
+def get_schedule_slot(slot_id):
+    """Pobiera pojedynczą wizytę z harmonogramu"""
+    print(f"=== GET SCHEDULE SLOT {slot_id} ===")
+
+    try:
+        with engine.begin() as conn:
+            # Pobierz slot z wszystkimi danymi
+            slot = conn.execute(text("""
+                SELECT 
+                    ss.id, ss.group_id, ss.client_id, ss.therapist_id, 
+                    ss.driver_id, ss.kind, ss.starts_at, ss.ends_at,
+                    ss.place_to, ss.status, ss.distance_km,
+                    c.full_name as client_name,
+                    t.full_name as therapist_name,
+                    d.full_name as driver_name,
+                    eg.label as group_label
+                FROM schedule_slots ss
+                LEFT JOIN clients c ON c.id = ss.client_id
+                LEFT JOIN therapists t ON t.id = ss.therapist_id
+                LEFT JOIN drivers d ON d.id = ss.driver_id
+                LEFT JOIN event_groups eg ON eg.id = ss.group_id::uuid
+                WHERE ss.id = :id
+            """), {"id": slot_id}).mappings().first()
+
+            if not slot:
+                return jsonify({"error": "Wizyta nie znaleziona"}), 404
+
+            # Konwertuj daty na stringi
+            slot_dict = dict(slot)
+            if slot_dict['starts_at']:
+                slot_dict['starts_at'] = slot_dict['starts_at'].isoformat()
+            if slot_dict['ends_at']:
+                slot_dict['ends_at'] = slot_dict['ends_at'].isoformat()
+
+            print(f"✅ Znaleziono wizytę ID: {slot_id}")
+            return jsonify(slot_dict), 200
+
+    except Exception as e:
+        print(f"❌ Błąd pobierania wizyty: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Błąd pobierania wizyty: {str(e)}"}), 500
+
+
 # Funkcja do znalezienia wszystkich duplikatów endpointów
 def debug_endpoints():
     print("\n=== DEBUG: WSZYSTKIE ENDPOINTY ===")
@@ -7433,6 +7478,7 @@ if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
         # app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
     
+
 
 
 
