@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Ról Klasowych</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Reset i podstawowe style */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Lato', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f7f9fc;
+            color: #444;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Główny kontener testu */
+        .quiz-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto; 
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            padding: 40px 50px;
+        }
+
+        h1 {
+            color: #1a3b5d;
+            text-align: center;
+            font-weight: 900;
+            letter-spacing: -1px;
+            font-size: 2.6em;
+            margin-bottom: 15px;
+        }
+        
+        .disclaimer {
+            text-align: center;
+            font-size: 0.9em;
+            color: #777;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 20px;
+        }
+
+        /* Blok pytania */
+        .question-block {
+            margin-bottom: 30px;
+        }
+
+        .question-block h3 {
+            font-size: 1.3em;
+            color: #1a3b5d;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .question-block ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        /* Ukrycie domyślnego radio */
+        .question-block input[type="radio"] {
+            display: none;
+        }
+
+        /* Stylizacja etykiety jako przycisku */
+        .question-block label {
+            display: block;
+            background: #fdfdfd;
+            border: 2px solid #e7e7e7;
+            border-radius: 8px;
+            padding: 12px 18px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            color: #333;
+        }
+
+        .question-block label:hover {
+            background-color: #f7f9fc;
+            border-color: #0077b6;
+        }
+
+        /* Stylizacja wybranej odpowiedzi */
+        .question-block input[type="radio"]:checked + label {
+            background-color: #0077b6;
+            color: white;
+            border-color: #005a8d;
+            font-weight: 700;
+            box-shadow: 0 4px 10px rgba(0, 119, 182, 0.15);
+        }
+
+        /* Przycisk "Sprawdź" */
+        .submit-wrapper {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        #submitBtn {
+            background-color: #0077b6;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #submitBtn:hover {
+            background-color: #005a8d;
+            transform: translateY(-2px);
+        }
+
+        /* Kontener na wyniki */
+        #results-container {
+            display: none; /* Ukryty na starcie */
+            margin-top: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #f7f9fc 0%, #eef3f9 100%);
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #e0e8f3;
+        }
+
+        #result-title {
+            color: #1a3b5d;
+            font-size: 2.2em;
+            font-weight: 900;
+            margin-bottom: 10px;
+        }
+
+        #result-description {
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        /* Komunikat o błędzie */
+        #error-message {
+            display: none;
+            color: #d9534f;
+            text-align: center;
+            margin-top: 15px;
+            font-weight: 700;
+        }
+        
+        @media (max-width: 600px) {
+            body { padding: 0; }
+            .quiz-container {
+                padding: 20px;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            h1 { font-size: 2em; }
+            .question-block label { padding: 10px 15px; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="quiz-container">
+        <h1>Test Ról Klasowych</h1>
+        <p class="disclaimer">Pamiętaj, że to tylko zabawa oparta na uogólnieniach. W rzeczywistości rzadko pasujemy w 100% do jednego typu!</p>
+
+        <form id="quizForm">
+            
+            <div class="question-block">
+                <h3>1. Kiedy w klasie jest głośno i panuje chaos...</h3>
+                <ul>
+                    <li><input type="radio" name="q1" value="lider" id="q1a"><label for="q1a">Próbuję przejąć kontrolę i uspokoić sytuację.</label></li>
+                    <li><input type="radio" name="q1" value="blazen" id="q1b"><label for="q1b">Wykorzystuję to, by opowiedzieć dowcip lub zrobić coś śmiesznego.</label></li>
+                    <li><input type="radio" name="q1" value="koziol" id="q1c"><label for="q1c">Mam nadzieję, że nikt na mnie nie zwali winy za ten bałagan.</label></li>
+                    <li><input type="radio" name="q1" value="ekspert" id="q1d"><label for="q1d">Ignoruję to i skupiam się na swoich zadaniach/książce.</label></li>
+                    <li><input type="radio" name="q1" value="niewidzialny" id="q1e"><label for="q1e">Staram się być jak najmniej widoczny, "wtapiam się w ścianę".</label></li>
+                </ul>
+            </div>
+
+            <div class="question-block">
+                <h3>2. Nauczyciel ogłasza projekt grupowy. Twoja pierwsza myśl to:</h3>
+                <ul>
+                    <li><input type="radio" name="q2" value="lider" id="q2a"><label for="q2a">"Świetnie, muszę szybko zebrać ekipę i ustalić plan działania."</label></li>
+                    <li><input type="radio" name="q2" value="blazen" id="q2b"><label for="q2b">"Super, byleby było śmiesznie i nie trzeba było za dużo robić."</label></li>
+                    <li><input type="radio" name="q2" value="koziol" id="q2c"><label for="q2c">"Oby tylko nie trafić do grupy, która mnie nie lubi..."</label></li>
+                    <li><input type="radio" name="q2" value="ekspert" id="q2d"><label for="q2d">"Mam nadzieję, że trafię na kogoś, kto pozwoli mi zająć się najtrudniejszą częścią."</label></li>
+                    <li><input type="radio" name="q2" value="niewidzialny" id="q2e"><label for="q2e">"Czy da się to zrobić samemu? Nie lubię pracy w grupie."</label></li>
+                </ul>
+            </div>
+
+            <div class="question-block">
+                <h3>3. Co jest dla Ciebie najważniejsze w byciu w klasie?</h3>
+                <ul>
+                    <li><input type="radio" name="q3" value="lider" id="q3a"><label for="q3a">Mieć wpływ na to, co się dzieje i realizować cele.</label></li>
+                    <li><input type="radio" name="q3" value="blazen" id="q3b"><label for="q3b">Dobra atmosfera i to, że ludzie mnie lubią i się ze mną śmieją.</label></li>
+                    <li><input type="radio" name="q3" value="koziol" id="q3c"><label for="q3c">Po prostu przetrwać dzień bez nieprzyjemności.</label></li>
+                    <li><input type="radio" name="q3" value="ekspert" id="q3d"><label for="q3d">Pokazać, że znam się na rzeczy i dobrze wypaść na tle innych.</label></li>
+                    <li><input type="radio" name="q3" value="niewidzialny" id="q3e"><label for="q3e">Spokój, możliwość pracy we własnym tempie, bez presji.</label></li>
+                </ul>
+            </div>
+
+            <div class="question-block">
+                <h3>4. Kiedy w grupie pojawia się problem lub napięcie...</h3>
+                <ul>
+                    <li><input type="radio" name="q4" value="lider" id="q4a"><label for="q4a">Proponuję rozwiązania i organizuję dyskusję.</label></li>
+                    <li><input type="radio" name="q4" value="blazen" id="q4b"><label for="q4b">Próbuję rozładować atmosferę żartem.</label></li>
+                    <li><input type="radio" name="q4" value="koziol" id="q4c"><label for="q4c">Czuję niepokój, że to może być moja wina, nawet jeśli nie jest.</label></li>
+                    <li><input type="radio" name="q4" value="ekspert" id="q4d"><label for="q4d">Analizuję problem logicznie i wskazuję, gdzie jest błąd.</label></li>
+                    <li><input type="radio" name="q4" value="niewidzialny" id="q4e"><label for="q4e">Czekam, aż samo przejdzie, nie angażuję się.</label></li>
+                </ul>
+            </div>
+
+            <div class="question-block">
+                <h3>5. Jaką krytykę słyszysz o sobie najczęściej (albo czego się obawiasz)?</h3>
+                <ul>
+                    <li><input type="radio" name="q5" value="lider" id="q5a"><label for="q5a">"Zbyt rządzisz się" lub "chcesz wszystko kontrolować".</label></li>
+                    <li><input type="radio" name="q5" value="blazen" id="q5b"><label for="q5b">"Nigdy nie jesteś poważny" lub "trudno na tobie polegać".</label></li>
+                    <li><input type="radio" name="q5" value="koziol" id="q5c"><label for="q5c">"Znowu ty coś zrobiłeś?" lub czujesz, że jesteś obgadywany.</label></li>
+                    <li><input type="radio" name="q5" value="ekspert" id="q5d"><label for="q5d">"Przemądrzasz się" lub "wywyższasz się".</label></li>
+                    <li><input type="radio" name="q5" value="niewidzialny" id="q5e"><label for="q5e">"Nawet nie zauważyłem, że tam byłeś" lub "nigdy się nie odzywasz".</label></li>
+                </ul>
+            </div>
+            
+            <div class="question-block">
+                <h3>6. Twój sposób na zdobycie akceptacji w grupie to:</h3>
+                <ul>
+                    <li><input type="radio" name="q6" value="lider" id="q6a"><label for="q6a">Bycie osobą, która wie, co robić i bierze odpowiedzialność.</label></li>
+                    <li><input type="radio" name="q6" value="blazen" id="q6b"><label for="q6b">Bycie duszą towarzystwa, rozbawianie innych.</label></li>
+                    <li><input type="radio" name="q6" value="koziol" id="q6c"><label for="q6c">Staram się być miły, ale i tak często czuję się odrzucony.</label></li>
+                    <li><input type="radio" name="q6" value="ekspert" id="q6d"><label for="q6d">Posiadanie wiedzy, której inni potrzebują, bycie "tym mądrym".</label></li>
+                    <li><input type="radio" name="q6" value="niewidzialny" id="q6e"><label for="q6e">Nie wychylanie się i nie sprawianie problemów.</label></li>
+                </ul>
+            </div>
+
+            <div class="submit-wrapper">
+                <button type="button" id="submitBtn">Sprawdź wynik</button>
+            </div>
+            
+            <p id="error-message">Musisz odpowiedzieć na wszystkie pytania!</p>
+        </form>
+
+        <div id="results-container">
+            <h2 id="result-title">Twój wynik...</h2>
+            <p id="result-description">...</p>
+        </div>
+
+    </div>
+
+    <script>
+        // Opisy wyników dla każdej roli
+        const resultsData = {
+            lider: {
+                title: "Twoja rola to: LIDER",
+                description: "Naturalnie przejmujesz inicjatywę i lubisz mieć kontrolę. Jesteś zorganizowany i potrafisz motywować innych do działania. Ludzie liczą na Twój plan i zdecydowanie. Uważaj tylko, by nie stać się zbyt dominującym i daj też innym dojść do głosu."
+            },
+            blazen: {
+                title: "Twoja rola to: BŁAZEN KLASOWY",
+                description: "Jesteś duszą towarzystwa! Cenisz dobrą atmosferę i uwielbiasz być w centrum uwagi. Potrafisz rozładować napięcie żartem, a ludzie cenią Cię za humor. Pamiętaj tylko, że czasem trzeba być też poważnym – masz do zaoferowania więcej niż tylko dowcipy."
+            },
+            ekspert: {
+                title: "Twoja rola to: EKSPERT (Mądrala)",
+                description: "Twoją siłą jest wiedza. Lubisz fakty, analizę i dochodzenie do sedna problemu. Inni polegają na Twoich kompetencjach i często proszą Cię o pomoc w nauce. To świetna cecha! Upewnij się tylko, że dajesz innym przestrzeń na ich opinie, nawet jeśli uważasz, że się mylą."
+            },
+            niewidzialny: {
+                title: "Twoja rola to: NIEWIDZIALNY (Wycofany)",
+                description: "Najlepiej czujesz się, gdy nikt nie zwraca na Ciebie uwagi. Jesteś cichy, spokojny i wolisz obserwować niż działać. Twój spokój jest cenny, ale nie pozwól, by grupa przeoczyła Twój potencjał. Twoje pomysły są tak samo ważne, jak te najgłośniejsze!"
+            },
+            koziol: {
+                title: "Twoja rola to: KOZIOŁ OFIARNY",
+                description: "Często czujesz się niesprawiedliwie obwiniany lub masz wrażenie, że jesteś na celowniku. Możesz mieć niską samoocenę i czuć się odrzucony. Pamiętaj, że to nie definiuje Twojej wartości. Ta rola jest bardzo krzywdząca i warto poszukać wsparcia, by się z niej wydostać."
+            },
+            mieszany: {
+                title: "Twój typ to: MIESZANY",
+                description: "Nie masz jednej, dominującej roli. Potrafisz dostosować się do sytuacji – czasem przejmiesz inicjatywę jak Lider, czasem zażartujesz jak Błazen, a czasem wolisz się wycofać. To oznaka dużej elastyczności społecznej. Potrafisz czerpać z różnych strategii!"
+            }
+        };
+
+        const submitButton = document.getElementById('submitBtn');
+        const resultsContainer = document.getElementById('results-container');
+        const resultTitle = document.getElementById('result-title');
+        const resultDescription = document.getElementById('result-description');
+        const errorMessage = document.getElementById('error-message');
+        const quizForm = document.getElementById('quizForm');
+        
+        const totalQuestions = 6;
+
+        submitButton.addEventListener('click', () => {
+            const formData = new FormData(quizForm);
+            const answers = {};
+            
+            // Zliczanie głosów
+            const scores = {
+                lider: 0,
+                blazen: 0,
+                ekspert: 0,
+                niewidzialny: 0,
+                koziol: 0
+            };
+
+            let answeredQuestions = 0;
+            
+            // Zbieranie odpowiedzi
+            for (let i = 1; i <= totalQuestions; i++) {
+                const answer = formData.get(`q${i}`);
+                if (answer) {
+                    scores[answer]++;
+                    answeredQuestions++;
+                }
+            }
+
+            // Walidacja - czy odpowiedziano na wszystko
+            if (answeredQuestions < totalQuestions) {
+                errorMessage.style.display = 'block';
+                resultsContainer.style.display = 'none';
+                return; // Przerwij funkcję
+            }
+            
+            // Ukryj błąd, jeśli wszystko jest OK
+            errorMessage.style.display = 'none';
+
+            // Znajdź najwyższy wynik
+            let maxScore = 0;
+            let resultRole = 'mieszany'; // Domyślna rola, jeśli jest remis
+
+            for (const role in scores) {
+                if (scores[role] > maxScore) {
+                    maxScore = scores[role];
+                    resultRole = role;
+                }
+            }
+            
+            // Sprawdzenie, czy nie ma remisu na pierwszym miejscu
+            const topScores = Object.values(scores).filter(score => score === maxScore);
+            if (topScores.length > 1) {
+                resultRole = 'mieszany';
+            }
+            
+            // Jeśli ktoś ma bardzo niski wynik (np. 1-2) i reszta po 1, też może być mieszany
+            if (maxScore <= 2) {
+                 resultRole = 'mieszany';
+            }
+
+            // Wyświetl wyniki
+            const resultData = resultsData[resultRole];
+            resultTitle.textContent = resultData.title;
+            resultDescription.textContent = resultData.description;
+            resultsContainer.style.display = 'block';
+            
+            // Przewiń do wyników
+            resultsContainer.scrollIntoView({ behavior: 'smooth' });
+        });
+    </script>
+    </body>
+</html>
