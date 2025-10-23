@@ -1257,8 +1257,8 @@ async function createNewEvent() {
     const place = document.getElementById('addPlace').value;
     const type = document.getElementById('addType').value;
 
-    const starts_at = `${date} ${startTime}:00`;
-    const ends_at = `${date} ${endTime}:00`;
+    const starts_at = `${date}T${startTime}:00`;
+    const ends_at = `${date}T${endTime}:00`; 
 
     // 2. WALIDACJA PÓL WSPÓLNYCH
     if (!therapistId || !date || !startTime || !endTime) {
@@ -1865,6 +1865,7 @@ function addDebugButton() {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
 
 
