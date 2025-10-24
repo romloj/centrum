@@ -130,7 +130,7 @@ def handle_login():
 
     if wpisane_haslo == CENTRUM:
         session['logged_in'] = True
-        session['username'] = centrum # Opcjonalnie
+        session['username'] = username # Opcjonalnie
         # Zwróć URL do przekierowania po stronie klienta
         return jsonify({'redirect_url': url_for('main_index')})
     else:
