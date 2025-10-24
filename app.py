@@ -94,7 +94,8 @@ except Exception as e:
 
 auth_bp = Blueprint('auth', __name__, template_folder='static')
 
-CENTRUM = os.environ.get('admin')
+CENTRUM_PASSWORD = os.environ.get('CENTRUM_PASSWORD')
+CENTRUM_USERNAME = os.environ.get('CENTRUM_USERNAME')
 
 if not CENTRUM:
     print("="*50)
@@ -123,20 +124,22 @@ def login_page():
 @auth_bp.route('/api/login', methods=['POST'])
 def handle_login():
     data = request.get_json()
-    
+
     if not data:
         return jsonify({'error': 'Brak danych'}), 400
 
     wpisane_haslo = data.get('password')
-    username = data.get('username')
+    username = data.get('username') 
 
-    # POPRAWIONE SPRAWDZANIE: Sprawdź obie wartości
+    # POPRAWIONE SPRAWDZANIE:
+    # Porównaj z nowymi zmiennymi, które wczytałeś na górze
     if wpisane_haslo == CENTRUM_PASSWORD and username == CENTRUM_USERNAME:
         session['logged_in'] = True
-        
-        # POPRAWIONY BŁĄD: Zapisz 'username', a nie 'centrum'
+
+        # POPRAWIONY BŁĄD (z poprzedniej rozmowy):
+        # Zapisz 'username' z formularza, a nie 'centrum'
         session['username'] = username 
-        
+
         return jsonify({'redirect_url': url_for('main_index')})
     else:
         # Zwróć błąd 401
