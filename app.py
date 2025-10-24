@@ -13,7 +13,7 @@ from functools import wraps
 from math import exp
 from zoneinfo import ZoneInfo
 import functools # Potrzebne dla dekoratora login_required
-
+from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory, send_file, render_template, Blueprint, flash # Dodano flash
 import joblib
 import pandas as pd
 import psycopg2
@@ -26,7 +26,7 @@ from requests.exceptions import ReadTimeout, RequestException
 
 from flask_cors import CORS
 # Dodaj importy dla Blueprints, render_template
-from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory, send_file, render_template, Blueprint
+#from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory, send_file, render_template, Blueprint
 from contextlib import contextmanager
 from psycopg2 import errorcodes
 from sqlalchemy.dialects.postgresql import UUID
