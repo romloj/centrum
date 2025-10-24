@@ -89,7 +89,7 @@ except Exception as e:
 
 # === MODUŁ LOGOWANIA (Blueprint) ===
 
-auth_bp = Blueprint('auth', __name__, template_folder='templates')
+auth_bp = Blueprint('auth', __name__, template_folder='static')
 
 POPRAWNE_HASLO = os.environ.get('ADMIN_PASSWORD')
 
@@ -128,9 +128,9 @@ def handle_login():
     wpisane_haslo = data.get('password')
     username = data.get('username') # Można dodać walidację
 
-    if wpisane_haslo == POPRAWNE_HASLO:
+    if wpisane_haslo == CENTRUM:
         session['logged_in'] = True
-        session['username'] = username # Opcjonalnie
+        session['username'] = centrum # Opcjonalnie
         # Zwróć URL do przekierowania po stronie klienta
         return jsonify({'redirect_url': url_for('main_index')})
     else:
