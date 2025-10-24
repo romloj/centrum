@@ -97,7 +97,7 @@ auth_bp = Blueprint('auth', __name__, template_folder='static')
 CENTRUM_PASSWORD = os.environ.get('CENTRUM_PASSWORD')
 CENTRUM_USERNAME = os.environ.get('CENTRUM_USERNAME')
 
-if not CENTRUM:
+if not CENTRUM_PASSWORD:
     print("="*50)
     print("BŁĄD: Nie ustawiono zmiennej środowiskowej 'ADMIN_PASSWORD'!")
     print("Moduł logowania nie będzie działać poprawnie.")
