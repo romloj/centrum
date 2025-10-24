@@ -91,7 +91,7 @@ except Exception as e:
 
 auth_bp = Blueprint('auth', __name__, template_folder='static')
 
-POPRAWNE_HASLO = os.environ.get('ADMIN_PASSWORD')
+CENTRUM = os.environ.get('admin')
 
 if not POPRAWNE_HASLO:
     print("="*50)
