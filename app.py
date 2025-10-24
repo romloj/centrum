@@ -48,9 +48,12 @@ app = Flask(__name__, static_folder="static", static_url_path="", template_folde
 CORS(app, supports_credentials=True) # supports_credentials=True jest ważne dla sesji
 app.config['DEBUG'] = True
 
+CENTRUM_PASSWORD = os.environ.get('admin') # Zmieniłem nazwę dla jasności
+CENTRUM_USERNAME = os.environ.get('ADMIN_USERNAME') # Wczytaj nową zmienną
+
 # Wczytywanie konfiguracji ze zmiennych środowiskowych
 DATABASE_URL = os.getenv("DATABASE_URL")
-GOOGLE_MAPS_API_KEY = os.getenv("AIzaSyC5TGcemvDn-BZ5khdlQOOpPZVV2qLMYc8")
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 # Sekretny klucz dla sesji - MUSI być ustawiony dla logowania
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', '4a87aef7ea2d5e256d20bea4fb2853612f09475c43cb841f')
 
@@ -120,20 +123,23 @@ def login_page():
 @auth_bp.route('/api/login', methods=['POST'])
 def handle_login():
     data = request.get_json()
-    error = None
-
-    if not data or 'password' not in data:
-        return jsonify({'error': 'Brak hasła w zapytaniu'}), 400
+    
+    if not data:
+        return jsonify({'error': 'Brak danych'}), 400
 
     wpisane_haslo = data.get('password')
-    username = data.get('username') # Można dodać walidację
+    username = data.get('username')
 
-    if wpisane_haslo == CENTRUM:
+    # POPRAWIONE SPRAWDZANIE: Sprawdź obie wartości
+    if wpisane_haslo == CENTRUM_PASSWORD and username == CENTRUM_USERNAME:
         session['logged_in'] = True
-        session['username'] = username # Opcjonalnie
-        # Zwróć URL do przekierowania po stronie klienta
+        
+        # POPRAWIONY BŁĄD: Zapisz 'username', a nie 'centrum'
+        session['username'] = username 
+        
         return jsonify({'redirect_url': url_for('main_index')})
     else:
+        # Zwróć błąd 401
         return jsonify({'error': 'Niepoprawne hasło lub nazwa użytkownika.'}), 401
 
 @auth_bp.route('/logout')
