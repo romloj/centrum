@@ -90,13 +90,13 @@ except Exception as e:
     print(f"--- BŁĄD Inicjalizacji SQLAlchemy: {e} ---")
     sys.exit(1) # Wyjście z aplikacji jeśli baza nie działa
 
-# === ZAKTUALIZOWANY MODEL: User (z flagą is_admin) ===
+# === MODEL: User ===
 class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
     username = Column(String(80), unique=True, nullable=False)
     password_hash = Column(String(128), nullable=False)
-    is_admin = Column(Boolean, default=False, nullable=False) # Flaga administratora
+    is_admin = Column(Boolean, default=False, nullable=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -108,46 +108,37 @@ class User(Base):
 auth_bp = Blueprint('auth', __name__, template_folder='templates')
 
 def login_required(view):
-    """Dekorator sprawdzający, czy użytkownik jest zalogowany."""
     @functools.wraps(view)
     def wrapped_view(**kwargs):
         if 'user_id' not in session:
             if request.path.startswith('/api/'):
                  return jsonify(message="Authentication required"), 401
+            # Użycie flash() jest już poprawne dzięki importowi
             flash('Musisz się zalogować, aby uzyskać dostęp do tej strony.')
             return redirect(url_for('auth.login_page'))
-        # Sprawdzenie czy użytkownik istnieje w bazie (opcjonalne, ale bezpieczniejsze)
         with session_scope() as db_session:
             user = db_session.get(User, session['user_id'])
             if user is None:
-                session.clear() # Wyczyść sesję jeśli użytkownik nie istnieje
+                session.clear()
                 flash('Użytkownik nie istnieje. Zaloguj się ponownie.')
                 return redirect(url_for('auth.login_page'))
         return view(**kwargs)
     return wrapped_view
 
-# === NOWY DEKORATOR: @admin_required ===
 def admin_required(view):
-    """Dekorator sprawdzający, czy użytkownik jest zalogowany I jest administratorem."""
     @functools.wraps(view)
-    @login_required # Najpierw upewnij się, że jest zalogowany
+    @login_required
     def wrapped_view(**kwargs):
         user_id = session.get('user_id')
         with session_scope() as db_session:
-             # Pobierz użytkownika (już wiemy, że istnieje dzięki @login_required)
             user = db_session.get(User, user_id)
             if not user or not user.is_admin:
-                # Jeśli nie jest adminem
                 flash('Nie masz uprawnień administratora, aby uzyskać dostęp do tej strony.')
-                # Jeśli to API, zwróć błąd 403 Forbidden
                 if request.path.startswith('/api/'):
                     return jsonify(message="Admin privileges required"), 403
-                # W przeciwnym razie przekieruj na stronę główną
                 return redirect(url_for('main_index'))
-        # Jeśli jest adminem, wykonaj widok
         return view(**kwargs)
     return wrapped_view
-
 
 @auth_bp.route('/login', methods=['GET'])
 def login_page():
@@ -160,91 +151,61 @@ def handle_login():
     data = request.get_json()
     if not data or 'username' not in data or 'password' not in data:
         return jsonify({'error': 'Brak nazwy użytkownika lub hasła'}), 400
-
     username = data.get('username')
     password = data.get('password')
-
     with session_scope() as db_session:
         user = db_session.query(User).filter_by(username=username).first()
-
         if user and user.check_password(password):
             session.clear()
             session['user_id'] = user.id
             session['username'] = user.username
-            # Zapisz czy jest adminem w sesji dla łatwiejszego dostępu (opcjonalne)
             session['is_admin'] = user.is_admin
             return jsonify({'redirect_url': url_for('main_index')})
         else:
             return jsonify({'error': 'Niepoprawna nazwa użytkownika lub hasło.'}), 401
 
-
 @auth_bp.route('/logout')
-@login_required # Tylko zalogowany może się wylogować
+@login_required
 def logout():
-    session.pop('logged_in', None)
-    session.pop('username', None)
+    session.clear()
+    flash('Zostałeś pomyślnie wylogowany.')
     return redirect(url_for('auth.login_page'))
 
-# === ZMIENIONY BLUEPRINT: Rejestracja tylko dla Admina ===
-# Zmieniono nazwę z user_bp na admin_bp
+# === BLUEPRINT: Rejestracja tylko dla Admina ===
 admin_bp = Blueprint('admin', __name__, template_folder='templates')
 
 @admin_bp.route('/admin/register', methods=['GET'])
-@admin_required # Dostęp tylko dla admina
+@admin_required
 def admin_register_page():
-    """ Wyświetla formularz rejestracji dla administratora """
-    return render_template('admin_register.html') # Nowy szablon
+    return render_template('admin_register.html')
 
 @admin_bp.route('/api/admin/register', methods=['POST'])
-@admin_required # Tylko admin może wywołać to API
+@admin_required
 def handle_admin_register():
-    """ Przetwarza dane z formularza rejestracji dodane przez admina """
     data = request.get_json()
     if not data or 'username' not in data or 'password' not in data:
         return jsonify({'error': 'Nazwa użytkownika i hasło są wymagane'}), 400
-
-    username = data['username'].strip()
-    password = data['password']
-    # Dodano możliwość ustawienia flagi admina podczas rejestracji
-    is_admin_flag = data.get('is_admin', False)
-
-    if not username or not password:
-         return jsonify({'error': 'Nazwa użytkownika i hasło nie mogą być puste'}), 400
-    if len(password) < 4:
-         return jsonify({'error': 'Hasło musi mieć co najmniej 4 znaki'}), 400
-
+    username = data['username'].strip(); password = data['password']; is_admin_flag = data.get('is_admin', False)
+    if not username or not password: return jsonify({'error': 'Nazwa użytkownika i hasło nie mogą być puste'}), 400
+    if len(password) < 4: return jsonify({'error': 'Hasło musi mieć co najmniej 4 znaki'}), 400
     with session_scope() as db_session:
         existing_user = db_session.query(User).filter_by(username=username).first()
-        if existing_user:
-            return jsonify({'error': 'Nazwa użytkownika jest już zajęta'}), 409
-
-        new_user = User(username=username, is_admin=is_admin_flag) # Ustaw flagę is_admin
-        new_user.set_password(password)
-        db_session.add(new_user)
-        try:
-            db_session.flush() # Potrzebne aby uzyskać ID przed commitem
-            print(f"Admin '{session.get('username')}' zarejestrował nowego użytkownika: '{username}' (Admin: {is_admin_flag})")
-            return jsonify({'message': f'Użytkownik {username} został pomyślnie zarejestrowany.'}), 201
-        except IntegrityError:
-            db_session.rollback()
-            return jsonify({'error': 'Wystąpił błąd podczas zapisu użytkownika.'}), 500
-        except Exception as e:
-            db_session.rollback()
-            print(f"Błąd podczas rejestracji przez admina: {e}")
-            return jsonify({'error': f'Wystąpił wewnętrzny błąd serwera: {e}'}), 500
-
+        if existing_user: return jsonify({'error': 'Nazwa użytkownika jest już zajęta'}), 409
+        new_user = User(username=username, is_admin=is_admin_flag); new_user.set_password(password); db_session.add(new_user)
+        try: db_session.flush(); print(f"Admin '{session.get('username')}' zarejestrował: '{username}' (Admin: {is_admin_flag})"); return jsonify({'message': f'Użytkownik {username} zarejestrowany.'}), 201
+        except IntegrityError: db_session.rollback(); return jsonify({'error': 'Błąd zapisu użytkownika.'}), 500
+        except Exception as e: db_session.rollback(); print(f"Błąd rejestracji admina: {e}"); return jsonify({'error': f'Błąd serwera: {e}'}), 500
 
 # === REJESTRACJA BLUEPRINTÓW ===
 app.register_blueprint(auth_bp)
-app.register_blueprint(admin_bp) # Zarejestruj blueprint admina
+app.register_blueprint(admin_bp)
 
-
-# === GŁÓWNA STRONA APLIKACJI (po zalogowaniu) ===
+# === GŁÓWNA STRONA APLIKACJI ===
 @app.route('/')
-@login_required # Ta strona wymaga zalogowania
+@login_required
 def main_index():
-    # Renderuje główny interfejs aplikacji
-    return render_template('index.html')
+    is_admin = session.get('is_admin', False)
+    return render_template('index.html', is_admin=is_admin)
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set!")
