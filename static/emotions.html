@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test: Rozpoznawanie i Dzielenie się Emocjami</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f7f9fc;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: #ffffff;
+            padding: 25px 40px;
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.07);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 30px;
+        }
+        .intro, .disclaimer {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            font-style: italic;
+            color: #555;
+            border-left: 5px solid #3498db;
+        }
+        .disclaimer {
+            border-left-color: #e74c3c;
+            margin-top: 20px;
+        }
+        .question {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #fafafa;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        .question p {
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .options label {
+            display: block;
+            margin: 5px 0;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+            flex-basis: 100%; /* Domyślnie pełna szerokość na małych ekranach */
+        }
+        .options label:hover {
+            background-color: #f0f4f8;
+        }
+        .options input[type="radio"] {
+            margin-right: 10px;
+            accent-color: #3498db;
+        }
+        
+        /* Układ na większych ekranach */
+        @media (min-width: 600px) {
+            .options {
+                flex-wrap: nowrap;
+            }
+            .options label {
+                flex-basis: auto; /* Automatyczna szerokość */
+                margin: 0 5px;
+            }
+        }
+
+        .submit-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #fff;
+            background-color: #27ae60;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 30px;
+            transition: background-color 0.2s;
+        }
+        .submit-btn:hover {
+            background-color: #2ecc71;
+        }
+
+        #results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #fdfdfd;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            display: none; /* Ukryte na początku */
+        }
+        #results h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .result-section {
+            margin-bottom: 20px;
+        }
+        .score {
+            font-weight: 700;
+            font-size: 1.2em;
+            color: #3498db;
+        }
+        .interpretation-level {
+            font-weight: 700;
+            font-size: 1.1em;
+            padding: 3px 8px;
+            border-radius: 5px;
+            color: #fff;
+        }
+        .level-high { background-color: #27ae60; }
+        .level-medium { background-color: #f39c12; }
+        .level-low { background-color: #e74c3c; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Autorefleksja: Rozpoznawanie i Dzielenie się Emocjami</h1>
+
+        <p class="intro">
+            Oceń, na ile poniższe stwierdzenia są prawdziwe dla Ciebie w skali od 1 (Zdecydowanie nie) do 5 (Zdecydowanie tak). Odpowiedz szczerze – to narzędzie ma pomóc Tobie, nie ma tu "złych" odpowiedzi.
+        </p>
+
+        <form id="emotionTestForm">
+            
+            <h2>Część 1: Rozpoznawanie (Samoświadomość Emocjonalna)</h2>
+
+            <div class="question">
+                <p>1. Potrafię w dowolnym momencie dnia świadomie określić, co czuję.</p>
+                <div class="options">
+                    <label><input type="radio" name="q1_1" value="1"> 1 (Zdecydowanie nie)</label>
+                    <label><input type="radio" name="q1_1" value="2"> 2 (Raczej nie)</label>
+                    <label><input type="radio" name="q1_1" value="3"> 3 (Czasami)</label>
+                    <label><input type="radio" name="q1_1" value="4"> 4 (Raczej tak)</label>
+                    <label><input type="radio" name="q1_1" value="5"> 5 (Zdecydowanie tak)</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <p>2. Kiedy czuję się "źle", zazwyczaj potrafię precyzyjnie nazwać tę emocję (np. odróżnić smutek od frustracji).</p>
+                <div class="options">
+                    <label><input type="radio" name="q1_2" value="1"> 1</label>
+                    <label><input type="radio" name="q1_2" value="2"> 2</label>
+                    <label><input type="radio" name="q1_2" value="3"> 3</label>
+                    <label><input type="radio" name="q1_2" value="4"> 4</label>
+                    <label><input type="radio" name="q1_2" value="5"> 5</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <p>3. Zauważam fizyczne sygnały w moim ciele (np. napięcie w ramionach, "ścisk w żołądku") i rozumiem, z jakimi emocjami są powiązane.</p>
+                <div class="options">
+                    <label><input type="radio" name="q1_3" value="1"> 1</label>
+                    <label><input type="radio" name="q1_3" value="2"> 2</label>
+                    <label><input type="radio" name="q1_3" value="3"> 3</label>
+                    <label><input type="radio" name="q1_3" value="4"> 4</label>
+                    <label><input type="radio" name="q1_3" value="5"> 5</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <p>4. Przeważnie wiem, co (jaka myśl, sytuacja lub osoba) było bezpośrednią przyczyną mojej reakcji emocjonalnej.</p>
+                <div class="options">
+                    <label><input type="radio" name="q1_4" value="1"> 1</label>
+                    <label><input type="radio" name="q1_4" value="2"> 2</label>
+                    <label><input type="radio" name="q1_4" value="3"> 3</label>
+                    <label><input type="radio" name="q1_4" value="4"> 4</label>
+                    <label><input type="radio" name="q1_4" value="5"> 5</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <p>5. Jestem świadomy/a, że mogę odczuwać kilka różnych, nawet sprzecznych, emocji jednocześnie (np. radość i lęk).</p>
+                <div class="options">
+                    <label><input type="radio" name="q1_5" value="1"> 1</label>
+                    <label><input type="radio" name="q1_5" value="2"> 2</label>
+                    <label><input type="radio" name="q1_5" value="3"> 3</label>
+                    <label><input type="radio" name="q1_5" value="4"> 4</label>
+                    <label><input type="radio" name="q1_5" value="5"> 5</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <p>6. Zanim zareaguję pod wpływem silnej emocji, zazwyczaj daję sobie chwilę na jej zrozumienie.</p>
+                <div class="options">
+                    <label><input type="radio" name="q1_6" value="1"> 1</label>
+                    <label><input type="radio" name="q1_6" value="2"> 2</label>
+                    <label><input type="radio" name="q1_6" value="3"> 3</label>
+                    <label><input type="radio" name="q1_6" value="4"> 4</label>
+                    <label><input type="radio" name="q1_6" value="5"> 5</label>
+                </div>
+            </div>
+
+            <h2>Część 2: Dzielenie się (Ekspresja Emocjonalna)</h2>
+
+            <div class="question">
+                <p>1. Kiedy przeżywam trudności, potrafię prosić o wsparcie i rozmawiać o swoich uczuciach z zaufanymi osobami.</p>
+                <div class="options">
+                    <label><input type="radio" name="q2_1" value="1"> 1 (Zdecydowanie nie)</label>
+                    <label><input type="radio" name="q2_1" value="2"> 2 (Raczej nie)</label>
+                    <label><input type="radio" name="q2_1" value="3"> 3 (Czasami)</label>
+                    <label><input type="radio" name="q2_1" value="4"> 4 (Raczej tak)</label>
+                    <label><input type="radio" name="q2_1" value="5"> 5 (Zdecydowanie tak)</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <p>2. Mówię innym o swoich uczuciach w sposób jasny i bezpośredni (np. "Czuję złość, kiedy...", zamiast okazywać to milczeniem).</p>
+                <div class="options">
+                    <label><input type="radio" name="q2_2" value="1"> 1</label>
+                    <label><input type="radio" name="q2_2" value="2"> 2</label>
+                    <label><input type="radio" name="q2_2" value="3"> 3</label>
+                    <label><input type="radio" name="q2_2" value="4"> 4</label>
+                    <label><input type="radio" name="q2_2" value="5"> 5</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <p>3. Uważam, że dzielenie się trudnymi emocjami (jak smutek czy lęk) jest w porządku i nie jest oznaką słabości.</p>
+                <div class="options">
+                    <label><input type="radio" name="q2_3" value="1"> 1</label>
+                    <label><input type="radio" name="q2_3" value="2"> 2</label>
+                    <label><input type="radio" name="q2_3" value="3"> 3</label>
+                    <label><input type="radio" name="q2_3" value="4"> 4</label>
+                    <label><input type="radio" name="q2_3" value="5"> 5</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <p>4. Bliskie mi osoby generalnie wiedzą, co naprawdę czuję, nie muszę udawać, że "wszystko jest OK".</p>
+                <div class="options">
+                    <label><input type="radio" name="q2_4" value="1"> 1</label>
+                    <label><input type="radio" name="q2_4" value="2"> 2</label>
+                    <label><input type="radio" name="q2_4" value="3"> 3</label>
+                    <label><input type="radio" name="q2_4" value="4"> 4</label>
+                    <label><input type="radio" name="q2_4" value="5"> 5</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <p>5. Potrafię otwarcie i swobodnie dzielić się z innymi swoimi pozytywnymi emocjami (radością, dumą, wdzięcznością).</p>
+                <div class="options">
+                    <label><input type="radio" name="q2_5" value="1"> 1</label>
+                    <label><input type="radio" name="q2_5" value="2"> 2</label>
+                    <label><input type="radio" name="q2_5" value="3"> 3</label>
+                    <label><input type="radio" name="q2_5" value="4"> 4</label>
+                    <label><input type="radio" name="q2_5" value="5"> 5</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <p>6. Mam dobre wyczucie, komu i w jakiej sytuacji mogę bezpiecznie powierzyć swoje uczucia.</p>
+                <div class="options">
+                    <label><input type="radio" name="q2_6" value="1"> 1</label>
+                    <label><input type="radio" name="q2_6" value="2"> 2</label>
+                    <label><input type="radio" name="q2_6" value="3"> 3</label>
+                    <label><input type="radio" name="q2_6" value="4"> 4</label>
+                    <label><input type="radio" name="q2_6" value="5"> 5</label>
+                </div>
+            </div>
+
+            <button type="button" class="submit-btn" onclick="calculateResults()">Pokaż moje wyniki</button>
+        </form>
+
+        <div id="results">
+            </div>
+
+        <div class="disclaimer">
+            <strong>Ważna uwaga:</strong> Pamiętaj, że ten test jest jedynie narzędziem do autorefleksji. Nie zastąpi on profesjonalnej diagnozy psychologicznej ani porady specjalisty.
+        </div>
+    </div>
+
+    <script>
+        // Definicje liczby pytań w każdej sekcji
+        const numQ1 = 6;
+        const numQ2 = 6;
+
+        function calculateResults() {
+            let score1 = 0;
+            let score2 = 0;
+            let allAnswered = true;
+
+            // Zliczanie punktów dla Części 1
+            for (let i = 1; i <= numQ1; i++) {
+                const selected = document.querySelector(`input[name="q1_${i}"]:checked`);
+                if (selected) {
+                    score1 += parseInt(selected.value);
+                } else {
+                    allAnswered = false;
+                }
+            }
+
+            // Zliczanie punktów dla Części 2
+            for (let i = 1; i <= numQ2; i++) {
+                const selected = document.querySelector(`input[name="q2_${i}"]:checked`);
+                if (selected) {
+                    score2 += parseInt(selected.value);
+                } else {
+                    allAnswered = false;
+                }
+            }
+
+            const resultsDiv = document.getElementById('results');
+            
+            if (!allAnswered) {
+                resultsDiv.innerHTML = '<p style="color: red; font-weight: bold;">Proszę odpowiedzieć na wszystkie pytania, aby zobaczyć wynik.</p>';
+                resultsDiv.style.display = 'block';
+                return; // Przerwij funkcję
+            }
+
+            // Generowanie interpretacji
+            let interpretation1 = getInterpretation(score1, numQ1, "rozpoznawanie");
+            let interpretation2 = getInterpretation(score2, numQ2, "dzielenie się");
+
+            // Wyświetlanie wyników
+            resultsDiv.innerHTML = `
+                <h2>Twoje Wyniki</h2>
+                
+                <div class="result-section">
+                    <h3>Część 1: Rozpoznawanie Emocji</h3>
+                    <p>Twój wynik: <span class="score">${score1} na ${numQ1 * 5} punktów</span></p>
+                    ${interpretation1}
+                </div>
+                
+                <div class="result-section">
+                    <h3>Część 2: Dzielenie się Emocjami</h3>
+                    <p>Twój wynik: <span class="score">${score2} na ${numQ2 * 5} punktów</span></p>
+                    ${interpretation2}
+                </div>
+            `;
+            resultsDiv.style.display = 'block';
+            
+            // Przewiń do wyników
+            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function getInterpretation(score, numQuestions, type) {
+            const maxScore = numQuestions * 5;
+            const percentage = (score / maxScore) * 100;
+            let level = "";
+            let text = "";
+
+            if (percentage >= 70) { // Wysoki wynik (np. 21-30 dla 6 pytań)
+                level = '<span class="interpretation-level level-high">Poziom Wysoki</span>';
+                if (type === "rozpoznawanie") {
+                    text = "Wygląda na to, że masz bardzo dobrą świadomość swoich emocji. Potrafisz je trafnie nazywać, rozumiesz ich źródła i sygnały płynące z ciała. To doskonała podstawa do inteligentnego zarządzania emocjami i podejmowania świadomych decyzji.";
+                } else { // dzielenie się
+                    text = "Świetnie! Potrafisz w zdrowy i asertywny sposób komunikować swoje emocje. Prawdopodobnie wiesz, kiedy i komu się otworzyć, potrafisz prosić o wsparcie, ale też dzielić się radością. To kluczowa umiejętność w budowaniu głębokich i szczerych relacji.";
+                }
+            } else if (percentage >= 40) { // Średni wynik (np. 12-20 dla 6 pytań)
+                level = '<span class="interpretation-level level-medium">Poziom Średni</span>';
+                if (type === "rozpoznawanie") {
+                    text = "Masz solidną podstawę w rozpoznawaniu swoich uczuć, choć zdarzają się chwile, gdy emocje Cię zaskakują lub trudno Ci precyzyjnie określić ich źródło. Warto kontynuować praktykę uważności (mindfulness), aby jeszcze lepiej rozumieć swój wewnętrzny świat. Zastanów się, w których konkretnie sytuacjach tracisz kontakt ze swoimi emocjami.";
+                } else { // dzielenie się
+                    text = "Masz dobre predyspozycje do dzielenia się emocjami, ale być może czasami się wahasz lub robisz to tylko w określonych warunkach. Możliwe, że łatwiej przychodzi Ci mówienie o uczuciach pozytywnych niż negatywnych (lub odwrotnie). Warto pracować nad asertywną komunikacją i zaufaniem w relacjach.";
+                }
+            } else { // Niski wynik (np. 6-11 dla 6 pytań)
+                level = '<span class="interpretation-level level-low">Poziom Wymagający Rozwoju</span>';
+                if (type === "rozpoznawanie") {
+                    text = "W tym obszarze jest wyraźne pole do rozwoju. Być może często czujesz się 'po prostu źle', nie wiedząc dlaczego, lub działasz pod wpływem impulsu, a dopiero później orientujesz się, co czułeś. Spróbuj częściej zatrzymywać się w ciągu dnia i zadawać sobie proste pytanie: 'Co teraz czuję i dlaczego?'. Pomocne może być prowadzenie dziennika emocji.";
+                } else { // dzielenie się
+                    text = "Możliwe, że masz trudności z otwartym wyrażaniem swoich uczuć. Być może obawiasz się oceny, postrzegania jako osoba 'słaba', lub po prostu nie wiesz, jak ubrać emocje w słowa. Pamiętaj, że zdrowe wyrażanie emocji jest niezbędne dla Twojego samopoczucia psychicznego i budowania wspierających relacji.";
+                }
+            }
+            
+            return `${level}<p>${text}</p>`;
+        }
+    </script>
+
+</body>
+</html>
