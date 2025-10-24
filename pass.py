@@ -1,70 +1,73 @@
 import os
-from flask import Flask, render_template, request, redirect, session, url_for
+import functools
+from flask import Blueprint, render_template, request, redirect, session, url_for, jsonify
 
-app = Flask(__name__)
+# Utworzenie Blueprint o nazwie 'auth'
+# __name__ pomaga Flaskowi zlokalizować zasoby (np. szablony)
+# template_folder wskazuje, gdzie szukać plików HTML dla tego Blueprintu
+auth_bp = Blueprint('auth', __name__, template_folder='templates')
 
-# --- Konfiguracja ---
-# 1. Hasło, które użytkownik musi wpisać.
-#    Wczytujemy je ze zmiennej środowiskowej (tej ustawionej na Render.com)
+# --- Konfiguracja (przeniesiona do app.py, ale hasło nadal potrzebne tutaj) ---
 POPRAWNE_HASLO = os.environ.get('ADMIN_PASSWORD')
-
-# 2. Sekretny klucz dla sesji (potrzebny Flaskowi do "zapamiętania" logowania)
-#    To RÓWNIEŻ powinna być zmienna środowiskowa.
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'domyslny-klucz-zmien-go')
+# Sekretny klucz jest ustawiany w głównej aplikacji (app.py)
 
 if not POPRAWNE_HASLO:
     print("="*50)
     print("BŁĄD: Nie ustawiono zmiennej środowiskowej 'ADMIN_PASSWORD'!")
-    print("Aplikacja nie będzie mogła poprawnie weryfikować hasła.")
+    print("Moduł logowania nie będzie działać poprawnie.")
     print("="*50)
 
-# --- Strony (Route'y) ---
+# --- Dekorator sprawdzający logowanie ---
+def login_required(view):
+    """
+    Dekorator, który przekierowuje niezalogowanych użytkowników
+    do strony logowania.
+    """
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        if 'logged_in' not in session or not session['logged_in']:
+            # Jeśli użytkownik nie jest zalogowany, przekieruj do strony logowania Blueprintu 'auth'
+            return redirect(url_for('auth.login_page'))
+        # Jeśli zalogowany, wykonaj oryginalną funkcję widoku
+        return view(**kwargs)
+    return wrapped_view
 
-@app.route('/')
-def index():
-    """ "Właściwa strona" (chroniona) """
-    
-    # Sprawdź, czy użytkownik jest "zapamiętany" w sesji
-    if 'logged_in' in session and session['logged_in'] == True:
-        # Jeśli tak, pokaż mu właściwą stronę
-        return render_template('index.html')
-    else:
-        # Jeśli nie, przekieruj go do logowania
-        return redirect(url_for('login'))
+# --- Strony (Route'y) Blueprintu ---
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    """ Strona logowania z formularzem """
+@auth_bp.route('/login', methods=['GET'])
+def login_page():
+    """ Wyświetla stronę logowania """
+    # Jeśli użytkownik jest już zalogowany, przekieruj go na stronę główną
+    if 'logged_in' in session and session['logged_in']:
+        return redirect(url_for('main_index')) # 'main_index' to nazwa funkcji dla '/' w app.py
+    return render_template('login.html', error=None)
+
+@auth_bp.route('/api/login', methods=['POST'])
+def handle_login():
+    """ Obsługuje dane logowania wysłane przez JavaScript (POST) """
+    data = request.get_json()
     error = None
-    
-    # Jeśli formularz został wysłany (metoda POST)
-    if request.method == 'POST':
-        # 1. Pobierz hasło wpisane w formularzu
-        wpisane_haslo = request.form.get('password')
-        
-        # 2. Porównaj hasło wpisane z tym poprawnym
-        if wpisane_haslo == POPRAWNE_HASLO:
-            # Hasło poprawne!
-            # Zapisujemy w sesji (w "pamięci" przeglądarki), że jest zalogowany
-            session['logged_in'] = True
-            # Przekierowujemy na stronę główną
-            return redirect(url_for('index'))
-        else:
-            # Hasło niepoprawne
-            error = 'Niepoprawne hasło. Spróbuj ponownie.'
 
-    # Jeśli strona jest ładowana (metoda GET) lub hasło było błędne
-    return render_template('login.html', error=error)
+    if not data or 'password' not in data:
+        return jsonify({'error': 'Brak hasła w zapytaniu'}), 400
 
-@app.route('/logout')
+    wpisane_haslo = data.get('password')
+    username = data.get('username') # Można dodać walidację nazwy użytkownika, jeśli potrzebne
+
+    # Porównaj hasło
+    if wpisane_haslo == POPRAWNE_HASLO:
+        session['logged_in'] = True
+        session['username'] = username # Opcjonalnie zapisz nazwę użytkownika
+        # Zwróć URL do przekierowania po stronie klienta
+        return jsonify({'redirect_url': url_for('main_index')}) # Przekieruj na główną stronę app.py
+    else:
+        # Hasło niepoprawne
+        return jsonify({'error': 'Niepoprawne hasło lub nazwa użytkownika.'}), 401 # Unauthorized
+
+@auth_bp.route('/logout')
+@login_required # Tylko zalogowany użytkownik może się wylogować
 def logout():
     """ Wylogowanie """
-    session.pop('logged_in', None) # Usuń 'logged_in' z sesji
-    return redirect(url_for('login'))
-
-# --- Uruchomienie aplikacji ---
-if __name__ == '__main__':
-    # Uruchom serwer testowy
-    # Na Render.com to polecenie nie jest używane (Render używa Gunicorna)
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    session.pop('logged_in', None)
+    session.pop('username', None)
+    return redirect(url_for('auth.login_page')) # Przekieruj z powrotem do logowania
