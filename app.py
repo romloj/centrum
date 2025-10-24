@@ -1255,6 +1255,47 @@ def update_client(cid):
         if hasattr(e.orig, "pgcode") and e.orig.pgcode == psycopg2.errorcodes.UNIQUE_VIOLATION: return jsonify({"error": "Taki klient już istnieje (imię i nazwisko)."}), 409
         return jsonify({"error": "Błąd integralności bazy.", "details": str(e.orig)}), 409
 
+@app.route('/api/journal', methods=['GET'])
+@login_required
+def get_journal_entries():
+    """
+    Pobiera wszystkie wpisy z dziennika (Dziennik).
+    """
+    try:
+        with session_scope() as db_session:
+            # Pobieramy wpisy z bazy danych
+            # Sortujemy od najnowszej daty wpisu
+            # Model JournalEntry ma lazy="joined" dla klienta i terapeuty,
+            # więc te dane zostaną pobrane automatycznie.
+            entries = db_session.query(JournalEntry).order_by(
+                JournalEntry.data.desc(),
+                JournalEntry.created_at.desc()
+            ).all()
+
+            # Konwertujemy obiekty SQLAlchemy na listę słowników (JSON)
+            results = []
+            for entry in entries:
+                results.append({
+                    "id": entry.id,
+                    "data": entry.data.isoformat(), # Użyj .isoformat() dla dat
+                    "client_id": entry.client_id,
+                    "client_name": entry.client.full_name if entry.client else "Brak klienta",
+                    "therapist_id": entry.therapist_id,
+                    "therapist_name": entry.therapist.full_name if entry.therapist else "Brak terapeuty",
+                    "temat": entry.temat,
+                    "cele": entry.cele,
+                    "created_at": entry.created_at.isoformat() # Użyj .isoformat() dla dat
+                })
+
+            # Zwracamy dane jako JSON
+            return jsonify(results)
+            
+    except Exception as e:
+        # Jeśli coś pójdzie nie tak, zwróć błąd 500
+        print(f"BŁĄD w /api/journal [GET]: {e}")
+        traceback.print_exc() # To pokaże pełny błąd w logach Render
+        return jsonify({"error": f"Wystąpił błąd serwera: {str(e)}"}), 500
+
 @app.route('/api/groups/<group_id>', methods=['GET'])
 @login_required
 def get_package_group(group_id):
