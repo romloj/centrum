@@ -1,0 +1,31 @@
+ <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">Moduł Planowania</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main_index' %}active{% endif %}" aria-current="page" href="/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/static/clients.html">Klienci</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/static/schedule.html">Grafik</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/static/tus.html">TUS</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/static/projects.html">Projekty</a></li>
+                    {% if session.get('is_admin') %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin.admin_register_page' %}active{% endif %}" href="{{ url_for('admin.admin_register_page') }}">Dodaj użytkownika</a>
+                    </li>
+                    {# Dodaj tutaj inne linki tylko dla admina #}
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                     <li class="nav-item">
+                         <span class="navbar-text me-3">Zalogowano jako: {{ session.username or 'Użytkownik' }} {% if session.get('is_admin') %}(Admin){% endif %}</span>
+                     </li>
+                     <li class="nav-item">
+                        <a class="btn btn-outline-secondary" href="{{ url_for('auth.logout') }}">Wyloguj</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
