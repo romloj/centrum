@@ -90,60 +90,93 @@ except Exception as e:
     print(f"--- BŁĄD Inicjalizacji SQLAlchemy: {e} ---")
     sys.exit(1) # Wyjście z aplikacji jeśli baza nie działa
 
+# === ZAKTUALIZOWANY MODEL: User (z flagą is_admin) ===
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), unique=True, nullable=False)
+    password_hash = Column(String(128), nullable=False)
+    is_admin = Column(Boolean, default=False, nullable=False) # Flaga administratora
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
 # === MODUŁ LOGOWANIA (Blueprint) ===
-
-auth_bp = Blueprint('auth', __name__, template_folder='static')
-
-CENTRUM_PASSWORD = os.environ.get('CENTRUM_PASSWORD')
-CENTRUM_USERNAME = os.environ.get('CENTRUM_USERNAME')
-
-if not CENTRUM_PASSWORD:
-    print("="*50)
-    print("BŁĄD: Nie ustawiono zmiennej środowiskowej 'ADMIN_PASSWORD'!")
-    print("Moduł logowania nie będzie działać poprawnie.")
-    print("="*50)
+auth_bp = Blueprint('auth', __name__, template_folder='templates')
 
 def login_required(view):
+    """Dekorator sprawdzający, czy użytkownik jest zalogowany."""
     @functools.wraps(view)
     def wrapped_view(**kwargs):
-        if 'logged_in' not in session or not session['logged_in']:
-            # Jeśli żądanie jest do API, zwróć błąd 401
+        if 'user_id' not in session:
             if request.path.startswith('/api/'):
                  return jsonify(message="Authentication required"), 401
-            # W przeciwnym razie przekieruj do strony logowania
+            flash('Musisz się zalogować, aby uzyskać dostęp do tej strony.')
             return redirect(url_for('auth.login_page'))
+        # Sprawdzenie czy użytkownik istnieje w bazie (opcjonalne, ale bezpieczniejsze)
+        with session_scope() as db_session:
+            user = db_session.get(User, session['user_id'])
+            if user is None:
+                session.clear() # Wyczyść sesję jeśli użytkownik nie istnieje
+                flash('Użytkownik nie istnieje. Zaloguj się ponownie.')
+                return redirect(url_for('auth.login_page'))
         return view(**kwargs)
     return wrapped_view
 
+# === NOWY DEKORATOR: @admin_required ===
+def admin_required(view):
+    """Dekorator sprawdzający, czy użytkownik jest zalogowany I jest administratorem."""
+    @functools.wraps(view)
+    @login_required # Najpierw upewnij się, że jest zalogowany
+    def wrapped_view(**kwargs):
+        user_id = session.get('user_id')
+        with session_scope() as db_session:
+             # Pobierz użytkownika (już wiemy, że istnieje dzięki @login_required)
+            user = db_session.get(User, user_id)
+            if not user or not user.is_admin:
+                # Jeśli nie jest adminem
+                flash('Nie masz uprawnień administratora, aby uzyskać dostęp do tej strony.')
+                # Jeśli to API, zwróć błąd 403 Forbidden
+                if request.path.startswith('/api/'):
+                    return jsonify(message="Admin privileges required"), 403
+                # W przeciwnym razie przekieruj na stronę główną
+                return redirect(url_for('main_index'))
+        # Jeśli jest adminem, wykonaj widok
+        return view(**kwargs)
+    return wrapped_view
+
+
 @auth_bp.route('/login', methods=['GET'])
 def login_page():
-    if 'logged_in' in session and session['logged_in']:
-        return redirect(url_for('main_index')) # Przekieruj na główną stronę aplikacji
+    if 'user_id' in session:
+        return redirect(url_for('main_index'))
     return render_template('login.html', error=None)
 
 @auth_bp.route('/api/login', methods=['POST'])
 def handle_login():
     data = request.get_json()
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({'error': 'Brak nazwy użytkownika lub hasła'}), 400
 
-    if not data:
-        return jsonify({'error': 'Brak danych'}), 400
+    username = data.get('username')
+    password = data.get('password')
 
-    wpisane_haslo = data.get('password')
-    username = data.get('username') 
+    with session_scope() as db_session:
+        user = db_session.query(User).filter_by(username=username).first()
 
-    # POPRAWIONE SPRAWDZANIE:
-    # Porównaj z nowymi zmiennymi, które wczytałeś na górze
-    if wpisane_haslo == CENTRUM_PASSWORD and username == CENTRUM_USERNAME:
-        session['logged_in'] = True
+        if user and user.check_password(password):
+            session.clear()
+            session['user_id'] = user.id
+            session['username'] = user.username
+            # Zapisz czy jest adminem w sesji dla łatwiejszego dostępu (opcjonalne)
+            session['is_admin'] = user.is_admin
+            return jsonify({'redirect_url': url_for('main_index')})
+        else:
+            return jsonify({'error': 'Niepoprawna nazwa użytkownika lub hasło.'}), 401
 
-        # POPRAWIONY BŁĄD (z poprzedniej rozmowy):
-        # Zapisz 'username' z formularza, a nie 'centrum'
-        session['username'] = username 
-
-        return jsonify({'redirect_url': url_for('main_index')})
-    else:
-        # Zwróć błąd 401
-        return jsonify({'error': 'Niepoprawne hasło lub nazwa użytkownika.'}), 401
 
 @auth_bp.route('/logout')
 @login_required # Tylko zalogowany może się wylogować
@@ -152,8 +185,58 @@ def logout():
     session.pop('username', None)
     return redirect(url_for('auth.login_page'))
 
-# === REJESTRACJA BLUEPRINTU ===
+# === ZMIENIONY BLUEPRINT: Rejestracja tylko dla Admina ===
+# Zmieniono nazwę z user_bp na admin_bp
+admin_bp = Blueprint('admin', __name__, template_folder='templates')
+
+@admin_bp.route('/admin/register', methods=['GET'])
+@admin_required # Dostęp tylko dla admina
+def admin_register_page():
+    """ Wyświetla formularz rejestracji dla administratora """
+    return render_template('admin_register.html') # Nowy szablon
+
+@admin_bp.route('/api/admin/register', methods=['POST'])
+@admin_required # Tylko admin może wywołać to API
+def handle_admin_register():
+    """ Przetwarza dane z formularza rejestracji dodane przez admina """
+    data = request.get_json()
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({'error': 'Nazwa użytkownika i hasło są wymagane'}), 400
+
+    username = data['username'].strip()
+    password = data['password']
+    # Dodano możliwość ustawienia flagi admina podczas rejestracji
+    is_admin_flag = data.get('is_admin', False)
+
+    if not username or not password:
+         return jsonify({'error': 'Nazwa użytkownika i hasło nie mogą być puste'}), 400
+    if len(password) < 4:
+         return jsonify({'error': 'Hasło musi mieć co najmniej 4 znaki'}), 400
+
+    with session_scope() as db_session:
+        existing_user = db_session.query(User).filter_by(username=username).first()
+        if existing_user:
+            return jsonify({'error': 'Nazwa użytkownika jest już zajęta'}), 409
+
+        new_user = User(username=username, is_admin=is_admin_flag) # Ustaw flagę is_admin
+        new_user.set_password(password)
+        db_session.add(new_user)
+        try:
+            db_session.flush() # Potrzebne aby uzyskać ID przed commitem
+            print(f"Admin '{session.get('username')}' zarejestrował nowego użytkownika: '{username}' (Admin: {is_admin_flag})")
+            return jsonify({'message': f'Użytkownik {username} został pomyślnie zarejestrowany.'}), 201
+        except IntegrityError:
+            db_session.rollback()
+            return jsonify({'error': 'Wystąpił błąd podczas zapisu użytkownika.'}), 500
+        except Exception as e:
+            db_session.rollback()
+            print(f"Błąd podczas rejestracji przez admina: {e}")
+            return jsonify({'error': f'Wystąpił wewnętrzny błąd serwera: {e}'}), 500
+
+
+# === REJESTRACJA BLUEPRINTÓW ===
 app.register_blueprint(auth_bp)
+app.register_blueprint(admin_bp) # Zarejestruj blueprint admina
 
 
 # === GŁÓWNA STRONA APLIKACJI (po zalogowaniu) ===
