@@ -172,7 +172,7 @@ def logout():
     return redirect(url_for('auth.login_page'))
 
 # === BLUEPRINT: Rejestracja tylko dla Admina ===
-admin_bp = Blueprint('admin', __name__, template_folder='templates')
+admin_bp = Blueprint('admin', __name__, template_folder='static')
 
 @admin_bp.route('/admin/register', methods=['GET'])
 @admin_required
