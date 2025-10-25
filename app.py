@@ -1081,9 +1081,9 @@ def parse_json_only_when_needed():
 
 # === GŁÓWNE ENDPOINTY APLIKACJI ===
 
-@app.get("/")
-def index():
-    return app.send_static_file("index.html")
+#@app.get("/")
+#def index():
+#    return app.send_static_file("index.html")
 
 
 @app.get("/api/ai/gaps")
