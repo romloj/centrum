@@ -44,7 +44,7 @@ print("--- SERWER ZALADOWAL NAJNOWSZA WERSJE PLIKU ---")
 # === KONFIGURACJA APLIKACJI ===
 TZ = ZoneInfo("Europe/Warsaw")
 # Główna instancja aplikacji
-app = Flask(__name__, static_folder="static", static_url_path="", template_folder='templates') # Określamy folder szablonów
+app = Flask(__name__, static_folder="static", static_url_path="", template_folder='static') # Określamy folder szablonów
 CORS(app, supports_credentials=True) # supports_credentials=True jest ważne dla sesji
 app.config['DEBUG'] = True
 
