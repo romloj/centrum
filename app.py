@@ -5262,12 +5262,9 @@ def init_all_tables():
             print(f"✓ Połączono z PostgreSQL")
             print(f"  {version[:60]}...")
 
-        # <<< --- DODAJ TĘ LINIĘ --- >>>
         # Automatyczne tworzenie tabel z modeli SQLAlchemy (w tym 'users')
         Base.metadata.create_all(bind=engine)
         print("✓ Tabele z modeli SQLAlchemy (Base.metadata) zainicjalizowane.")
-        # <<< --- KONIEC DODAWANIA --- >>>
-
 
         # Inicjalizuj dodatkowe tabele/indeksy (jeśli potrzebne)
         init_documents_table()  # Dokumenty klientów
