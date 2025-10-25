@@ -38,6 +38,7 @@ from sqlalchemy.orm import declarative_base, selectinload
 from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base, relationship, joinedload, aliased
 from sqlalchemy.exc import IntegrityError
 from geopy.distance import geodesic
+from werkzeug.security import generate_password_hash, check_password_hash
 
 print("--- SERWER ZALADOWAL NAJNOWSZA WERSJE PLIKU ---")
 
@@ -105,7 +106,7 @@ class User(Base):
         return check_password_hash(self.password_hash, password)
 
 # === MODUŁ LOGOWANIA (Blueprint) ===
-auth_bp = Blueprint('auth', __name__, template_folder='templates')
+auth_bp = Blueprint('auth', __name__, template_folder='static')
 
 def login_required(view):
     @functools.wraps(view)
@@ -5261,11 +5262,21 @@ def init_all_tables():
             print(f"✓ Połączono z PostgreSQL")
             print(f"  {version[:60]}...")
 
-        # Inicjalizuj wszystkie tabele
+        # <<< --- DODAJ TĘ LINIĘ --- >>>
+        # Automatyczne tworzenie tabel z modeli SQLAlchemy (w tym 'users')
+        Base.metadata.create_all(bind=engine)
+        print("✓ Tabele z modeli SQLAlchemy (Base.metadata) zainicjalizowane.")
+        # <<< --- KONIEC DODAWANIA --- >>>
+
+
+        # Inicjalizuj dodatkowe tabele/indeksy (jeśli potrzebne)
         init_documents_table()  # Dokumenty klientów
         init_foundation_table()  # Dane fundacji
         init_projects_table()  # Projekty
         init_client_notes_table()
+        init_journal_table()      # Dodano brakujące wywołanie
+        init_waiting_clients_table() # Dodano brakujące wywołanie
+        init_absences_table()    # Dodano brakujące wywołanie
 
         print("=" * 60)
         print("✓ WSZYSTKIE TABELE GOTOWE")
