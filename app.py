@@ -7649,6 +7649,16 @@ def debug_endpoints():
 # Wywołaj diagnostykę
 debug_endpoints()
 
+# === Uruchomienie aplikacji ===
+
+# Inicjalizacja tabel MUSI być poza blokiem main
+# Gunicorn uruchomi ten kod podczas importowania 'app'
+if not init_all_tables():
+    print("KRYTYCZNY BŁĄD: Nie udało się zainicjalizować tabel. Aplikacja zatrzymana.")
+    # W normalnej sytuacji można by tu zatrzymać aplikację, 
+    # ale na razie tylko logujemy błąd.
+    # sys.exit(1) # Możesz to odkomentować, jeśli chcesz
+
 
     # Wywołaj przy starcie aplikacji
 if __name__ == '__main__':
