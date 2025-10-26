@@ -5391,7 +5391,7 @@ def init_all_tables():
         init_client_notes_table()
         init_journal_table()      # Dodano brakujące wywołanie
         init_waiting_clients_table() # Dodano brakujące wywołanie
-        init_absences_table()    # Dodano brakujące wywołanie
+        #init_absences_table()    # Dodano brakujące wywołanie
 
         print("=" * 60)
         print("✓ WSZYSTKIE TABELE GOTOWE")
