@@ -147,6 +147,50 @@ def login_page():
         return redirect(url_for('main_index'))
     return render_template('login.html', error=None)
 
+def create_default_user():
+    """Tworzy domyślnego użytkownika admin jeśli tabela users jest pusta lub naprawia istniejącego"""
+    try:
+        with session_scope() as db_session:
+            admin_user = db_session.query(User).filter_by(username='admin').first()
+            
+            if not admin_user:
+                # Tworzymy domyślnego admina
+                admin_user = User(username='admin', is_admin=True)
+                admin_user.set_password('admin123')
+                db_session.add(admin_user)
+                print("=" * 50)
+                print("UTWORZONO DOMYŚLNEGO UŻYTKOWNIKA:")
+                print("Nazwa użytkownika: admin")
+                print("Hasło: admin123")
+                print("=" * 50)
+            else:
+                # Sprawdź czy hasło jest poprawne, jeśli nie - napraw
+                try:
+                    # Testujemy czy hasło działa
+                    test_result = admin_user.check_password('admin123')
+                    if not test_result:
+                        # Jeśli nie działa, ustaw nowe hasło
+                        admin_user.set_password('admin123')
+                        db_session.commit()
+                        print("=" * 50)
+                        print("NAPRAWIONO HASŁO ADMINA:")
+                        print("Nowe hasło: admin123")
+                        print("=" * 50)
+                except Exception as e:
+                    # Jeśli jest błąd z hashowaniem, napraw
+                    print(f"Błąd hashowania: {e}, naprawiam...")
+                    admin_user.set_password('admin123')
+                    db_session.commit()
+                    print("=" * 50)
+                    print("NAPRAWIONO USZKODZONE HASŁO ADMINA")
+                    print("Nowe hasło: admin123")
+                    print("=" * 50)
+                
+    except Exception as e:
+        print(f"Błąd tworzenia/naprawy użytkownika: {e}")
+        import traceback
+        traceback.print_exc()
+
 @auth_bp.route('/api/login', methods=['POST'])
 def handle_login():
     data = request.get_json()
