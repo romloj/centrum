@@ -109,6 +109,39 @@ class User(Base):
 # === MODUŁ LOGOWANIA (Blueprint) ===
 auth_bp = Blueprint('auth', __name__, template_folder='static')
 admin_bp = Blueprint('admin', __name__, template_folder='static')
+def login_required(view):
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        if 'user_id' not in session:
+            if request.path.startswith('/api/'):
+                 return jsonify(message="Authentication required"), 401
+            # Użycie flash() jest już poprawne dzięki importowi
+            flash('Musisz się zalogować, aby uzyskać dostęp do tej strony.')
+            return redirect(url_for('auth.login_page'))
+        with session_scope() as db_session:
+            user = db_session.get(User, session['user_id'])
+            if user is None:
+                session.clear()
+                flash('Użytkownik nie istnieje. Zaloguj się ponownie.')
+                return redirect(url_for('auth.login_page'))
+        return view(**kwargs)
+    return wrapped_view
+
+def admin_required(view):
+    @functools.wraps(view)
+    @login_required
+    def wrapped_view(**kwargs):
+        user_id = session.get('user_id')
+        with session_scope() as db_session:
+            user = db_session.get(User, user_id)
+            if not user or not user.is_admin:
+                flash('Nie masz uprawnień administratora, aby uzyskać dostęp do tej strony.')
+                if request.path.startswith('/api/'):
+                    return jsonify(message="Admin privileges required"), 403
+                return redirect(url_for('main_index'))
+        return view(**kwargs)
+    return wrapped_view
+  
 @admin_bp.route('/admin/change-password', methods=['GET'])
 
 @admin_required # Wymaga zalogowania i uprawnień admina
@@ -189,38 +222,7 @@ def handle_admin_change_password():
         # session_scope() automatycznie zrobi rollback w razie błędu
  #       return jsonify({'error': f'Błąd serwera podczas resetowania hasła: {str(e)}'}), 500
 
-def login_required(view):
-    @functools.wraps(view)
-    def wrapped_view(**kwargs):
-        if 'user_id' not in session:
-            if request.path.startswith('/api/'):
-                 return jsonify(message="Authentication required"), 401
-            # Użycie flash() jest już poprawne dzięki importowi
-            flash('Musisz się zalogować, aby uzyskać dostęp do tej strony.')
-            return redirect(url_for('auth.login_page'))
-        with session_scope() as db_session:
-            user = db_session.get(User, session['user_id'])
-            if user is None:
-                session.clear()
-                flash('Użytkownik nie istnieje. Zaloguj się ponownie.')
-                return redirect(url_for('auth.login_page'))
-        return view(**kwargs)
-    return wrapped_view
 
-def admin_required(view):
-    @functools.wraps(view)
-    @login_required
-    def wrapped_view(**kwargs):
-        user_id = session.get('user_id')
-        with session_scope() as db_session:
-            user = db_session.get(User, user_id)
-            if not user or not user.is_admin:
-                flash('Nie masz uprawnień administratora, aby uzyskać dostęp do tej strony.')
-                if request.path.startswith('/api/'):
-                    return jsonify(message="Admin privileges required"), 403
-                return redirect(url_for('main_index'))
-        return view(**kwargs)
-    return wrapped_view
   
 #tymczasowa naprawa hasła
 @app.route('/api/fix-admin-password', methods=['POST'])
