@@ -96,7 +96,8 @@ class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
     username = Column(String(80), unique=True, nullable=False)
-    password_hash = Column(String(128), nullable=False)
+    #password_hash = Column(String(128), nullable=False)
+    password_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
 
     def set_password(self, password):
