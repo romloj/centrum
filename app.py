@@ -150,19 +150,39 @@ def login_page():
 @auth_bp.route('/api/login', methods=['POST'])
 def handle_login():
     data = request.get_json()
+    print(f"Login attempt for: {data.get('username')}")
+    
     if not data or 'username' not in data or 'password' not in data:
         return jsonify({'error': 'Brak nazwy użytkownika lub hasła'}), 400
+    
     username = data.get('username')
     password = data.get('password')
+    
     with session_scope() as db_session:
         user = db_session.query(User).filter_by(username=username).first()
-        if user and user.check_password(password):
-            session.clear()
-            session['user_id'] = user.id
-            session['username'] = user.username
-            session['is_admin'] = user.is_admin
-            return jsonify({'redirect_url': url_for('main_index')})
+        
+        if user:
+            print(f"User found: {user.username}, password_hash: {user.password_hash[:50]}...")
+            try:
+                password_correct = user.check_password(password)
+                print(f"Password check result: {password_correct}")
+                
+                if password_correct:
+                    session.clear()
+                    session['user_id'] = user.id
+                    session['username'] = user.username
+                    session['is_admin'] = user.is_admin
+                    print(f"Login successful for: {username}")
+                    return jsonify({'redirect_url': url_for('main_index')})
+                else:
+                    print(f"Invalid password for: {username}")
+                    return jsonify({'error': 'Niepoprawna nazwa użytkownika lub hasło.'}), 401
+                    
+            except Exception as e:
+                print(f"Password check error: {e}")
+                return jsonify({'error': f'Błąd systemu uwierzytelniania: {str(e)}'}), 500
         else:
+            print(f"User not found: {username}")
             return jsonify({'error': 'Niepoprawna nazwa użytkownika lub hasło.'}), 401
 
 @auth_bp.route('/logout')
