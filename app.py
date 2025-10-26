@@ -108,6 +108,41 @@ class User(Base):
 # === MODUŁ LOGOWANIA (Blueprint) ===
 auth_bp = Blueprint('auth', __name__, template_folder='static')
 
+#tymczasowa naprawa hasła
+@app.route('/api/reset-admin-password-force', methods=['POST'])
+def reset_admin_password_force():
+    """
+    Tymczasowy endpoint do *wymuszonego* zresetowania hasła admina.
+    Użyj go RAZ po wdrożeniu, a potem usuń/zakomentuj.
+    """
+    admin_username = 'admin'
+    new_password = 'admin123' # Możesz zmienić na inne, jeśli chcesz
+
+    print(f"--- Wymuszone resetowanie hasła dla '{admin_username}' ---")
+    try:
+        with session_scope() as db_session:
+            admin_user = db_session.query(User).filter_by(username=admin_username).first()
+
+            if admin_user:
+                print(f"Znaleziono użytkownika '{admin_username}'. Stary hash (preview): {admin_user.password_hash[:30]}...")
+                # Używamy metody set_password, która generuje poprawny hash
+                admin_user.set_password(new_password) 
+                db_session.flush() # Wymuś zapis przed commitem
+                print(f"Nowy hash (preview): {admin_user.password_hash[:30]}...")
+                # session_scope() automatycznie zrobi commit po wyjściu z bloku 'with'
+                print(f"Hasło dla '{admin_username}' zostało zresetowane na '{new_password}'.")
+                return jsonify({'message': f'Hasło dla {admin_username} zostało zresetowane.'}), 200
+            else:
+                print(f"Użytkownik '{admin_username}' nie istnieje w bazie.")
+                return jsonify({'error': f'Użytkownik {admin_username} nie istnieje'}), 404
+
+    except Exception as e:
+        print(f"BŁĄD podczas resetowania hasła: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        # session_scope() automatycznie zrobi rollback w razie błędu
+        return jsonify({'error': f'Błąd serwera podczas resetowania hasła: {str(e)}'}), 500
+
 def login_required(view):
     @functools.wraps(view)
     def wrapped_view(**kwargs):
