@@ -11,27 +11,25 @@
                 <li class="nav-item"><a class="nav-link" href="/static/schedule.html">Grafik</a></li>
                 <li class="nav-item"><a class="nav-link" href="/static/tus.html">TUS</a></li>
                 <li class="nav-item"><a class="nav-link" href="/static/projects.html">Projekty</a></li>
-                
-                {# === SEKCJA TYLKO DLA ADMINA === #}
-                {% if session.get('is_admin') %}
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        Admin 🛠️
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                        <li>
-                            <a class="dropdown-item {% if request.endpoint == 'admin.admin_register_page' %}active{% endif %}" href="{{ url_for('admin.admin_register_page') }}">Dodaj użytkownika</a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            {# === DODANY LINK === #}
-                            <a class="dropdown-item {% if request.endpoint == 'admin.admin_change_password_page' %}active{% endif %}" href="{{ url_for('admin.admin_change_password_page') }}">Zmień hasło</a>
-                            {# === KONIEC DODANEGO LINKU === #}
-                        </li>
-                        {# Tutaj możesz dodać więcej linków admina #}
-                    </ul>
-                </li>
+               
+               {# === SEKCJA TYLKO DLA ADMINA === #}
+                {% if session.get('is_admin') %} 
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Admin 🛠️
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="adminDropdown">
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'admin.admin_register_page' %}active{% endif %}" href="{{ url_for('admin.admin_register_page') }}">Dodaj użytkownika</a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'admin.admin_change_password_page' %}active{% endif %}" href="{{ url_for('admin.admin_change_password_page') }}">Zmień hasło</a>
+                            </li>
+                        </ul>
+                    </li>
                 {% endif %}
+
                 {# === KONIEC SEKCJI ADMINA === #}
             </ul>
             <ul class="navbar-nav ms-auto">
