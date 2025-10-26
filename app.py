@@ -7737,6 +7737,25 @@ def debug_endpoints():
     print(f"✓ Łącznie endpointów: {len(endpoints)}")
     return endpoints
 
+@app.route('/api/debug/users')
+def debug_users():
+    """Debug - pokaż wszystkich użytkowników"""
+    try:
+        with session_scope() as db_session:
+            users = db_session.query(User).all()
+            result = []
+            for user in users:
+                result.append({
+                    'id': user.id,
+                    'username': user.username,
+                    'is_admin': user.is_admin,
+                    'password_hash_length': len(user.password_hash) if user.password_hash else 0,
+                    'password_hash_preview': user.password_hash[:30] + '...' if user.password_hash else 'EMPTY'
+                })
+            return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
 # Wywołaj diagnostykę
 debug_endpoints()
 
