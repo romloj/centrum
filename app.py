@@ -7759,6 +7759,13 @@ def debug_users():
 # Wywołaj diagnostykę
 debug_endpoints()
 
+# === INICJALIZACJA DOMYŚLNEGO UŻYTKOWNIKA ===
+print("\n" + "="*60)
+print("INICJALIZACJA DOMYŚLNEGO UŻYTKOWNIKA")
+print("="*60)
+create_default_user()
+print("="*60 + "\n")
+
 # === Uruchomienie aplikacji ===
 
 # Inicjalizacja tabel MUSI być poza blokiem main
