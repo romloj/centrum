@@ -109,6 +109,50 @@ class User(Base):
 # === MODUŁ LOGOWANIA (Blueprint) ===
 auth_bp = Blueprint('auth', __name__, template_folder='static')
 
+@admin_bp.route('/admin/change-password', methods=['GET'])
+@admin_required # Wymaga zalogowania i uprawnień admina
+def admin_change_password_page():
+    """Wyświetla stronę do zmiany hasła."""
+    return render_template('change_password.html')
+
+@admin_bp.route('/api/admin/change-password', methods=['POST'])
+@admin_required # Wymaga zalogowania i uprawnień admina
+def handle_admin_change_password():
+    """Obsługuje żądanie zmiany hasła przez API."""
+    user_id = session.get('user_id') # Pobierz ID zalogowanego admina z sesji
+    if not user_id:
+        # Ten warunek teoretycznie nie powinien wystąpić przez @admin_required, ale dla bezpieczeństwa
+        return jsonify({'error': 'Brak uwierzytelnienia'}), 401
+
+    data = request.get_json()
+    new_password = data.get('new_password')
+
+    if not new_password or len(new_password) < 4:
+        return jsonify({'error': 'Nowe hasło jest wymagane i musi mieć co najmniej 4 znaki.'}), 400
+
+    try:
+        with session_scope() as db_session:
+            # Znajdź użytkownika w bazie na podstawie ID z sesji
+            user = db_session.get(User, user_id) 
+            if not user:
+                 session.clear() # Na wszelki wypadek wyczyść sesję
+                 return jsonify({'error': 'Użytkownik nie znaleziony'}), 404
+
+            # Ustaw nowe hasło (metoda set_password automatycznie hashuje)
+            user.set_password(new_password)
+            # session_scope() zrobi commit automatycznie
+            
+            print(f"Admin '{user.username}' (ID: {user_id}) zmienił swoje hasło.")
+            flash('Hasło zostało pomyślnie zmienione.', 'success') # Opcjonalny komunikat flash
+            return jsonify({'message': 'Hasło zostało zmienione pomyślnie.'}), 200
+
+    except Exception as e:
+        # session_scope() zrobi rollback automatycznie
+        print(f"Błąd podczas zmiany hasła dla user_id={user_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Wystąpił błąd serwera podczas zmiany hasła: {str(e)}'}), 500
+
 #tymczasowa naprawa hasła
 #@app.route('/api/reset-admin-password-force', methods=['POST'])
 #def reset_admin_password_force():
