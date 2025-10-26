@@ -108,8 +108,9 @@ class User(Base):
 
 # === MODUŁ LOGOWANIA (Blueprint) ===
 auth_bp = Blueprint('auth', __name__, template_folder='static')
-
+admin_bp = Blueprint('admin', __name__, template_folder='static')
 @admin_bp.route('/admin/change-password', methods=['GET'])
+
 @admin_required # Wymaga zalogowania i uprawnień admina
 def admin_change_password_page():
     """Wyświetla stronę do zmiany hasła."""
@@ -336,7 +337,7 @@ def logout():
     return redirect(url_for('auth.login_page'))
 
 # === BLUEPRINT: Rejestracja tylko dla Admina ===
-admin_bp = Blueprint('admin', __name__, template_folder='static')
+
 
 @admin_bp.route('/admin/register', methods=['GET'])
 @admin_required
