@@ -140,6 +140,25 @@ def admin_required(view):
                 return redirect(url_for('main_index'))
         return view(**kwargs)
     return wrapped_view
+  
+#tymczasowa naprawa hasła
+@app.route('/api/fix-admin-password', methods=['POST'])
+def fix_admin_password():
+    """Tymczasowy endpoint do naprawy hasła admina"""
+    try:
+        with session_scope() as db_session:
+            admin_user = db_session.query(User).filter_by(username='admin').first()
+            
+            if admin_user:
+                # Ustaw poprawne hasło
+                admin_user.set_password('admin123')
+                db_session.commit()
+                return jsonify({'message': 'Hasło admina zostało naprawione'}), 200
+            else:
+                return jsonify({'error': 'Użytkownik admin nie istnieje'}), 404
+                
+    except Exception as e:
+        return jsonify({'error': f'Błąd: {str(e)}'}), 500
 
 @auth_bp.route('/login', methods=['GET'])
 def login_page():
