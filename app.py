@@ -515,6 +515,18 @@ def driver_schedule_page():
     """Wyświetla stronę 'driver_schedule.html'"""
     return render_template('driver_schedule.html')
 
+@app.route('/manager')
+@therapist_required  # Dostęp dla admina i terapeutów (lub zmień na @admin_required)
+def manager_page():
+    """Wyświetla stronę 'manager.html'"""
+    return render_template('manager.html')
+
+@app.route('/poczekalnia')
+@therapist_required  # Dostęp dla admina i terapeutów
+def waiting_list_page():
+    """Wyświetla stronę 'poczekalnia.html'"""
+    return render_template('poczekalnia.html')
+
 #koniec
 
 if not DATABASE_URL:
