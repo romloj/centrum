@@ -194,6 +194,73 @@ def handle_admin_change_password():
         traceback.print_exc()
         return jsonify({'error': f'Wystąpił błąd serwera podczas zmiany hasła: {str(e)}'}), 500
 
+# W app.py
+
+@admin_bp.route('/admin/manage-users', methods=['GET'])
+@admin_required
+def manage_users_page():
+    """Wyświetla stronę panelu zarządzania użytkownikami i rolami."""
+    try:
+        with session_scope() as db_session:
+            # Pobierz wszystkich użytkowników i od razu ich powiązane profile (dla optymalizacji)
+            all_users = db_session.query(User).options(
+                joinedload(User.therapist_profile),
+                joinedload(User.driver_profile)
+            ).order_by(User.username).all()
+            
+            # Pobierz listy wszystkich dostępnych terapeutów i kierowców do dropdownów
+            all_therapists = db_session.query(Therapist).filter_by(active=True).order_by(Therapist.full_name).all()
+            all_drivers = db_session.query(Driver).filter_by(active=True).order_by(Driver.full_name).all()
+
+        # Przekaż dane do szablonu HTML
+        return render_template(
+            'manage_users.html', 
+            users=all_users, 
+            therapists=all_therapists, 
+            drivers=all_drivers
+        )
+    except Exception as e:
+        print(f"Błąd podczas ładowania strony zarządzania użytkownikami: {e}")
+        flash(f"Wystąpił błąd podczas ładowania strony: {e}", "danger")
+        return redirect(url_for('main_index'))
+
+@admin_bp.route('/api/admin/users/<int:user_id>/link', methods=['POST'])
+@admin_required
+def link_user_profiles(user_id):
+    """API Endpoint do aktualizacji powiązań profilu terapeuty/kierowcy."""
+    data = request.get_json()
+    if data is None:
+        return jsonify({'error': 'Brak danych JSON'}), 400
+
+    # Używamy .get() aby pozwolić na wysłanie 'null' lub brak klucza
+    therapist_id = data.get('therapist_id')
+    driver_id = data.get('driver_id')
+
+    # Konwertuj puste wartości (np. 0 lub pusty string "") na None (NULL w bazie)
+    if not therapist_id: therapist_id = None
+    if not driver_id: driver_id = None
+
+    try:
+        with session_scope() as db_session:
+            user = db_session.get(User, user_id)
+            if not user:
+                return jsonify({'error': 'Użytkownik nie znaleziony'}), 404
+            
+            # Zaktualizuj ID profili
+            user.therapist_id = therapist_id
+            user.driver_id = driver_id
+            
+            # session_scope() automatycznie wykona commit
+            
+            print(f"Admin (ID: {session.get('user_id')}) zaktualizował powiązania dla User ID: {user_id}. Nowe T_ID={therapist_id}, D_ID={driver_id}")
+            return jsonify({'message': 'Powiązania zaktualizowane pomyślnie'}), 200
+            
+    except Exception as e:
+        # session_scope() automatycznie wykona rollback
+        print(f"Błąd podczas aktualizacji powiązań użytkownika: {e}")
+        traceback.print_exc()
+        return jsonify({'error': f'Błąd serwera: {str(e)}'}), 500
+
 
 def therapist_required(view):
     """
