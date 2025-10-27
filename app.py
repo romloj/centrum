@@ -514,6 +514,17 @@ def clients_page():
                          therapist_id=therapist_id,
                          driver_id=driver_id)
 
+@app.route('/tus.html')
+@therapist_required
+def clients_page():
+    is_admin = session.get('is_admin', False)
+    therapist_id = session.get('therapist_id')
+    driver_id = session.get('driver_id')
+    return render_template('clients.html',
+                         is_admin=is_admin,
+                         therapist_id=therapist_id,
+                         driver_id=driver_id)
+
 #koniec
 
 if not DATABASE_URL:
