@@ -96,9 +96,16 @@ class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
     username = Column(String(80), unique=True, nullable=False)
-    #password_hash = Column(String(128), nullable=False)
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=False) 
     is_admin = Column(Boolean, default=False, nullable=False)
+
+    # === NOWE POLA ===
+    therapist_id = Column(Integer, ForeignKey('therapists.id'), nullable=True)
+    driver_id = Column(Integer, ForeignKey('drivers.id'), nullable=True)
+
+    # === NOWE RELACJE ===
+    therapist_profile = relationship("Therapist", foreign_keys=[therapist_id])
+    driver_profile = relationship("Driver", foreign_keys=[driver_id])
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -186,6 +193,46 @@ def handle_admin_change_password():
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Wystąpił błąd serwera podczas zmiany hasła: {str(e)}'}), 500
+
+
+def therapist_required(view):
+    """
+    Sprawdza, czy użytkownik jest zalogowany I jest adminem LUB ma profil terapeuty.
+    """
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        if 'user_id' not in session:
+            # Nie zalogowany - przekieruj na logowanie
+            flash('Musisz się zalogować, aby uzyskać dostęp do tej strony.')
+            return redirect(url_for('auth.login_page'))
+        
+        if session.get('is_admin') or session.get('therapist_id'):
+            # Jest adminem LUB terapeutą - zezwól na dostęp
+            return view(**kwargs)
+        
+        # Nie jest ani adminem, ani terapeutą - brak dostępu
+        flash('Nie masz uprawnień (terapeuty), aby uzyskać dostęp do tej strony.')
+        return redirect(url_for('main_index')) # Przekieruj na stronę główną
+    return wrapped_view
+
+def driver_required(view):
+    """
+    Sprawdza, czy użytkownik jest zalogowany I jest adminem LUB ma profil kierowcy.
+    """
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        if 'user_id' not in session:
+            flash('Musisz się zalogować, aby uzyskać dostęp do tej strony.')
+            return redirect(url_for('auth.login_page'))
+        
+        if session.get('is_admin') or session.get('driver_id'):
+            # Jest adminem LUB kierowcą - zezwól na dostęp
+            return view(**kwargs)
+        
+        # Nie jest ani adminem, ani kierowcą - brak dostępu
+        flash('Nie masz uprawnień (kierowcy), aby uzyskać dostęp do tej strony.')
+        return redirect(url_for('main_index'))
+    return wrapped_view
 
 #tymczasowa naprawa hasła
 #@app.route('/api/reset-admin-password-force', methods=['POST'])
@@ -318,8 +365,15 @@ def handle_login():
                     session['user_id'] = user.id
                     session['username'] = user.username
                     session['is_admin'] = user.is_admin
-                    print(f"Login successful for: {username}")
+
+                            # === NOWY KOD ===
+                    # Zapisz powiązane profile w sesji
+                    session['therapist_id'] = user.therapist_id
+                    session['driver_id'] = user.driver_id
+            
+                    print(f"Login successful for: {username}, is_admin: {user.is_admin}, therapist_id: {user.therapist_id}")
                     return jsonify({'redirect_url': url_for('main_index')})
+                    
                 else:
                     print(f"Invalid password for: {username}")
                     return jsonify({'error': 'Niepoprawna nazwa użytkownika lub hasło.'}), 401
@@ -1599,6 +1653,7 @@ def ai_recommend():
 
 
 @app.get("/api/clients")
+@therapist_required
 def list_clients_with_suo():
     mk = request.args.get("month") or datetime.now(TZ).strftime("%Y-%m")
     q = (request.args.get("q") or "").strip()
@@ -2270,6 +2325,7 @@ def tus_page():
 
 
 @app.get("/api/tus/groups")
+@therapist_required
 def get_tus_groups():
     with session_scope() as db_session:
         groups = db_session.query(TUSGroup).options(
@@ -3114,6 +3170,7 @@ def client_packages(cid):
 
 # === DRIVER SCHEDULE (kursy kierowcy z klientami) ===
 @app.get("/api/drivers/<int:did>/schedule")
+@driver_required
 def driver_schedule(did):
     mk = request.args.get("month")
     sql = """
@@ -4547,6 +4604,7 @@ def update_individual_attendance(slot_id):
 @app.get("/individual_attendance.html")
 def individual_attendance_page():
     # Tutaj można dodać @login_required, jeśli strona ma być chroniona
+    @login_required
     return app.send_static_file("individual_attendance.html")
 
 
