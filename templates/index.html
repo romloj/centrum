@@ -857,7 +857,7 @@ a.card-link:hover .start-card {
       const confirmAdd = confirm(`Czy chcesz dodać pakiet dla klienta:\n${clientName}?`);
       if (confirmAdd) {
         // ✅ POPRAWKA TUTAJ: Użyj url_for z Jinja2
-        window.location.href = `{{ url_for('panel_page') }}?openPackageFor=${clientId}`;
+        window.location.href = `{{ url_for('manager_page') }}?openPackageFor=${clientId}`;
       }
     };
 
