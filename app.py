@@ -107,8 +107,8 @@ class User(Base):
         return check_password_hash(self.password_hash, password)
 
 # === MODUŁ LOGOWANIA (Blueprint) ===
-auth_bp = Blueprint('auth', __name__, template_folder='static')
-admin_bp = Blueprint('admin', __name__, template_folder='static')
+auth_bp = Blueprint('auth', __name__, template_folder='templates')
+admin_bp = Blueprint('admin', __name__, template_folder='templates')
 def login_required(view):
     @functools.wraps(view)
     def wrapped_view(**kwargs):
