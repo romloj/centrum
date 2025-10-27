@@ -881,8 +881,8 @@ a.card-link:hover .start-card {
 
         const viewClient = confirm('Czy chcesz przejść do listy klientów?');
         if (viewClient) {
-          navigateTo('klienci.html');
-        }
+          navigateTo('{{ url_for('clients_page') }}');
+        }
       } catch (err) {
         alert(`Błąd dodawania klienta: ${err.message}`);
       } finally {
@@ -932,7 +932,7 @@ a.card-link:hover .start-card {
 
         const viewTherapist = confirm('Czy chcesz przejść do planów terapeutów?');
         if (viewTherapist) {
-          navigateTo('therapist.html');
+          navigateTo('{{ url_for('schedule_page') }}');
         }
       } catch (err) {
         alert(`Błąd dodawania terapeuty: ${err.message}`);
@@ -980,7 +980,7 @@ a.card-link:hover .start-card {
 
         const viewDriver = confirm('Czy chcesz przejść do planów kierowców?');
         if (viewDriver) {
-          navigateTo('kierowcy.html');
+          navigateTo('{{ url_for('drivers_page') }}');
         }
       } catch (err) {
         alert(`Błąd dodawania kierowcy: ${err.message}`);
@@ -1144,9 +1144,10 @@ a.card-link:hover .start-card {
 
     // Dodaj pakiet - przekierowanie do wyboru klienta
     function quickAddPackage() {
-      // Przekieruj do strony z głównym widokiem i otwórz modal wyboru klienta
-      window.location.href = 'index.html?view=main&action=selectClient';
-    }
+      // ✅ POPRAWKA TUTAJ
+      // Przekieruj do strony głównej z automatycznym otwarciem panelu dodawania pakietu
+      window.location.href = '{{ url_for('main_index') }}?view=main&action=selectClient';
+    }
 
     // Pokaż główny widok (tabela klientów z Twojego oryginalnego kodu)
     function showMainView() {
@@ -1167,26 +1168,20 @@ a.card-link:hover .start-card {
       // Przekieruj do strony głównej z automatycznym otwarciem panelu dodawania pakietu
       const confirmAdd = confirm(`Czy chcesz dodać pakiet dla klienta:\n${clientName}?`);
       if (confirmAdd) {
-        // Opcja 1: Jeśli openPackageCanvas jest dostępny w tym pliku
-        // if (typeof openPackageCanvas === 'function') {
-        //   openPackageCanvas(clientId);
-        // } else {
+        // ✅ POPRAWKA TUTAJ
+        window.location.href = `{{ url_for('panel_page') }}?openPackageFor=${clientId}`;
+      }
+    };
 
-        // Opcja 2: Przekierowanie (jeśli funkcja jest w innym pliku)
-        window.location.href = `panel.html?openPackageFor=${clientId}`;
-        // }
-      }
+    // Zobacz grafik terapeuty
+    window.viewTherapistSchedule = function(therapistId) {
+      // Zamknij modal braków
+      const modalInstance = bootstrap.Modal.getInstance(document.getElementById('gapsModal'));
+      if (modalInstance) modalInstance.hide();
     };
 
-    // Zobacz grafik terapeuty
-    window.viewTherapistSchedule = function(therapistId) {
-      // Zamknij modal braków
-      const modalInstance = bootstrap.Modal.getInstance(document.getElementById('gapsModal'));
-      if (modalInstance) modalInstance.hide();
+   
 
-      // Przekieruj do strony terapeuty lub otwórz grafik
-      window.location.href = `therapist.html?therapist_id=${therapistId}`;
-    };
 
     // Zobacz kursy kierowcy
     window.viewDriverSchedule = function(driverId) {
@@ -1278,9 +1273,10 @@ async function goToIndividualPackage() {
     }, 300);
 }
 
-function goToTusPackage() {
-    window.location.href = `tus.html?action=addPackage&clientId=${selectedClientId}`;
-}
+function goToTusPackage(){
+      // ✅ POPRAWKA TUTAJ
+      window.location.href = `{{ url_for('tus_page') }}?action=addPackage&clientId=${selectedClientId}`;
+    }
 
 async function loadTherapistsAndDrivers() {
     try {
