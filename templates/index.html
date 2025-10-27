@@ -283,6 +283,7 @@ a.card-link:hover .start-card {
     <!-- Główne kafelki -->
     <div class="dashboard-grid">
       <!-- Klienci -->
+      {% if is_admin or therapist_id %}
       <div class="app-card" onclick="navigateTo('/klient-panel')">
         <span class="badge bg-success badge-status">Aktywne</span>
         <i class="bi bi-people-fill card-icon"></i>
@@ -291,6 +292,7 @@ a.card-link:hover .start-card {
           Zarządzaj bazą klientów, przeglądaj ich pakiety i dostępność
         </p>
       </div>
+      {% endif %}
 
 <!--
        <a href="panel.html?action=addPackage" class="card-link text-decoration-none">
@@ -371,6 +373,7 @@ a.card-link:hover .start-card {
 </div>
 
       <!-- Terapeuci -->
+       {% if is_admin or therapist_id %}
       <div class="app-card" onclick="navigateTo('terapeuta-panel.html')">
         <i class="bi bi-heart-pulse-fill card-icon"></i>
         <h2 class="card-title">Terapeuci</h2>
@@ -378,6 +381,7 @@ a.card-link:hover .start-card {
           Przeglądaj grafiki, dodawaj terapeutów i planuj zajęcia
         </p>
       </div>
+      {% endif %}
 
        <!-- <div class="app-card" onclick="navigateTo('/terapeuta')">
         <i class="bi bi-heart-pulse-fill card-icon"></i>
@@ -388,6 +392,7 @@ a.card-link:hover .start-card {
       </div>-->
 
       <!-- Kierowcy -->
+       {% if is_admin or therapist_id %}
       <div class="app-card" onclick="navigateTo('/drivers')">
         <i class="bi bi-truck card-icon"></i>
         <h2 class="card-title">Kierowcy</h2>
@@ -395,8 +400,10 @@ a.card-link:hover .start-card {
           Zarządzaj kierowcami i przeglądaj plany transportu
         </p>
       </div>
+      {% endif %}
 
       <!-- Plan SUO -->
+      {% if is_admin or therapist_id %}
       <div class="app-card" onclick="navigateTo('/panel')">
         <i class="bi bi-calendar3 card-icon"></i>
         <h2 class="card-title">Plan SUO</h2>
@@ -404,8 +411,10 @@ a.card-link:hover .start-card {
           Przegląd salda godzin i pakietów wszystkich klientów
         </p>
       </div>
+       {% endif %}
 
       <!-- Moduł TUS -->
+      {% if is_admin or therapist_id %}
       <div class="app-card" onclick="navigateTo('/tus')">
         <span class="badge bg-info badge-status">Grupy</span>
         <i class="bi bi-star-fill card-icon"></i>
@@ -414,6 +423,7 @@ a.card-link:hover .start-card {
           Zarządzanie zajęciami grupowymi i globalny plan TUS
         </p>
       </div>
+       {% endif %}
 
       <!-- Lista Obecności
       <div class="app-card" onclick="navigateTo('/lista')">
@@ -433,6 +443,7 @@ a.card-link:hover .start-card {
         </p>
       </div>-->
         <!--Menadżer-->
+      {% if is_admin or therapist_id %}
         <div class="app-card" onclick="navigateTo('/manager')">
       <span class="badge bg-warning badge-status">Menadżer</span>
       <i class="bi bi-file-earmark-medical card-icon"></i>
@@ -441,6 +452,7 @@ a.card-link:hover .start-card {
         Zarządzaj dokumentacją klientów, skanuj i przesyłaj pliki
       </p>
     </div>
+      {% endif %}
 
       <!-- Dokumenty IPET
     <div class="app-card" onclick="navigateTo('ipet.html')">
@@ -483,7 +495,8 @@ a.card-link:hover .start-card {
                 </p>
                 <span class="module-badge">Raporty i analizy</span>
       </div> -->
-
+      
+        {% if is_admin or therapist_id %}
          <div class="app-card" onclick="navigateTo('/poczekalnia')">
         <i class="bi bi-alarm" style="font-size: 2rem; color: cornflowerblue;"></i>
         <h2 class="card-title">Oczekujący</h2>
@@ -491,6 +504,8 @@ a.card-link:hover .start-card {
           Zarządzaj kierowcami i przeglądaj plany transportu
         </p>
       </div>
+      {% endif %}
+      
     </div> <!--koniec bloku menu-->
     <!-- Szybkie akcje -->
     <div class="quick-actions">
