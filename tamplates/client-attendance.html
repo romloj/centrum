@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>Miesięczna Obecność Klienta TUS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body { padding: 1rem; background-color: #f8f9fa; }
+    .report-container {
+        background-color: #fff;
+        border: 1px solid var(--bs-border-color);
+        border-radius: .5rem;
+        padding: 1.5rem;
+    }
+    @media print {
+        body { padding: 0; background-color: #fff; }
+        .no-print { display: none; }
+        .report-container { border: none; box-shadow: none; }
+    }
+
+      .fab-container {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: 1050;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+    .fab-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: var(--bs-primary);
+        color: white;
+        font-size: 1.8rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        text-decoration: none;
+        transition: transform 0.3s ease, background-color 0.3s ease;
+        border: none;
+    }
+    .fab-button:hover {
+        transform: scale(1.1);
+        background-color: var(--bs-primary-dark);
+    }
+    .fab-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        gap: 0.75rem;
+        transform: scaleY(0);
+        transform-origin: bottom;
+        transition: transform 0.3s ease;
+    }
+    .fab-container.open .fab-menu {
+        transform: scaleY(1);
+    }
+    .fab-menu-item a {
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+        background-color: var(--bs-secondary);
+    }
+    .fab-container.open #fab-main-icon {
+        transform: rotate(45deg);
+    }
+    #fab-main-icon {
+        transition: transform 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-4 no-print">
+      <h1 class="h4 m-0">📊 Miesięczna Obecność Klienta</h1>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <select id="clientSelector" class="form-select" style="width: 250px;"></select>
+        <input type="month" id="monthPicker" class="form-control" style="width: 180px;">
+        <button id="printBtn" class="btn btn-outline-secondary">Drukuj</button>
+      </div>
+    </header>
+
+    <div id="alertBox" class="mb-3"></div>
+
+    <div id="reportContainer" class="report-container">
+        <!-- Raport będzie renderowany tutaj -->
+    </div>
+  </div>
+ <!-- fab-menu.js-->
+    <div class="fab-container" id="fab-container">
+    <ul class="fab-menu">
+        <li class="fab-menu-item">
+            <a href="therapist1.html" class="fab-button" title="Plan terapeuty"><i class="bi bi-heart-pulse"></i></a>
+        </li>
+        <li class="fab-menu-item">
+            <a href="tus.html" class="fab-button" title="Moduł TUS"><i class="bi bi-star-fill"></i></a>
+        </li>
+        <li class="fab-menu-item">
+            <a href="klienci.html" class="fab-button" title="Lista klientów"><i class="bi bi-people-fill"></i></a>
+        </li>
+
+         <li class="fab-menu-item">
+            <a href="client_history.html" class="fab-button" title="Historia klientów"><i class="bi bi-people-fill"></i></a>
+        </li>
+         <li class="fab-menu-item">
+            <a href="index.html" class="fab-button" title="Strona główna"><i class="bi bi-house-x-fill"></i></a>
+        </li>
+
+
+
+    </ul>
+    <button class="fab-button" id="fab-main-btn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg" id="fab-main-icon"></i>
+    </button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const API_URL = "/api";
+    const clientSelector = document.getElementById('clientSelector');
+    const monthPicker = document.getElementById('monthPicker');
+    const reportContainer = document.getElementById('reportContainer');
+    const printBtn = document.getElementById('printBtn');
+
+    const showAlert = (msg, type = "success") => {
+        const box = document.getElementById("alertBox");
+        box.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    };
+
+    async function initialize() {
+        const today = new Date();
+        monthPicker.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+        try {
+            const response = await fetch(`${API_URL}/clients`);
+            if (!response.ok) throw new Error('Błąd ładowania listy klientów.');
+            const clients = await response.json();
+            
+            clientSelector.innerHTML = '<option value="">-- Wybierz klienta --</option>';
+            clients
+                .filter(c => c.active)
+                .forEach(client => {
+                    const option = new Option(client.full_name, client.client_id);
+                    clientSelector.add(option);
+                });
+        } catch (error) {
+            showAlert(error.message, 'danger');
+        }
+
+        clientSelector.addEventListener('change', loadReport);
+        monthPicker.addEventListener('change', loadReport);
+        printBtn.addEventListener('click', () => window.print());
+    }
+
+    async function loadReport() {
+        const clientId = clientSelector.value;
+        const month = monthPicker.value;
+
+        if (!clientId || !month) {
+            reportContainer.innerHTML = '<p class="text-muted text-center p-5">Wybierz klienta i miesiąc.</p>';
+            return;
+        }
+        reportContainer.innerHTML = '<p class="text-muted text-center p-5">Ładowanie...</p>';
+        try {
+            // ZMIANA: Używamy nowego endpointu 'all-attendance'
+            const response = await fetch(`${API_URL}/clients/${clientId}/all-attendance?month=${month}`);
+            if (!response.ok) throw new Error(`Błąd serwera: ${response.statusText}`);
+            const data = await response.json();
+            renderReport(data);
+        } catch (error) {
+            reportContainer.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+        }
+    }
+
+    function renderReport(data) {
+    const clientName = clientSelector.options[clientSelector.selectedIndex].text;
+    const monthName = new Date(monthPicker.value + '-02').toLocaleString('pl-PL', { month: 'long', year: 'numeric' });
+
+    if (!data || data.length === 0) {
+        reportContainer.innerHTML = `
+            <h3 class="mb-3">Obecność - ${clientName}</h3>
+            <p><strong>Miesiąc:</strong> ${monthName}</p>
+            <p class="text-muted">Brak zarejestrowanych obecności dla tego klienta w wybranym miesiącu.</p>`;
+        return;
+    }
+
+    const statusCounts = { obecny: 0, nieobecny: 0, spóźniony: 0, usprawiedliwiony: 0 };
+    const statusTranslations = {
+        obecny: 'Obecny',
+        nieobecny: 'Nieobecny',
+        spóźniony: 'Spóźniony',
+        usprawiedliwiony: 'Usprawiedliwiony'
+    };
+
+    // --- POCZĄTEK POPRAWKI ---
+    // Używamy nowych, poprawnych nazw pól: 'date', 'description', 'details'
+    const tableRows = data.map(item => {
+        if (statusCounts.hasOwnProperty(item.status)) {
+            statusCounts[item.status]++;
+        }
+        return `
+            <tr>
+                <td>${new Date(item.date).toLocaleDateString('pl-PL')}</td>
+                <td>${item.description || 'Brak opisu'}</td>
+                <td>${item.details || 'Brak szczegółów'}</td>
+                <td>${statusTranslations[item.status] || item.status}</td>
+            </tr>
+        `;
+    }).join('');
+
+    reportContainer.innerHTML = `
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h3 class="mb-1">Raport Obecności</h3>
+                <div><strong>Klient:</strong> ${clientName}</div>
+                <div><strong>Miesiąc:</strong> ${monthName}</div>
+            </div>
+            <div class="text-end">
+                <small class="text-muted">Wygenerowano: ${new Date().toLocaleString("pl-PL")}</small>
+            </div>
+        </div>
+
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Data</th>
+                    <th>Rodzaj zajęć</th>
+                    <th>Szczegóły</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+        </table>
+
+        <div class="mt-4">
+            <h4>Podsumowanie</h4>
+            <p>
+                <span class="badge text-bg-success me-2">Obecny: ${statusCounts.obecny}</span>
+                <span class="badge text-bg-danger me-2">Nieobecny: ${statusCounts.nieobecny}</span>
+                <span class="badge text-bg-warning me-2">Spóźniony: ${statusCounts.spóźniony}</span>
+                <span class="badge text-bg-info me-2">Usprawiedliwiony: ${statusCounts.usprawiedliwiony}</span>
+            </p>
+        </div>
+    `;
+    // --- KONIEC POPRAWKI ---
+}
+
+    initialize();
+});
+
+//menu
+    document.addEventListener('DOMContentLoaded', () => {
+        const fabContainer = document.getElementById('fab-container');
+        const fabMainBtn = document.getElementById('fab-main-btn');
+
+        fabMainBtn.addEventListener('click', () => {
+            fabContainer.classList.toggle('open');
+        });
+    });
+</script>
+</body>
+</html>

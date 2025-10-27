@@ -1,0 +1,1184 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>Panel terapeuty – grafik</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body { padding: 16px; }
+    .toolbar .form-select, .toolbar .form-control { max-width: 280px }
+    .toolbar .view-toggle .btn { min-width: 96px }
+
+    /* — Tydzień — */
+    .cal-wrap { overflow:auto; border:1px solid var(--bs-border-color); border-radius:.5rem; }
+    .cal-grid { display:grid; grid-template-columns: 80px repeat(7, 1fr); }
+    .cal-head { position:sticky; top:0; z-index:2; background:var(--bs-body-bg); border-bottom:1px solid var(--bs-border-color); }
+    .cal-head div { padding:.5rem; font-weight:600; text-align:center; border-left:1px solid var(--bs-border-color); }
+    .cal-head div:first-child { border-left:0; text-align:left; }
+    .cal-row { height:24px; border-top:1px dotted var(--bs-border-color); font-size:12px; }
+    .cal-row label { display:inline-block; padding:2px 6px; color: var(--bs-secondary-color); }
+    .cal-col { position:relative; border-left:1px solid var(--bs-border-color); }
+    .cal-event { position:absolute; left:4px; right:4px; border-radius:.5rem; padding:2px 6px; font-size:12px; line-height:1.2; overflow:hidden; background:rgba(13,110,253,.12); border:1px solid rgba(13,110,253,.35); }
+    .cal-event.done { background: rgba(25,135,84,.15); border-color: rgba(25,135,84,.35); }
+    .cal-event.planned { background: rgba(13,110,253,.12); border-color: rgba(13,110,253,.35); }
+    .cal-event.cancelled { background: rgba(220,53,69,.10); border-color: rgba(220,53,69,.35); text-decoration:line-through; }
+    .cal-event.all { color: #000; }
+    .cal-legend { display:flex; gap:.5rem; flex-wrap:wrap; padding:.5rem; border-top:1px solid var(--bs-border-color); font-size:12px; color: var(--bs-secondary-color) }
+    .cal-legend .swatch { width:10px; height:10px; border-radius:2px; display:inline-block; margin-right:.25rem; vertical-align:baseline; }
+
+    /* — Miesiąc — */
+    .month-wrap { border:1px solid var(--bs-border-color); border-radius:.5rem; overflow:hidden; }
+    .month-head { display:grid; grid-template-columns: repeat(7, 1fr); background:var(--bs-body-bg); border-bottom:1px solid var(--bs-border-color); position:sticky; top:0; z-index:2; }
+    .month-head div { padding:.5rem; font-weight:600; text-align:center; border-left:1px solid var(--bs-border-color); }
+    .month-head div:first-child { border-left:0; }
+    .month-grid { display:grid; grid-template-columns: repeat(7, 1fr); }
+    .day-cell { min-height:120px; border-left:1px solid var(--bs-border-color); border-top:1px solid var(--bs-border-color); padding:.25rem .25rem .25rem .5rem; position:relative; }
+    .day-cell:nth-child(7n+1) { border-left:0; }
+    .day-num { font-size:12px; color: var(--bs-secondary-color); }
+    .day-chip { display:inline-block; margin:.15rem .15rem 0 0; padding:.1rem .35rem; border-radius:999px; font-size:11px; border:1px solid transparent; background:rgba(13,110,253,.12); }
+    .day-chip.done { background:rgba(25,135,84,.15); border-color:rgba(25,135,84,.35) }
+    .day-chip.cancelled { background:rgba(220,53,69,.12); border-color:rgba(220,53,69,.35); text-decoration:line-through }
+    .day-chip .mini { opacity:.7 }
+    .muted-month { opacity:.55 }
+    .sticky-month-title { position:sticky; top:0; background:var(--bs-body-bg); z-index:3; padding:.25rem 0 .5rem 0; }
+
+    /* Kolizje */
+    .collision-badge { position: absolute; top: 2px; right: 2px; background: #dc3545; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+    .cal-event.has-collision { border: 2px solid #dc3545 !important; box-shadow: 0 0 0 2px rgba(220,53,69,0.2); }
+    .day-chip.has-collision { border: 2px solid #dc3545 !important; box-shadow: 0 0 0 1px rgba(220,53,69,0.2); }
+    .day-cell.has-collision .day-num::after { content: "⚠"; color: #dc3545; margin-left: 4px; font-size: 14px; }
+
+    /* Modal edycji */
+    .modal-backdrop.show { opacity: 0.5; }
+
+    .fab-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 1030;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: flex-end;
+      gap: 0.75rem;
+      pointer-events: none;
+    }
+
+    .fab-main,
+    .fab-button,
+    .fab-label,
+    .fab-menu {
+      pointer-events: auto;
+    }
+
+    .fab-main {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .fab-main:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    .fab-main i {
+      transition: transform 0.3s ease;
+    }
+
+    .fab-container.open .fab-main i {
+      transform: rotate(45deg);
+    }
+
+    .fab-menu {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 0.75rem;
+      opacity: 0;
+      transform: translateY(10px) scale(0.9);
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .fab-container.open .fab-menu {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .fab-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      justify-content: flex-end;
+    }
+
+    .fab-label {
+      background: white;
+      color: #333;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      font-size: 0.875rem;
+      font-weight: 500;
+      white-space: nowrap;
+      opacity: 1;
+      transition: all 0.3s ease;
+    }
+
+    .fab-item:hover .fab-label {
+      background: #f8f9fa;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+    }
+
+    .fab-button {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      text-decoration: none;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+    }
+
+    .fab-button:hover {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      transform: scale(1.15);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.5);
+    }
+
+    @media (max-width: 768px) {
+      .fab-container {
+        bottom: 1rem;
+        right: 1rem;
+      }
+
+      .fab-label {
+        font-size: 0.813rem;
+        padding: 0.4rem 0.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-3 toolbar">
+      <h1 class="h5 m-0">Panel terapeuty – grafik</h1>
+      <div class="ms-auto"></div>
+
+      <div class="btn-group view-toggle" role="group" aria-label="View toggle">
+        <input type="radio" class="btn-check" name="viewMode" id="vmWeek" autocomplete="off" checked>
+        <label class="btn btn-outline-primary" for="vmWeek">Tydzień</label>
+        <input type="radio" class="btn-check" name="viewMode" id="vmMonth" autocomplete="off">
+        <label class="btn btn-outline-primary" for="vmMonth">Miesiąc</label>
+      </div>
+
+      <select id="tpTherapistSelect" class="form-select">
+        <option value="all">— wszyscy terapeuci —</option>
+      </select>
+
+      <input type="date" id="tpRefDate" class="form-control" />
+      <input type="month" id="tpRefMonth" class="form-control d-none" />
+
+      <div class="btn-group">
+        <button id="tpPrev" class="btn btn-outline-secondary">«</button>
+        <button id="tpToday" class="btn btn-outline-secondary">Dziś</button>
+        <button id="tpNext" class="btn btn-outline-secondary">»</button>
+      </div>
+      <button id="tpPrint" class="btn btn-outline-secondary">Drukuj</button>
+    </header>
+
+    <div id="alertBox" class="mb-3"></div>
+
+    <!-- Modal edycji wizyty -->
+    <div class="modal fade" id="editEventModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Edytuj wizytę</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="editEventId">
+            <input type="hidden" id="editTherapistId">
+            <div class="mb-3">
+              <label class="form-label">Klient</label>
+              <input type="text" id="editClientName" class="form-control" readonly>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Data <span class="text-danger">*</span></label>
+              <input type="date" id="editDate" class="form-control" required>
+            </div>
+            <div class="row">
+              <div class="col-6 mb-3">
+                <label class="form-label">Godzina rozpoczęcia <span class="text-danger">*</span></label>
+                <input type="time" id="editStartTime" class="form-control" required>
+              </div>
+              <div class="col-6 mb-3">
+                <label class="form-label">Godzina zakończenia <span class="text-danger">*</span></label>
+                <input type="time" id="editEndTime" class="form-control" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Miejsce</label>
+              <input type="text" id="editPlace" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Status</label>
+              <select id="editStatus" class="form-select">
+                <option value="planned">Zaplanowana</option>
+                <option value="done">Odbyta</option>
+                <option value="cancelled">Anulowana</option>
+              </select>
+            </div>
+            <div id="collisionWarning" class="alert alert-warning d-none">
+              <i class="bi bi-exclamation-triangle"></i> <strong>Uwaga!</strong> Wykryto kolizję czasową z inną wizytą tego terapeuty.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="deleteEventBtn" class="btn btn-danger me-auto">
+              <i class="bi bi-trash"></i> Usuń wizytę
+            </button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+            <button type="button" id="saveEventBtn" class="btn btn-primary">
+              <i class="bi bi-check-circle"></i> Zapisz zmiany
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="calendarHost">
+      <!-- tutaj renderuję tydzień lub miesiąc -->
+    </div>
+  </div>
+
+  <!-- FAB Menu -->
+  <div class="fab-container" id="fabContainer">
+    <ul class="fab-menu">
+      <li class="fab-item">
+        <span class="fab-label">Plan terapeuty</span>
+        <a href="therapist.html" class="fab-button" title="Plan terapeuty">
+          <i class="bi bi-heart-pulse"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Moduł TUS</span>
+        <a href="tus.html" class="fab-button" title="Moduł TUS">
+          <i class="bi bi-star-fill"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Lista klientów</span>
+        <a href="klienci.html" class="fab-button" title="Lista klientów">
+          <i class="bi bi-people-fill"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Historia klientów</span>
+        <a href="client_history.html" class="fab-button" title="Historia klientów">
+          <i class="bi bi-clock-history"></i>
+        </a>
+      </li>
+      <li class="fab-item">
+        <span class="fab-label">Strona główna</span>
+        <a href="index.html" class="fab-button" title="Strona główna">
+          <i class="bi bi-house-fill"></i>
+        </a>
+      </li>
+    </ul>
+    <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
+      <i class="bi bi-plus-lg"></i>
+    </button>
+  </div>
+
+  <script>
+    const API = ""; // ten sam origin
+
+    // — helpery —
+    function showAlert(msg, type="success"){
+      const box = document.getElementById("alertBox");
+      box.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    }
+
+    function initials(name){
+      if(!name) return "";
+      return name.split(/\s+/).filter(Boolean).slice(0,3).map(w=>w[0].toUpperCase()).join("");
+    }
+
+    function colorForId(id){
+      const h = (Number(id)*47) % 360;
+      const s = 75, l = 80, borderL = 60;
+      return { bg:`hsl(${h} ${s}% ${l}%)`, border:`hsl(${h} ${s}% ${borderL}%)`, text: l < 60 ? "#fff" : "#000" };
+    }
+
+    const dowShort = ["Pn","Wt","Śr","Cz","Pt","So","Nd"];
+
+    // Wykrywanie kolizji
+    function detectCollisions(rows) {
+      const collisions = new Map(); // slot_id -> [colliding_slot_ids]
+
+      for (let i = 0; i < rows.length; i++) {
+        for (let j = i + 1; j < rows.length; j++) {
+          const a = rows[i], b = rows[j];
+
+          // Sprawdź czy ten sam terapeuta
+          if (a.therapist_id !== b.therapist_id) continue;
+
+          const aStart = parseLocalTimestamp(a.starts_at);
+          const aEnd = parseLocalTimestamp(a.ends_at);
+          const bStart = parseLocalTimestamp(b.starts_at);
+          const bEnd = parseLocalTimestamp(b.ends_at);
+
+          if (!aStart || !aEnd || !bStart || !bEnd) continue;
+
+          // Sprawdź czy ten sam dzień
+          if (fmtYYYYMMDD(aStart) !== fmtYYYYMMDD(bStart)) continue;
+
+          // Sprawdź nakładanie się czasowe
+          if (aStart < bEnd && bStart < aEnd) {
+            if (!collisions.has(a.slot_id)) collisions.set(a.slot_id, []);
+            if (!collisions.has(b.slot_id)) collisions.set(b.slot_id, []);
+            collisions.get(a.slot_id).push(b.slot_id);
+            collisions.get(b.slot_id).push(a.slot_id);
+          }
+        }
+      }
+
+      return collisions;
+    }
+
+    // Otwórz modal edycji
+    function openEditModal(eventData) {
+      console.log('=== OPENING MODAL ===');
+      console.log('Event data:', eventData);
+      console.log('slot_id:', eventData.slot_id);
+
+      const eventId = eventData.slot_id;
+
+      if (!eventId) {
+        console.error('❌ BRAK slot_id!');
+        console.log('Wszystkie klucze:', Object.keys(eventData));
+        showAlert('Błąd: Brak ID wizyty (slot_id) w danych z API.', 'danger');
+        return;
+      }
+
+      console.log('✅ Slot ID:', eventId);
+
+      document.getElementById('editEventId').value = eventId || '';
+      document.getElementById('editTherapistId').value = eventData.therapist_id || '';
+      document.getElementById('editClientName').value = eventData.client_name || eventData.group_name || `Klient #${eventData.client_id || ''}`;
+
+      const startDate = parseLocalTimestamp(eventData.starts_at);
+      const endDate = parseLocalTimestamp(eventData.ends_at);
+
+      if (startDate) {
+        document.getElementById('editDate').value = fmtYYYYMMDD(startDate);
+        document.getElementById('editStartTime').value = startDate.toTimeString().slice(0, 5);
+      }
+      if (endDate) {
+        document.getElementById('editEndTime').value = endDate.toTimeString().slice(0, 5);
+      }
+
+      document.getElementById('editPlace').value = eventData.place_to || '';
+      document.getElementById('editStatus').value = eventData.status || 'planned';
+
+      document.getElementById('collisionWarning').classList.add('d-none');
+
+      const modal = new bootstrap.Modal(document.getElementById('editEventModal'));
+      modal.show();
+    }
+
+    // Sprawdź kolizje przy zapisie
+    async function checkCollisionOnSave() {
+      const eventId = document.getElementById('editEventId').value;
+      const therapistId = document.getElementById('editTherapistId').value;
+      const date = document.getElementById('editDate').value;
+      const startTime = document.getElementById('editStartTime').value;
+      const endTime = document.getElementById('editEndTime').value;
+
+      if (!date || !startTime || !endTime) return false;
+
+      const newStart = new Date(`${date}T${startTime}:00`);
+      const newEnd = new Date(`${date}T${endTime}:00`);
+
+      // Sprawdź kolizje z innymi wizytami tego terapeuty
+      const hasCollision = _state.rows.some(r => {
+        if (r.slot_id == eventId) return false; // pomijamy sam event
+        if (r.therapist_id != therapistId) return false;
+
+        const rStart = parseLocalTimestamp(r.starts_at);
+        const rEnd = parseLocalTimestamp(r.ends_at);
+
+        if (!rStart || !rEnd) return false;
+        if (fmtYYYYMMDD(rStart) !== date) return false;
+
+        return newStart < rEnd && rStart < newEnd;
+      });
+
+      const warning = document.getElementById('collisionWarning');
+      if (hasCollision) {
+        warning.classList.remove('d-none');
+      } else {
+        warning.classList.add('d-none');
+      }
+
+      return hasCollision;
+    }
+
+    // Zapisz zmiany
+    async function saveEventChanges() {
+      console.log('Save button clicked');
+      const eventId = document.getElementById('editEventId').value;
+      const date = document.getElementById('editDate').value;
+      const startTime = document.getElementById('editStartTime').value;
+      const endTime = document.getElementById('editEndTime').value;
+      const place = document.getElementById('editPlace').value;
+      const status = document.getElementById('editStatus').value;
+
+      console.log('Form values:', { eventId, date, startTime, endTime, place, status });
+
+      if (!eventId || !date || !startTime || !endTime) {
+        showAlert('Proszę wypełnić wszystkie pola oznaczone gwiazdką (*)', 'danger');
+        return;
+      }
+
+      const starts_at = `${date} ${startTime}:00`;
+      const ends_at = `${date} ${endTime}:00`;
+
+      const payload = {
+        starts_at,
+        ends_at,
+        place_to: place,
+        status
+      };
+
+      console.log('Payload:', payload);
+
+      // Lista możliwych endpointów do wypróbowania
+      const endpoints = [
+        { method: 'PATCH', url: `${API}/api/schedule/${eventId}` },
+        { method: 'PUT', url: `${API}/api/schedule/${eventId}` },
+        { method: 'POST', url: `${API}/api/schedule/${eventId}/update` },
+        { method: 'PATCH', url: `${API}/api/slots/${eventId}` },
+        { method: 'PUT', url: `${API}/api/slots/${eventId}` },
+        { method: 'POST', url: `${API}/api/therapist/schedule/${eventId}` }
+      ];
+
+      let success = false;
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying ${endpoint.method} ${endpoint.url}`);
+          const response = await fetch(endpoint.url, {
+            method: endpoint.method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          console.log(`Response status: ${response.status}`);
+
+          if (response.ok) {
+            console.log('✅ Success with:', endpoint);
+            success = true;
+            showAlert('Wizyta została zaktualizowana', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
+            await reloadData();
+            break;
+          } else if (response.status !== 405 && response.status !== 404) {
+            // Jeśli błąd inny niż 405/404, to może być problem z danymi
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            lastError = `Błąd ${response.status}: ${errorText}`;
+          }
+        } catch (e) {
+          console.error(`Error with ${endpoint.method} ${endpoint.url}:`, e);
+          lastError = e.message;
+        }
+      }
+
+      if (!success) {
+        console.error('❌ All endpoints failed');
+        showAlert(`Nie można zapisać zmian. Endpoint do edycji wizyt nie jest dostępny. ${lastError || ''}`, 'danger');
+      }
+    }
+
+    // Usuń wizytę (trwale z bazy danych)
+    async function deleteEvent() {
+      console.log('Delete button clicked');
+      const eventId = document.getElementById('editEventId').value;
+
+      if (!eventId) {
+        showAlert('Brak ID wizyty do usunięcia', 'danger');
+        return;
+      }
+
+      const shouldDelete = confirm('⚠️ UWAGA!\n\nCzy na pewno chcesz TRWALE USUNĄĆ tę wizytę z bazy danych?\n\nTej operacji NIE MOŻNA cofnąć!\n\n(Jeśli chcesz tylko anulować wizytę, zmień status na "Anulowana" i kliknij "Zapisz zmiany")');
+
+      if (!shouldDelete) {
+        console.log('Delete cancelled by user');
+        return;
+      }
+
+      try {
+        console.log('Sending DELETE request to:', `${API}/api/schedule/${eventId}`);
+
+        const response = await fetch(`${API}/api/schedule/${eventId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        console.log('DELETE Response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Error response:', errorText);
+          throw new Error(`Nie można usunąć wizyty. Status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('Delete result:', result);
+
+        showAlert('✅ Wizyta została trwale usunięta z bazy danych', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
+        await reloadData();
+
+      } catch (e) {
+        console.error('Delete error:', e);
+        showAlert(`❌ Błąd usuwania: ${e.message}`, 'danger');
+      }
+    }
+
+    // — stan —
+    const TP_START_HOUR = 7, TP_END_HOUR=20, PX_PER_MIN=24/30;
+    let _state = {
+      mode: "week",
+      therapistId: "all",
+      refDate: new Date(),
+      refMonth: new Date(),
+      therapists: [],
+      rows: []
+    };
+
+    // — init —
+    (async function init(){
+      const t = new Date();
+      document.getElementById("tpRefDate").value = t.toISOString().slice(0,10);
+      document.getElementById("tpRefMonth").value = t.toISOString().slice(0,7);
+      _state.refDate = t; _state.refMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+
+      // terapeuci
+      try{
+        const res = await fetch(`${API}/api/therapists`);
+        _state.therapists = (await res.json()).filter(x => x.active !== false);
+        const sel = document.getElementById("tpTherapistSelect");
+        sel.innerHTML =
+          `<option value="all">— wszyscy terapeuci —</option>` +
+          _state.therapists.map(t => `<option value="${t.id}">${t.full_name}${t.specialization?` – ${t.specialization}`:""}</option>`).join("");
+      }catch(e){ showAlert(`Błąd ładowania terapeutów: ${e.message}`, "danger"); }
+
+      // UI
+      document.getElementById("vmWeek").addEventListener("change", () => switchMode("week"));
+      document.getElementById("vmMonth").addEventListener("change", () => switchMode("month"));
+      document.getElementById("tpTherapistSelect").addEventListener("change", reloadData);
+      document.getElementById("tpRefDate").addEventListener("change", e => { _state.refDate = new Date(e.target.value); reloadData(); });
+      document.getElementById("tpRefMonth").addEventListener("change", e => {
+        const [y,m] = e.target.value.split("-").map(Number);
+        _state.refMonth = new Date(y, m-1, 1);
+        reloadData();
+      });
+
+      document.getElementById("tpPrev").addEventListener("click", shiftPrev);
+      document.getElementById("tpNext").addEventListener("click", shiftNext);
+      document.getElementById("tpToday").addEventListener("click", goToday);
+      document.getElementById("tpPrint").addEventListener("click", printView);
+
+      // Modal edycji
+      document.getElementById('saveEventBtn').addEventListener('click', saveEventChanges);
+      document.getElementById('deleteEventBtn').addEventListener('click', deleteEvent);
+      document.getElementById('editDate').addEventListener('change', checkCollisionOnSave);
+      document.getElementById('editStartTime').addEventListener('change', checkCollisionOnSave);
+      document.getElementById('editEndTime').addEventListener('change', checkCollisionOnSave);
+
+      // FAB menu
+      document.getElementById('fabMainBtn').addEventListener('click', () => {
+        document.getElementById('fabContainer').classList.toggle('open');
+      });
+
+      // query params
+      const qp = new URLSearchParams(location.search);
+      const qpTid = qp.get("therapist_id");
+      const qpDate = qp.get("date");
+      const qpMonth= qp.get("month");
+      const qpMode = qp.get("mode");
+      if (qpMode === "month") { document.getElementById("vmMonth").checked = true; switchMode("month", false); }
+      if (qpMonth) { document.getElementById("tpRefMonth").value = qpMonth; const [y,m]=qpMonth.split("-").map(Number); _state.refMonth = new Date(y,m-1,1); }
+      if (qpDate) { document.getElementById("tpRefDate").value = qpDate; _state.refDate = new Date(qpDate); }
+      if (qpTid)  { document.getElementById("tpTherapistSelect").value = qpTid === "all" ? "all" : String(Number(qpTid)); _state.therapistId = document.getElementById("tpTherapistSelect").value; }
+
+      reloadData();
+    })();
+
+    // — nawigacja —
+    function switchMode(mode, reload=true){
+      _state.mode = mode;
+      document.getElementById("tpRefDate").classList.toggle("d-none", mode!=="week");
+      document.getElementById("tpRefMonth").classList.toggle("d-none", mode!=="month");
+      if (reload) reloadData();
+    }
+
+    function shiftPrev(){
+      if (_state.mode==="week"){
+        const d = new Date(_state.refDate); d.setDate(d.getDate()-7);
+        _state.refDate = d; document.getElementById("tpRefDate").value = d.toISOString().slice(0,10);
+      } else {
+        const d = new Date(_state.refMonth.getFullYear(), _state.refMonth.getMonth()-1, 1);
+        _state.refMonth = d; document.getElementById("tpRefMonth").value = d.toISOString().slice(0,7);
+      }
+      reloadData();
+    }
+
+    function shiftNext(){
+      if (_state.mode==="week"){
+        const d = new Date(_state.refDate); d.setDate(d.getDate()+7);
+        _state.refDate = d; document.getElementById("tpRefDate").value = d.toISOString().slice(0,10);
+      } else {
+        const d = new Date(_state.refMonth.getFullYear(), _state.refMonth.getMonth()+1, 1);
+        _state.refMonth = d; document.getElementById("tpRefMonth").value = d.toISOString().slice(0,7);
+      }
+      reloadData();
+    }
+
+    function goToday(){
+      if (_state.mode==="week"){
+        const t = new Date(); _state.refDate=t; document.getElementById("tpRefDate").value=t.toISOString().slice(0,10);
+      } else {
+        const t = new Date(); const m = new Date(t.getFullYear(), t.getMonth(), 1);
+        _state.refMonth=m; document.getElementById("tpRefMonth").value=m.toISOString().slice(0,7);
+      }
+      reloadData();
+    }
+
+    // — ładowanie danych —
+    async function reloadData(){
+      _state.therapistId = document.getElementById("tpTherapistSelect").value || "all";
+
+      const monthKey = (_state.mode==="week" ? _state.refDate : _state.refMonth);
+      const mk = `${monthKey.getFullYear()}-${String(monthKey.getMonth()+1).padStart(2,'0')}`;
+
+      const host = document.getElementById("calendarHost");
+      host.innerHTML = `<div class="text-muted p-3">Ładowanie…</div>`;
+
+      try{
+        if (_state.therapistId === "all"){
+          const promises = _state.therapists.map(t =>
+            fetch(`${API}/api/therapists/${t.id}/schedule?month=${encodeURIComponent(mk)}`)
+              .then(r=>{
+                console.log(`Response dla terapeuty ${t.id}:`, r.status, r.ok);
+                return r.ok?r.json():[];
+              })
+              .then(rows => {
+                console.log(`Surowe dane dla terapeuty ${t.id}:`, rows);
+                const filtered = rows.filter(r=>r.kind==='therapy').map(r => ({...r, therapist_id: t.id, therapist_name: t.full_name }));
+                console.log(`Po filtrze (therapy only) dla terapeuty ${t.id}:`, filtered);
+                return filtered;
+              })
+          );
+          _state.rows = (await Promise.all(promises)).flat();
+        } else {
+          const tid = Number(_state.therapistId);
+          console.log(`Ładowanie dla terapeuty ${tid}, miesiąc: ${mk}`);
+          const res = await fetch(`${API}/api/therapists/${tid}/schedule?month=${encodeURIComponent(mk)}`);
+          console.log('Response status:', res.status);
+          const data = await res.json();
+          console.log('Surowe dane z API:', data);
+          console.log('Liczba wierszy:', data?.length || 0);
+          _state.rows = (data||[]).filter(r=>r.kind==='therapy').map(r=>({...r, therapist_id: tid}));
+          console.log('Po filtrze (therapy only):', _state.rows);
+        }
+
+        console.log('=== FINALNE DANE ===');
+        console.log('Wszystkie wiersze PRZED deduplikacją:', _state.rows);
+        console.log('Liczba wierszy PRZED:', _state.rows.length);
+
+        // DEDUPLIKACJA dla grup TUS - pozostaw tylko jeden wpis per slot_id
+        const uniqueMap = new Map();
+        _state.rows.forEach(row => {
+          const key = row.slot_id;
+          if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, row);
+          } else {
+            // Jeśli już istnieje, zachowaj ten z group_name (dla TUS)
+            const existing = uniqueMap.get(key);
+            if (row.group_name && !existing.group_name) {
+              uniqueMap.set(key, row);
+            }
+          }
+        });
+
+        _state.rows = Array.from(uniqueMap.values());
+
+        console.log('Wszystkie wiersze PO deduplikacji:', _state.rows);
+        console.log('Liczba wierszy PO:', _state.rows.length);
+        console.log('Przykładowy wiersz:', _state.rows[0]);
+        console.log('Wszystkie slot_id:', _state.rows.map(r => r.slot_id));
+
+        // Sprawdź statusy
+        const statuses = _state.rows.reduce((acc, r) => {
+          acc[r.status || 'undefined'] = (acc[r.status || 'undefined'] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('Podsumowanie statusów:', statuses);
+
+        if (_state.mode === "week") renderWeek();
+        else renderMonth();
+      }catch(e){
+        console.error('Błąd ładowania danych:', e);
+        host.innerHTML = `<div class="text-danger p-3">Błąd ładowania: ${e.message}</div>`;
+      }
+    }
+
+    // — tydzień —
+    function weekRange(date){
+      const d = new Date(date);
+      const dow = (d.getDay()+6)%7;
+      const start = new Date(d); start.setDate(d.getDate() - dow); start.setHours(0,0,0,0);
+      const days = Array.from({length:7}, (_,i)=> new Date(start.getFullYear(), start.getMonth(), start.getDate()+i));
+      return { start, days };
+    }
+
+    function renderWeek() {
+      const host = document.getElementById("calendarHost");
+      const { days } = weekRange(_state.refDate);
+
+      // Wykryj kolizje
+      const collisions = detectCollisions(_state.rows);
+      const hasAnyCollision = collisions.size > 0;
+
+      const head = `<div class="cal-head cal-grid">
+          <div style="padding:.5rem">Godz.</div>
+          ${days.map((d,i)=>`<div>${dowShort[i]}<br><small>${d.toLocaleDateString("pl-PL")}</small></div>`).join("")}
+      </div>`;
+
+      let times = `<div>`;
+      for (let h = TP_START_HOUR; h <= TP_END_HOUR; h++) {
+          times += `<div class="cal-row"><label>${String(h).padStart(2, '0')}:00</label></div>`;
+          if (h !== TP_END_HOUR) times += `<div class="cal-row"></div>`;
+      }
+      times += `</div>`;
+      const colHeight = ((TP_END_HOUR - TP_START_HOUR + 1) * 2) * 24;
+
+      const cols = days.map(d => `<div class="cal-col" data-day="${fmtYYYYMMDD(d)}" style="height:${colHeight}px"></div>`).join("");
+
+      const collisionAlert = hasAnyCollision ?
+        `<div class="alert alert-warning mb-2"><i class="bi bi-exclamation-triangle"></i> <strong>Wykryto ${collisions.size} ${collisions.size === 1 ? 'kolizję' : 'kolizji'} czasowych w grafiku.</strong> Kliknij wizytę, aby edytować.</div>` : '';
+
+      host.innerHTML = `${collisionAlert}<div class="cal-wrap">
+          ${head}<div class="cal-grid">${times}${cols}</div>
+          <div class="cal-legend">
+            <span><span class="swatch" style="background:rgba(13,110,253,.3); border:1px solid rgba(13,110,253,.5)"></span> planned</span>
+            <span><span class="swatch" style="background:rgba(25,135,84,.3); border:1px solid rgba(25,135,84,.5)"></span> done</span>
+            <span><span class="swatch" style="background:rgba(220,53,69,.25); border:1px solid rgba(220,53,69,.5)"></span> cancelled</span>
+            ${_state.therapistId === "all" ? `<span class="ms-2">Kolor = terapeuta (inicjały na chipie)</span>` : ``}
+          </div>
+      </div>`;
+
+      const dayMap = new Map([...host.querySelectorAll(".cal-col")].map(el => [el.getAttribute("data-day"), el]));
+
+      for (const r of _state.rows) {
+          const d = parseLocalTimestamp(r.starts_at);
+          const e = parseLocalTimestamp(r.ends_at);
+          if (!d || !e) continue;
+
+          const key = fmtYYYYMMDD(d);
+          if (!dayMap.has(key)) continue;
+
+          const top = ((d.getHours() - TP_START_HOUR) * 60 + d.getMinutes()) * PX_PER_MIN;
+          const height = Math.max(18, Math.max(0, (e - d) / 60000) * PX_PER_MIN);
+
+          const el = document.createElement("div");
+          const hasCollision = collisions.has(r.slot_id);
+          el.className = `cal-event ${r.status || "planned"} ${_state.therapistId === "all" ? 'all' : ''} ${hasCollision ? 'has-collision' : ''}`;
+          el.style.cursor = 'pointer';
+          el.title = 'Kliknij, aby edytować';
+          el.setAttribute('data-slot-id', r.slot_id);
+
+          if (_state.therapistId === "all") {
+              const c = colorForId(r.therapist_id || 0);
+              el.style.background = c.bg;
+              el.style.borderColor = c.border;
+              el.style.color = c.text;
+          }
+          el.style.top = `${top}px`;
+          el.style.height = `${height}px`;
+
+          const isTusGroup = r.type === 'tus';
+          const tName = r.therapist_name || "";
+          const tag = _state.therapistId === "all" ? `<span class="badge rounded-pill text-bg-light border me-1" style="background:rgba(255,255,255,.6);">${initials(tName)}</span>` : ``;
+          const groupIcon = isTusGroup ? `👥 ` : '';
+          const clientLabel = isTusGroup ? `Grupa: ${r.group_name || r.client_name}` : (r.client_name || `klient #${r.client_id ?? ""}`);
+
+          el.innerHTML = `
+            <div><strong>${fmtLocalTime(r.starts_at)}–${fmtLocalTime(r.ends_at)}</strong></div>
+            <div class="text-truncate">${tag}${groupIcon}${clientLabel}</div>
+            ${r.place_to ? `<div class="text-truncate"><small>${r.place_to}</small></div>` : ``}
+            ${hasCollision ? '<span class="collision-badge">!</span>' : ''}
+          `;
+
+          // Kliknięcie w cały element
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log('Event clicked:', r);
+            openEditModal(r);
+          });
+
+          dayMap.get(key).appendChild(el);
+      }
+    }
+
+    // — miesiąc —
+    function monthMatrix(firstDay){
+      const first = new Date(firstDay.getFullYear(), firstDay.getMonth(), 1);
+      const offset = (first.getDay()+6)%7;
+      const start = new Date(first); start.setDate(first.getDate()-offset); start.setHours(0,0,0,0);
+      return Array.from({length:42}, (_,i)=> new Date(start.getFullYear(), start.getMonth(), start.getDate()+i));
+    }
+
+    function renderMonth(){
+      const host = document.getElementById("calendarHost");
+      const days = monthMatrix(_state.refMonth);
+      const thisMonth = _state.refMonth.getMonth();
+
+      const collisions = detectCollisions(_state.rows);
+      const hasAnyCollision = collisions.size > 0;
+
+      const collisionsPerDay = new Map();
+      for (const r of _state.rows) {
+        if (!collisions.has(r.slot_id)) continue;
+        const s = parseLocalTimestamp(r.starts_at);
+        if (!s) continue;
+        const k = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, '0')}-${String(s.getDate()).padStart(2, '0')}`;
+        collisionsPerDay.set(k, (collisionsPerDay.get(k) || 0) + 1);
+      }
+
+      const head = `<div class="month-head">
+        ${dowShort.map(d=>`<div>${d}</div>`).join("")}
+      </div>`;
+
+      const map = new Map();
+      for (const r of _state.rows){
+        const s = parseLocalTimestamp(r.starts_at);
+        if (!s) continue;
+        const k = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, '0')}-${String(s.getDate()).padStart(2, '0')}`;
+        if (!map.has(k)) map.set(k, []);
+        map.get(k).push(r);
+      }
+
+      const grid = days.map(d => {
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const items = map.get(key) || [];
+        const muted = d.getMonth() !== thisMonth ? " muted-month" : "";
+        const dayHasCollision = collisionsPerDay.has(key) ? " has-collision" : "";
+
+        const chips = items.slice(0,8).map(r => {
+          const hasCollision = collisions.has(r.slot_id);
+          const cls = `day-chip ${r.status||"planned"} ${hasCollision ? 'has-collision' : ''}`;
+          const collisionBadge = hasCollision ? ' <span style="color:#dc3545; font-weight:bold">⚠</span>' : '';
+
+          if (_state.therapistId==="all"){
+            const c = colorForId(r.therapist_id || 0);
+            return `<span class="${cls}" style="background:${c.bg}; border-color:${c.border}; color:${c.text}; cursor:pointer" title="Kliknij, aby edytować" data-slot-id="${r.slot_id}">
+              <span class="mini">${fmtLocalTime(r.starts_at)}–${fmtLocalTime(r.ends_at)}</span> • ${initials(r.therapist_name||"")}${collisionBadge}
+            </span>`;
+          } else {
+            const clientLabel = r.group_name || r.client_name || `#${r.client_id??""}`;
+            return `<span class="${cls}" style="cursor:pointer" title="Kliknij, aby edytować" data-slot-id="${r.slot_id}">
+              <span class="mini">${fmtLocalTime(r.starts_at)}–${fmtLocalTime(r.ends_at)}</span> • ${clientLabel}${collisionBadge}
+            </span>`;
+          }
+        }).join("");
+        const more = items.length>8 ? `<div><small class="text-muted">+${items.length-8} więcej…</small></div>` : "";
+
+        return `<div class="day-cell${muted}${dayHasCollision}" data-date="${key}">
+          <div class="day-num">${d.getDate()}</div>
+          ${chips}${more}
+        </div>`;
+      }).join("");
+
+      const title = `${_state.refMonth.toLocaleDateString("pl-PL", {month:"long", year:"numeric"})}`;
+
+      const collisionAlert = hasAnyCollision ?
+        `<div class="alert alert-warning mb-2"><i class="bi bi-exclamation-triangle"></i> <strong>Wykryto ${collisions.size} ${collisions.size === 1 ? 'kolizję' : 'kolizji'} czasowych w grafiku.</strong> Kliknij wizytę, aby edytować.</div>` : '';
+
+      host.innerHTML = `
+        ${collisionAlert}
+        <div class="sticky-month-title"><h5 class="m-0">${title}</h5></div>
+        <div class="month-wrap">
+          ${head}
+          <div class="month-grid">${grid}</div>
+        </div>`;
+
+      host.querySelectorAll('.day-chip[data-slot-id]').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const slotId = chip.getAttribute('data-slot-id');
+          console.log('=== CHIP CLICKED ===');
+          console.log('Chip slot ID:', slotId);
+          console.log('Szukam w _state.rows...');
+
+          const eventData = _state.rows.find(r => {
+            console.log(`Porównuję: r.slot_id=${r.slot_id} (${typeof r.slot_id}) vs slotId=${slotId} (${typeof slotId})`);
+            return String(r.slot_id) === String(slotId);
+          });
+
+          if (eventData) {
+            console.log('✅ Znaleziono dane:', eventData);
+            openEditModal(eventData);
+          } else {
+            console.error('❌ NIE ZNALEZIONO event data dla slot_id:', slotId);
+            console.log('Dostępne slot_id w _state.rows:', _state.rows.map(r => r.slot_id));
+            showAlert(`Błąd: Nie znaleziono danych wizyty o ID ${slotId}`, 'danger');
+          }
+        });
+      });
+    }
+
+    // — drukowanie —
+    const _sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+    function _probeCalendar(){
+      const host = document.getElementById("calendarHost");
+      let nodes = [...host.querySelectorAll(".month-grid .day-cell[data-date]")];
+      if (nodes.length) return { mode:"month", nodes };
+
+      nodes = [...host.querySelectorAll(".month-grid .day-cell")];
+      if (nodes.length) return { mode:"month", nodes };
+
+      nodes = [...host.querySelectorAll(".cal-grid .cal-col[data-day]")];
+      if (nodes.length) return { mode:"week", nodes };
+
+      nodes = [...host.querySelectorAll(".cal-grid .cal-col")];
+      if (nodes.length) return { mode:"week", nodes };
+
+      return { mode: (window._state?.mode || "week"), nodes: [] };
+    }
+
+    async function printView(_retry=0){
+      const host = document.getElementById("calendarHost");
+      if (!host){ showAlert?.("Brak kontenera grafiku do wydruku.", "warning"); return; }
+
+      if (host.textContent?.trim().startsWith("Ładowanie") && _retry < 1){
+        await _sleep(60);
+      }
+
+      let { mode, nodes } = _probeCalendar();
+
+      if (!nodes.length && _retry < 1){
+        if (typeof reloadData === "function") { try { await reloadData(); } catch{} }
+        await _sleep(80);
+        ({ mode, nodes } = _probeCalendar());
+      }
+
+      const mondayOf = d => { const r=new Date(d), w=(r.getDay()+6)%7; r.setDate(r.getDate()-w); r.setHours(0,0,0,0); return r; };
+      const fmtISO    = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const sanitize  = s => String(s).replace(/[<>&]/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[ch]));
+
+      const eventsByDate = new Map();
+
+      if (nodes.length){
+        if (mode === "week"){
+          const start = mondayOf(window._state?.refDate || new Date());
+          const cols = nodes.slice(0,7);
+          cols.forEach((col, i) => {
+            const d = new Date(start); d.setDate(start.getDate()+i);
+            const iso = fmtISO(d);
+            let evs = [...col.querySelectorAll(".cal-event")].map(ev => {
+              const time = ev.querySelector("strong")?.textContent?.trim() || "";
+              const full = ev.textContent.replace(/\s+/g," ").trim();
+              const body = time ? full.replace(time,"").trim() : full;
+              return time ? `${time}${body ? " • "+body : ""}` : full;
+            }).filter(Boolean);
+            if (!evs.length){
+              const raw = col.textContent.replace(/\s+/g," ").trim();
+              if (raw) evs = [raw];
+            }
+            eventsByDate.set(iso, evs);
+          });
+        } else {
+          const ref = window._state?.refMonth || new Date();
+          const firstOfMonth = new Date(ref.getFullYear(), ref.getMonth(), 1);
+          const gridStart = mondayOf(firstOfMonth);
+
+          nodes.forEach((cell, idx) => {
+            const iso = cell.getAttribute("data-date") ||
+                        fmtISO(new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate()+idx));
+            let evs = [...cell.querySelectorAll(".day-chip")].map(x => x.textContent.replace(/\s+/g," ").trim()).filter(Boolean);
+            if (!evs.length){
+              const clone = cell.cloneNode(true);
+              clone.querySelectorAll(".day-num").forEach(x=>x.remove());
+              const raw = clone.textContent.replace(/\s+/g," ").trim();
+              if (raw) evs = [raw];
+            }
+            eventsByDate.set(iso, evs);
+          });
+        }
+      } else if (mode === "month" && Array.isArray(window._state?.rows)) {
+        const rows = (window._state.rows || []).filter(r => r && r.starts_at);
+        for (const r of rows){
+          const d = new Date((r.starts_at||"").replace(" ","T"));
+          if (isNaN(d)) continue;
+          const iso = fmtISO(d);
+          const labelTime = d.toLocaleTimeString("pl-PL", {hour:"2-digit", minute:"2-digit"});
+          const who = (window._state?.therapistId === "all")
+            ? (r.therapist_name ? ` • ${r.therapist_name}` : "")
+            : (r.client_name ? ` • ${r.client_name}` : (r.client_id ? ` • #${r.client_id}` : ""));
+          const line = `${labelTime}${who}`;
+          if (!eventsByDate.has(iso)) eventsByDate.set(iso, []);
+          eventsByDate.get(iso).push(line);
+        }
+        if (![...eventsByDate.values()].some(a => a && a.length)){
+          showAlert?.("Brak rozpoznanych komórek dni do wydruku i brak danych w _state.rows.", "warning");
+          return;
+        }
+      } else {
+        showAlert?.("Brak rozpoznanych komórek dni do wydruku.", "warning");
+        return;
+      }
+
+      let startDate, endDate;
+      if (mode === "week"){
+        startDate = mondayOf(window._state?.refDate || new Date());
+        endDate = new Date(startDate); endDate.setDate(startDate.getDate()+6);
+      } else {
+        const m = window._state?.refMonth || new Date();
+        const first = new Date(m.getFullYear(), m.getMonth(), 1);
+        const last  = new Date(m.getFullYear(), m.getMonth()+1, 0);
+        startDate = mondayOf(first);
+        const tmp = new Date(last);
+        const dow = (tmp.getDay()+6)%7;
+        tmp.setDate(tmp.getDate() + (6 - dow));
+        endDate = tmp;
+      }
+
+      const rowsOut = [];
+      let cur = new Date(startDate);
+      while (cur <= endDate){
+        const tds = [];
+        for (let i=0;i<7;i++){
+          const iso = fmtISO(cur);
+          const dayNum = cur.getDate();
+          const evs = eventsByDate.get(iso) || [];
+          const evHtml = evs.map(txt => `<div class="event">${sanitize(txt)}</div>`).join("");
+          tds.push(`<td data-date="${iso}"><div class="day-head"><span class="day-number">${dayNum}</span></div><div class="events">${evHtml}</div></td>`);
+          cur.setDate(cur.getDate()+1);
+        }
+        rowsOut.push(`<tr>${tds.join("")}</tr>`);
+      }
+
+      const sel = document.getElementById("tpTherapistSelect");
+      const isAll = sel?.value === "all";
+      const therapistName = isAll ? "Wszyscy terapeuci"
+        : (sel?.options?.[sel.selectedIndex]?.textContent || (window._state?.therapistId ? `ID ${_state.therapistId}` : ""));
+
+      const html = `<!doctype html><html lang="pl"><head>
+        <meta charset="utf-8">
+        <title>Grafik – ${mode==='week'?'tydzień':'miesiąc'}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          @page { size: A4 landscape; margin: 10mm; }
+          *{box-sizing:border-box} html,body{height:100%}
+          body{font:11px/1.35 Arial,Helvetica,sans-serif; color:#111; margin:0; padding:0;}
+          .doc-header{display:flex;justify-content:space-between;align-items:flex-start;margin:0 0 10px 0;padding:0 2mm;}
+          .doc-header h1{font-size:18px; margin:0 0 2px 0;}
+          .muted{color:#666;font-size:10px}
+          table.calendar{width:100%; border-collapse:collapse; table-layout:fixed;}
+          .calendar th,.calendar td{border:1px solid #333; vertical-align:top; padding:3px 4px;}
+          .calendar thead th{background:#f1f3f4; text-align:center; font-weight:700; font-size:11px; white-space:nowrap;}
+          .calendar td{height:${mode==='week' ? '38mm' : '28mm'}; overflow:hidden;}
+          .day-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+          .day-number{font-weight:700; font-size:12px}
+          .events{font-size:10px}
+          .event{margin:2px 0; padding:2px 3px; border:1px solid #777; border-radius:3px; page-break-inside:avoid; word-wrap:break-word;}
+          .calendar tbody tr:nth-child(even) td { background:#fcfcfc; }
+        </style>
+      </head><body>
+        <div class="doc-header">
+          <div>
+            <h1>Grafik – ${mode==='week'?'tydzień':'miesiąc'}</h1>
+            <div>${isAll ? "" : "<strong>Terapeuta:</strong> "}${therapistName ? therapistName.replace(/</g,"&lt;") : ""}</div>
+          </div>
+          <div class="muted">Wygenerowano: ${new Date().toLocaleString("pl-PL")}</div>
+        </div>
+        <table class="calendar">
+          <thead><tr><th>Pon</th><th>Wt</th><th>Śr</th><th>Czw</th><th>Pt</th><th>Sob</th><th>Nd</th></tr></thead>
+          <tbody>${rowsOut.join("")}</tbody>
+        </table>
+      </body></html>`;
+
+      const iframe = document.createElement("iframe");
+      Object.assign(iframe.style, {position:"fixed", right:"0", bottom:"0", width:"0", height:"0", border:"0"});
+      iframe.setAttribute("aria-hidden","true");
+      document.body.appendChild(iframe);
+      const ifrw = iframe.contentWindow, ifrd = iframe.contentDocument || ifrw.document;
+      ifrd.open(); ifrd.write(html); ifrd.close();
+      let printed=false; const cleanup=()=>setTimeout(()=>iframe.remove(),100);
+      iframe.onload = () => { if(printed) return; printed=true; try{ ifrw.focus(); setTimeout(()=>{ try{ ifrw.print(); }catch(_){ } }, 0); }catch(_){} };
+      if (ifrw) ifrw.onafterprint = cleanup; setTimeout(cleanup, 5000);
+    }
+
+    // Parsery dat
+    function parseLocalTimestamp(str){
+      if (!str) return null;
+      const s = str.trim().replace('T', ' ');
+      const m = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/.exec(s);
+      if (!m) return null;
+      const [_, Y, M, D, h, mnt, sec] = m;
+      return new Date(Number(Y), Number(M) - 1, Number(D), Number(h), Number(mnt), Number(sec));
+    }
+
+    function fmtLocalDateTime(str){
+      const d = parseLocalTimestamp(str);
+      if (!d) return "—";
+      return d.toLocaleString("pl-PL", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+    }
+
+    function fmtLocalTime(str){
+      const d = parseLocalTimestamp(str);
+      if (!d) return "";
+      return d.toLocaleTimeString("pl-PL", { hour:"2-digit", minute:"2-digit" });
+    }
+
+    function fmtYYYYMMDD(date) {
+        if (!date || isNaN(date)) return "";
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

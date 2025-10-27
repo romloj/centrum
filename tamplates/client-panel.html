@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>Panel klienta – grafik</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body{padding:16px}
+    .toolbar .form-select,.toolbar .form-control{max-width:280px}
+    .toolbar .view-toggle .btn{min-width:96px}
+
+    /* — TYDZIEŃ — */
+    .cal-wrap{overflow:auto;border:1px solid var(--bs-border-color);border-radius:.5rem}
+    .cal-grid{display:grid;grid-template-columns:80px repeat(7,1fr)}
+    .cal-head{position:sticky;top:0;z-index:2;background:var(--bs-body-bg);border-bottom:1px solid var(--bs-border-color)}
+    .cal-head{position:sticky;top:0;z-index:2;background:var(--bs-body-bg);border-bottom:1px solid var(--bs-border-color)}
+    .cal-head div{padding:.5rem;font-weight:600;text-align:center;border-left:1px solid var(--bs-border-color)}
+    .cal-head div:first-child{border-left:0;text-align:left}
+    .cal-row{height:24px;border-top:1px dotted var(--bs-border-color);font-size:12px}
+    .cal-row label{display:inline-block;padding:2px 6px;color:var(--bs-secondary-color)}
+    .cal-col{position:relative;border-left:1px solid var(--bs-border-color)}
+    .cal-event{position:absolute;left:4px;right:4px;border-radius:.5rem;padding:2px 6px;font-size:12px;line-height:1.2;overflow:hidden;background:rgba(13,110,253,.12);border:1px solid rgba(13,110,253,.35)}
+    .cal-event.done{background:rgba(25,135,84,.15);border-color:rgba(25,135,84,.35)}
+    .cal-event.planned{background:rgba(13,110,253,.12);border-color:rgba(13,110,253,.35)}
+    .cal-event.cancelled{background:rgba(220,53,69,.10);border-color:rgba(220,53,69,.35);text-decoration:line-through}
+    .cal-legend{display:flex;gap:.5rem;flex-wrap:wrap;padding:.5rem;border-top:1px solid var(--bs-border-color);font-size:12px;color:var(--bs-secondary-color)}
+    .cal-legend .swatch{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:.25rem;vertical-align:baseline}
+
+    /* — MIESIĄC — */
+    .month-wrap{border:1px solid var(--bs-border-color);border-radius:.5rem;overflow:hidden}
+    .month-head{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bs-body-bg);border-bottom:1px solid var(--bs-border-color);position:sticky;top:0;z-index:2}
+    .month-head div{padding:.5rem;font-weight:600;text-align:center;border-left:1px solid var(--bs-border-color)}
+    .month-head div:first-child{border-left:0}
+    .month-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+    .day-cell{min-height:120px;border-left:1px solid var(--bs-border-color);border-top:1px solid var(--bs-border-color);padding:.25rem .25rem .25rem .5rem;position:relative}
+    .day-cell:nth-child(7n+1){border-left:0}
+    .day-num{font-size:12px;color:var(--bs-secondary-color)}
+    .day-chip{display:inline-block;margin:.15rem .15rem 0 0;padding:.1rem .35rem;border-radius:999px;font-size:11px;border:1px solid transparent;background:rgba(13,110,253,.12)}
+    .day-chip.done{background:rgba(25,135,84,.15);border-color:rgba(25,135,84,.35)}
+    .day-chip.cancelled{background:rgba(220,53,69,.12);border-color:rgba(220,53,69,.35);text-decoration:line-through}
+    .day-chip .mini{opacity:.7}
+    .muted-month{opacity:.55}
+    .sticky-month-title{position:sticky;top:0;background:var(--bs-body-bg);z-index:3;padding:.25rem 0 .5rem 0}
+      .fab-container {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: 1050;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+    .fab-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: var(--bs-primary);
+        color: white;
+        font-size: 1.8rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        text-decoration: none;
+        transition: transform 0.3s ease, background-color 0.3s ease;
+        border: none;
+    }
+    .fab-button:hover {
+        transform: scale(1.1);
+        background-color: var(--bs-primary-dark);
+    }
+    .fab-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        gap: 0.75rem;
+        transform: scaleY(0);
+        transform-origin: bottom;
+        transition: transform 0.3s ease;
+    }
+    .fab-container.open .fab-menu {
+        transform: scaleY(1);
+    }
+    .fab-menu-item a {
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+        background-color: var(--bs-secondary);
+    }
+    .fab-container.open #fab-main-icon {
+        transform: rotate(45deg);
+    }
+    #fab-main-icon {
+        transition: transform 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-3 toolbar">
+      <h1 class="h5 m-0">Panel klienta – grafik</h1>
+      <div class="ms-auto"></div>
+
+      <div class="btn-group view-toggle" role="group" aria-label="View toggle">
+        <input type="radio" class="btn-check" name="viewMode" id="vmWeek" autocomplete="off" checked>
+        <label class="btn btn-outline-primary" for="vmWeek">Tydzień</label>
+        <input type="radio" class="btn-check" name="viewMode" id="vmMonth" autocomplete="off">
+        <label class="btn btn-outline-primary" for="vmMonth">Miesiąc</label>
+      </div>
+
+      <select id="clSelect" class="form-select">
+       
+        <option value="all">— wszyscy klienci —</option>
+      </select>
+      
+    
+    
+    <label for="clientSearch" class="form-label">Filtruj widok</label>
+    <input type="search" id="clientSearch" class="form-control d-none" placeholder="Wpisz imię lub nazwisko...">
+    
+
+      <input type="date" id="refDate" class="form-control">
+      <input type="month" id="refMonth" class="form-control d-none">
+
+      <div class="btn-group">
+        <button id="btnPrev" class="btn btn-outline-secondary">«</button>
+        <button id="btnToday" class="btn btn-outline-secondary">Dziś</button>
+        <button id="btnNext" class="btn btn-outline-secondary">»</button>
+      </div>
+      <button id="btnPrint" class="btn btn-outline-secondary">Drukuj</button>
+    </header>
+
+    <div id="alertBox" class="mb-3"></div>
+    <div id="calendarHost"><div class="text-muted p-3">Ładowanie…</div></div>
+  </div>
+<button class="fab-button" id="fab-main-btn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg" id="fab-main-icon"></i>
+    </button>
+  <script src="client-panel.js"> </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+
+
+

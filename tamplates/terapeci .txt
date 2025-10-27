@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>Panel terapeuty – grafik</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding: 16px; background-color: #f8f9fa; }
+    .toolbar .form-select, .toolbar .form-control { max-width: 280px }
+    .toolbar .view-toggle .btn { min-width: 96px }
+
+    /* --- Style Kalendarza --- */
+    .cal-wrap, .month-wrap { overflow:auto; border:1px solid var(--bs-border-color); border-radius:.5rem; background-color: #fff; }
+    .cal-grid, .month-grid { display:grid; grid-template-columns: repeat(7, 1fr); }
+    .cal-grid { grid-template-columns: 80px repeat(7, 1fr); }
+    
+    .cal-head, .month-head { 
+        display: grid;
+        position:sticky; top:0; z-index:2; background:var(--bs-body-bg); 
+        border-bottom:1px solid var(--bs-border-color); 
+    }
+    .cal-head { grid-template-columns: 80px repeat(7, 1fr); }
+    .month-head { grid-template-columns: repeat(7, 1fr); }
+
+    .cal-head div, .month-head div { padding:.5rem; font-weight:600; text-align:center; border-left:1px solid var(--bs-border-color); }
+    .cal-head div:first-child, .month-head div:first-child { border-left:0; }
+    
+    .cal-row { height:24px; border-top:1px dotted var(--bs-border-color); font-size:12px; }
+    .cal-row label { padding:2px 6px; color: var(--bs-secondary-color); }
+    .cal-col { position:relative; border-left:1px solid var(--bs-border-color); }
+    .cal-event, .day-chip { cursor: pointer; transition: filter 0.2s ease; }
+    .cal-event:hover, .day-chip:hover { filter: brightness(95%); }
+    .cal-event { position:absolute; left:4px; right:4px; border-radius:.5rem; padding:2px 6px; font-size:12px; line-height:1.2; overflow:hidden; border:1px solid; }
+    .day-cell { min-height:120px; border-left:1px solid var(--bs-border-color); border-top:1px solid var(--bs-border-color); padding:.25rem; }
+    .day-cell:nth-child(7n+1) { border-left:0; }
+    .day-num { font-size:12px; color: var(--bs-secondary-color); }
+    .day-chip { display:block; margin:.15rem 0; padding:.1rem .35rem; border-radius: .25rem; font-size:11px; border:1px solid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .cal-event.tus, .day-chip.tus { background: rgba(13, 202, 240, 0.15); border-color: rgba(13, 202, 240, 0.4); }
+    .cal-event.individual, .day-chip.individual { background: rgba(25, 135, 84, 0.15); border-color: rgba(25, 135, 84, 0.4); }
+    
+    .muted-month { opacity:.55 }
+    .sticky-month-title { position:sticky; top:0; background:var(--bs-body-bg); z-index:3; padding:.25rem 0 .5rem 0; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-3 toolbar">
+      <h1 class="h5 m-0">Panel terapeuty – grafik</h1>
+      <div class="ms-auto"></div>
+      <div class="btn-group view-toggle" role="group">
+        <input type="radio" class="btn-check" name="viewMode" id="vmWeek" autocomplete="off" checked>
+        <label class="btn btn-outline-primary" for="vmWeek">Tydzień</label>
+        <input type="radio" class="btn-check" name="viewMode" id="vmMonth" autocomplete="off">
+        <label class="btn btn-outline-primary" for="vmMonth">Miesiąc</label>
+      </div>
+      <select id="tpTherapistSelect" class="form-select">
+        <option value="">— wybierz terapeutę —</option>
+      </select>
+      <input type="date" id="tpRefDate" class="form-control" />
+      <input type="month" id="tpRefMonth" class="form-control d-none" />
+      <div class="btn-group">
+        <button id="tpPrev" class="btn btn-outline-secondary">«</button>
+        <button id="tpToday" class="btn btn-outline-secondary">Dziś</button>
+        <button id="tpNext" class="btn btn-outline-secondary">»</button>
+      </div>
+    </header>
+    <div id="alertBox" class="mb-3"></div>
+    <div id="calendarHost"></div>
+  </div>
+
+  <div class="modal fade" id="editEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="editModalTitle">Edytuj zdarzenie</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="editModalBody"></div>
+        <div class="modal-footer" id="editModalFooter"></div>
+    </div></div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const API = "";
+    
+    const therapistSelect = document.getElementById("tpTherapistSelect");
+    const refDateInput = document.getElementById("tpRefDate");
+    const refMonthInput = document.getElementById("tpRefMonth");
+    const calendarHost = document.getElementById("calendarHost");
+    const editModal = new bootstrap.Modal(document.getElementById('editEventModal'));
+
+    let state = {
+      mode: "week", therapists: [], events: [],
+      refDate: new Date()
+    };
+
+    const showAlert = (msg, type = "success") => {
+        document.getElementById("alertBox").innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    };
+
+    const parseDate = (str) => str ? new Date(str.replace(' ', 'T')) : null;
+    const formatTime = (date) => date ? date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : '';
+    const formatDateInput = (date) => date ? new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0] : '';
+    const fmtYYYYMMDD = (date) => date.toISOString().slice(0, 10);
+    
+    async function init() {
+        goToday();
+        try {
+            const res = await fetch(`${API}/api/therapists`);
+            state.therapists = (await res.json()).filter(t => t.active);
+            therapistSelect.innerHTML = '<option value="">— wybierz terapeutę —</option>' + 
+                state.therapists.map(t => `<option value="${t.id}">${t.full_name}</option>`).join('');
+        } catch (e) { showAlert(`Błąd ładowania terapeutów: ${e.message}`, "danger"); }
+        
+        document.getElementById("vmWeek").addEventListener("change", () => switchMode("week"));
+        document.getElementById("vmMonth").addEventListener("change", () => switchMode("month"));
+        therapistSelect.addEventListener('change', loadAndRender);
+        refDateInput.addEventListener('change', (e) => { state.refDate = new Date(e.target.value); loadAndRender(); });
+        refMonthInput.addEventListener('change', (e) => { 
+            const [y,m] = e.target.value.split('-').map(Number);
+            state.refDate = new Date(y, m - 1, 1);
+            loadAndRender();
+        });
+        document.getElementById("tpPrev").addEventListener("click", () => shiftDate(-1));
+        document.getElementById("tpNext").addEventListener("click", () => shiftDate(1));
+        document.getElementById("tpToday").addEventListener("click", goToday);
+        calendarHost.addEventListener('click', handleEventClick);
+        loadAndRender();
+    }
+
+    async function loadAndRender() {
+        const therapistId = therapistSelect.value;
+        const ref = state.refDate;
+        const month = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!therapistId) {
+            calendarHost.innerHTML = '<div class="text-center p-5 text-muted">Wybierz terapeutę.</div>';
+            return;
+        }
+        
+        calendarHost.innerHTML = '<div class="text-center p-5">Ładowanie...</div>';
+        try {
+            const res = await fetch(`${API}/api/therapists/${therapistId}/schedule?month=${month}`);
+            if (!res.ok) throw new Error(`Błąd serwera: ${res.status}`);
+            state.events = await res.json();
+            state.mode === 'week' ? renderWeek() : renderMonth();
+        } catch (e) {
+            calendarHost.innerHTML = `<div class="alert alert-danger">Błąd ładowania grafiku: ${e.message}</div>`;
+        }
+    }
+
+    function renderWeek() {
+        const startOfWeek = new Date(state.refDate);
+        startOfWeek.setUTCDate(startOfWeek.getUTCDate() - (startOfWeek.getUTCDay() + 6) % 7);
+        const days = Array.from({length: 7}, (_, i) => new Date(Date.UTC(startOfWeek.getUTCFullYear(), startOfWeek.getUTCMonth(), startOfWeek.getUTCDate() + i)));
+
+        let headHtml = '<div class="cal-head"><div>Godz.</div>';
+        days.forEach(d => headHtml += `<div>${d.toLocaleDateString('pl-PL', {weekday: 'short'})}<br><small>${d.toLocaleDateString('pl-PL', {day: '2-digit', month: '2-digit'})}</small></div>`);
+        headHtml += '</div>';
+
+        let bodyHtml = '<div class="cal-grid">';
+        let timeCol = '<div>';
+        for (let h = 7; h < 21; h++) {
+            timeCol += `<div class="cal-row"><label>${String(h).padStart(2,'0')}:00</label></div><div class="cal-row"></div>`;
+        }
+        timeCol += '</div>';
+        bodyHtml += timeCol;
+
+        days.forEach(day => {
+            const ymd = fmtYYYYMMDD(day);
+            let dayEventsHtml = '';
+            state.events.filter(e => e.starts_at?.startsWith(ymd)).forEach(item => {
+                const start = parseDate(item.starts_at);
+                const end = parseDate(item.ends_at);
+                if (!start || !end) return;
+                const top = ((start.getHours() - 7) * 60 + start.getMinutes()) * (48 / 60);
+                const height = Math.max(24, (end - start) / 60000 * (48 / 60));
+                dayEventsHtml += `
+                    <div class="cal-event ${item.type}" data-slot-id="${item.slot_id}" data-type="${item.type}" data-group-id="${item.group_id}">
+                        <strong>${formatTime(start)}</strong> - ${item.client_name}
+                    </div>`;
+            });
+            bodyHtml += `<div class="cal-col" style="height: ${14*48}px">${dayEventsHtml}</div>`;
+        });
+        bodyHtml += '</div>';
+        calendarHost.innerHTML = `<div class="cal-wrap">${headHtml}${bodyHtml}</div>`;
+    }
+
+    function renderMonth() {
+        const [year, month] = refMonthInput.value.split('-').map(Number);
+        const firstOfMonth = new Date(year, month - 1, 1);
+        const startDay = (firstOfMonth.getDay() + 6) % 7;
+        const lastOfMonth = new Date(year, month, 0).getDate();
+        
+        let gridHtml = '';
+        for (let i = 0; i < startDay; i++) { gridHtml += `<div class="day-cell muted-month"></div>`; }
+
+        for (let day = 1; day <= lastOfMonth; day++) {
+            const currentDate = new Date(Date.UTC(year, month - 1, day));
+            const ymd = fmtYYYYMMDD(currentDate);
+            const dailyEvents = state.events.filter(e => e.starts_at?.startsWith(ymd));
+            
+            let chipsHtml = '';
+            dailyEvents.forEach(item => {
+                chipsHtml += `<div class="day-chip ${item.type}" data-slot-id="${item.slot_id}" data-type="${item.type}" data-group-id="${item.group_id}">${formatTime(parseDate(item.starts_at))} ${item.client_name}</div>`;
+            });
+            gridHtml += `<div class="day-cell"><div class="day-num">${day}</div>${chipsHtml}</div>`;
+        }
+
+        const monthName = firstOfMonth.toLocaleString('pl-PL', { month: 'long', year: 'numeric' });
+        calendarHost.innerHTML = `
+            <div class="sticky-month-title"><h5 class="m-0">${monthName}</h5></div>
+            <div class="month-wrap">
+                <div class="month-head">${['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'].map(d => `<div>${d}</div>`).join("")}</div>
+                <div class="month-grid">${gridHtml}</div>
+            </div>`;
+    }
+    
+    function handleEventClick(e) {
+        const item = e.target.closest('.cal-event, .day-chip');
+        if (item) {
+            const { slotId, type, groupId } = item.dataset;
+            if (type === 'individual' && (!groupId || groupId === 'undefined' || groupId === 'null')) {
+                showAlert("Nie można edytować tego wpisu, ponieważ nie jest częścią pakietu.", "warning");
+                return;
+            }
+            openEditModal(slotId, type, groupId);
+        }
+    }
+
+    async function openEditModal(slotId, type, groupId) {
+        const modalTitle = document.getElementById('editModalTitle');
+        const modalBody = document.getElementById('editModalBody');
+        const modalFooter = document.getElementById('editModalFooter');
+
+        if (type === 'tus') {
+            modalTitle.textContent = 'Szczegóły sesji TUS';
+            modalBody.innerHTML = `<p>Edycja sesji TUS jest dostępna w module TUS. Stąd możesz ją tylko usunąć.</p>`;
+            modalFooter.innerHTML = `
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                <button type="button" class="btn btn-danger" id="deleteBtn">Usuń Sesję</button>
+            `;
+            document.getElementById('deleteBtn').onclick = () => handleDelete(slotId, 'tus');
+        } else {
+            modalTitle.textContent = 'Edytuj pakiet indywidualny';
+            modalBody.innerHTML = '<p>Ładowanie danych...</p>';
+            modalFooter.innerHTML = '';
+            
+            try {
+                const res = await fetch(`${API}/api/groups/${groupId}`);
+                if (!res.ok) throw new Error(`Błąd serwera: ${res.status}`);
+                const pkg = await res.json();
+                
+                const therapyStart = parseDate(pkg.therapy.starts_at);
+                modalBody.innerHTML = `
+                    <form id="editForm">
+                        <div class="mb-3"><label class="form-label">Data</label><input type="date" class="form-control" name="date" value="${formatDateInput(therapyStart)}" required></div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label class="form-label">Start</label><input type="time" class="form-control" name="start_time" value="${formatTime(therapyStart)}" required></div>
+                            <div class="col-md-6 mb-3"><label class="form-label">Koniec</label><input type="time" class="form-control" name="end_time" value="${formatTime(parseDate(pkg.therapy.ends_at))}" required></div>
+                        </div>
+                    </form>
+                `;
+                modalFooter.innerHTML = `
+                    <button type="button" class="btn btn-danger me-auto" id="deleteBtn">Usuń Pakiet</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="button" class="btn btn-primary" id="saveBtn">Zapisz</button>
+                `;
+                document.getElementById('saveBtn').onclick = () => handleSave(groupId, pkg);
+                document.getElementById('deleteBtn').onclick = () => handleDelete(groupId, 'individual');
+            } catch (error) {
+                modalBody.innerHTML = `<p class="text-danger">Błąd ładowania: ${error.message}</p>`;
+            }
+        }
+        editModal.show();
+    }
+    
+    async function handleSave(groupId, originalPackage) {
+        const form = document.getElementById('editForm');
+        const date = form.querySelector('[name="date"]').value;
+        const startTime = form.querySelector('[name="start_time"]').value;
+        const endTime = form.querySelector('[name="end_time"]').value;
+        
+        const therapyStart = new Date(`${date}T${startTime}`);
+        const therapyEnd = new Date(`${date}T${endTime}`);
+        
+        originalPackage.therapy.starts_at = therapyStart.toISOString();
+        originalPackage.therapy.ends_at = therapyEnd.toISOString();
+        
+        if (originalPackage.pickup) {
+            const pickupDuration = (parseDate(originalPackage.pickup.ends_at) - parseDate(originalPackage.pickup.starts_at));
+            originalPackage.pickup.starts_at = new Date(therapyStart.getTime() - pickupDuration).toISOString();
+            originalPackage.pickup.ends_at = therapyStart.toISOString();
+        }
+        if (originalPackage.dropoff) {
+            const dropoffDuration = (parseDate(originalPackage.dropoff.ends_at) - parseDate(originalPackage.dropoff.starts_at));
+            originalPackage.dropoff.starts_at = therapyEnd.toISOString();
+            originalPackage.dropoff.ends_at = new Date(therapyEnd.getTime() + dropoffDuration).toISOString();
+        }
+
+        try {
+            const response = await fetch(`${API}/api/groups/${groupId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(originalPackage)
+            });
+            if (!response.ok) throw new Error(`Błąd serwera: ${response.status}`);
+            editModal.hide();
+            loadAndRender();
+            showAlert('Zmiany zostały zapisane.', 'success');
+        } catch (error) {
+            alert(`Błąd zapisu: ${error.message}`);
+        }
+    }
+
+    async function handleDelete(id, type) {
+        const url = type === 'tus' ? `${API}/api/tus/sessions/${id}` : `${API}/api/groups/${id}`;
+        const msg = type === 'tus' ? 'Czy na pewno chcesz usunąć tę sesję TUS?' : 'Czy na pewno chcesz usunąć cały pakiet indywidualny?';
+
+        if (confirm(msg)) {
+            try {
+                const response = await fetch(url, { method: 'DELETE' });
+                if (!response.ok) throw new Error(`Błąd serwera: ${response.status}`);
+                editModal.hide();
+                loadAndRender();
+                showAlert('Wpis został usunięty.', 'success');
+            } catch (error) {
+                alert(`Błąd podczas usuwania: ${error.message}`);
+            }
+        }
+    }
+    
+    function shiftDate(offset) {
+        const newDate = state.mode === 'week' 
+            ? new Date(state.refDate.setDate(state.refDate.getDate() + (offset * 7))) 
+            : new Date(state.refDate.setMonth(state.refDate.getMonth() + offset));
+        state.refDate = newDate;
+        refDateInput.value = fmtYYYYMMDD(newDate);
+        refMonthInput.value = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`;
+        loadAndRender();
+    }
+
+    function goToday() {
+        const today = new Date();
+        state.refDate = today;
+        refDateInput.value = fmtYYYYMMDD(today);
+        refMonthInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        loadAndRender();
+    }
+
+    function switchMode(mode) {
+        state.mode = mode;
+        refDateInput.classList.toggle('d-none', mode !== 'week');
+        refMonthInput.classList.toggle('d-none', mode !== 'month');
+        loadAndRender();
+    }
+
+    init();
+});
+</script>
+</body>
+</html>
+

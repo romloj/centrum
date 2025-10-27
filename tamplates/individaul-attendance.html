@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>Obecność - Spotkania Indywidualne</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body { padding: 1rem; background-color: #f8f9fa; }
+    .fab-container {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: 1050;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+    .fab-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: var(--bs-primary);
+        color: white;
+        font-size: 1.8rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        text-decoration: none;
+        transition: transform 0.3s ease, background-color 0.3s ease;
+        border: none;
+    }
+    .fab-button:hover {
+        transform: scale(1.1);
+        background-color: var(--bs-primary-dark);
+    }
+    .fab-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        gap: 0.75rem;
+        transform: scaleY(0);
+        transform-origin: bottom;
+        transition: transform 0.3s ease;
+    }
+    .fab-container.open .fab-menu {
+        transform: scaleY(1);
+    }
+    .fab-menu-item a {
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+        background-color: var(--bs-secondary);
+    }
+    .fab-container.open #fab-main-icon {
+        transform: rotate(45deg);
+    }
+    #fab-main-icon {
+        transition: transform 0.3s ease;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-4">
+      <h1 class="h4 m-0">📋 Obecność na spotkaniach indywidualnych</h1>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <label for="datePicker" class="form-label mb-0">Wybierz datę:</label>
+        <input type="date" id="datePicker" class="form-control" style="width: 200px;">
+      </div>
+    </header>
+
+    <div id="alertBox" class="mb-3"></div>
+
+    <div id="attendanceContainer" class="card">
+      <div class="card-header">
+        <h5 class="mb-0" id="attendanceHeader">Obecność</h5>
+      </div>
+      <div id="sessionsList" class="list-group list-group-flush">
+        <!-- Lista sesji i opcje obecności będą renderowane tutaj -->
+      </div>
+    </div>
+  </div>
+  <!-- fab-menu.js-->
+    <div class="fab-container" id="fab-container">
+    <ul class="fab-menu">
+        <li class="fab-menu-item">
+            <a href="therapist1.html" class="fab-button" title="Plan terapeuty"><i class="bi bi-heart-pulse"></i></a>
+        </li>
+        <li class="fab-menu-item">
+            <a href="tus.html" class="fab-button" title="Moduł TUS"><i class="bi bi-star-fill"></i></a>
+        </li>
+        <li class="fab-menu-item">
+            <a href="klienci.html" class="fab-button" title="Lista klientów"><i class="bi bi-people-fill"></i></a>
+        </li>
+
+         <li class="fab-menu-item">
+            <a href="client_history.html" class="fab-button" title="Historia klientów"><i class="bi bi-people-fill"></i></a>
+        </li>
+         <li class="fab-menu-item">
+            <a href="panel.html" class="fab-button" title="Strona główna"><i class="bi bi-house-x-fill"></i></a>
+        </li>
+
+
+
+    </ul>
+    <button class="fab-button" id="fab-main-btn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg" id="fab-main-icon"></i>
+    </button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const API_URL = "/api";
+    const datePicker = document.getElementById('datePicker');
+    const sessionsList = document.getElementById('sessionsList');
+    const attendanceHeader = document.getElementById('attendanceHeader');
+
+    const showAlert = (msg, type = "success") => {
+        const box = document.getElementById("alertBox");
+        box.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    };
+
+    function initializeDate() {
+        const today = new Date();
+        datePicker.value = today.toISOString().split('T')[0];
+        loadIndividualSessions();
+    }
+
+    async function loadIndividualSessions() {
+        const selectedDate = datePicker.value;
+        if (!selectedDate) return;
+
+        attendanceHeader.textContent = `Obecność na dzień ${selectedDate}`;
+        sessionsList.innerHTML = '<div class="list-group-item text-muted">Ładowanie...</div>';
+
+        try {
+            const response = await fetch(`${API_URL}/individual-sessions-for-day?date=${selectedDate}`);
+            if (!response.ok) throw new Error(`Błąd serwera: ${response.statusText}`);
+            const sessions = await response.json();
+            renderAttendanceList(sessions);
+        } catch (error) {
+            sessionsList.innerHTML = `<div class="list-group-item text-danger">${error.message}</div>`;
+        }
+    }
+
+    function renderAttendanceList(sessions) {
+        if (sessions.length === 0) {
+            sessionsList.innerHTML = '<div class="list-group-item text-muted">Brak indywidualnych spotkań terapeutycznych tego dnia.</div>';
+            return;
+        }
+
+        const statuses = [
+            { value: 'obecny', label: 'Obecny' },
+            { value: 'nieobecny', label: 'Nieobecny' },
+            { value: 'spóźniony', label: 'Spóźniony' },
+            { value: 'usprawiedliwiony', label: 'Usprawiedliwiony' }
+        ];
+
+        sessionsList.innerHTML = sessions.map(session => {
+            const radioButtons = statuses.map(status => `
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="status-${session.slot_id}"
+                           id="status-${session.slot_id}-${status.value}" value="${status.value}"
+                           ${(session.attendance_status || 'obecny') === status.value ? 'checked' : ''}
+                           onchange="saveIndividualAttendance(${session.slot_id}, this.value)">
+                    <label class="form-check-label" for="status-${session.slot_id}-${status.value}">${status.label}</label>
+                </div>
+            `).join('');
+
+            return `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${session.client_name}</h6>
+                        <small>${new Date(session.starts_at.replace(' ', 'T')).toLocaleTimeString('pl-PL', {hour: '2-digit', minute:'2-digit'})}</small>
+                    </div>
+                    <p class="mb-1"><small class="text-muted">Terapeuta: ${session.therapist_name}</small></p>
+                    <div>${radioButtons}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function saveIndividualAttendance(slotId, status) {
+        try {
+            const response = await fetch(`${API_URL}/individual-attendance/${slotId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: status })
+            });
+            if (!response.ok) throw new Error(`Błąd serwera: ${response.statusText}`);
+            showAlert('Status obecności został zaktualizowany.', 'success');
+        } catch (error) {
+            showAlert(error.message, 'danger');
+        }
+    }
+
+    window.saveIndividualAttendance = saveIndividualAttendance; // Upublicznienie funkcji
+
+    datePicker.addEventListener('change', loadIndividualSessions);
+    initializeDate();
+});
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const fabContainer = document.getElementById('fab-container');
+        const fabMainBtn = document.getElementById('fab-main-btn');
+
+        fabMainBtn.addEventListener('click', () => {
+            fabContainer.classList.toggle('open');
+        });
+    });
+</script>
+</body>
+</html>
+

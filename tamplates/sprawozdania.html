@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Zarządzania Fundacją</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.2em;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .module-card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .module-card:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .module-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        }
+
+        .module-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .module-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .module-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .module-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            background: #f0f7ff;
+            color: #667eea;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .module-card.projects {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+        }
+
+        .module-card.reports {
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(32, 201, 151, 0.05) 100%);
+        }
+
+        .module-card.reports:before {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .module-card.tus {
+            background: linear-gradient(135deg, rgba(253, 126, 20, 0.05) 0%, rgba(249, 168, 37, 0.05) 100%);
+        }
+
+        .module-card.tus:before {
+            background: linear-gradient(135deg, #fd7e14 0%, #f9a825 100%);
+        }
+
+        .module-card.clients {
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.05) 0%, rgba(233, 30, 99, 0.05) 100%);
+        }
+
+        .module-card.clients:before {
+            background: linear-gradient(135deg, #dc3545 0%, #e91e63 100%);
+        }
+
+        .module-card.therapists {
+            background: linear-gradient(135deg, rgba(0, 123, 255, 0.05) 0%, rgba(102, 16, 242, 0.05) 100%);
+        }
+
+        .module-card.therapists:before {
+            background: linear-gradient(135deg, #007bff 0%, #6610f2 100%);
+        }
+
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            .modules-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .module-icon {
+                font-size: 4em;
+            }
+
+            .module-title {
+                font-size: 1.5em;
+            }
+        }
+
+        /* Animacja pulse dla nowych kafelków */
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.02);
+            }
+        }
+
+        .module-card.new-feature {
+            animation: pulse 2s infinite;
+        }
+
+        .new-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #28a745;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏛️ System Zarządzania Fundacją</h1>
+            <p class="subtitle">Kompleksowe narzędzie do zarządzania projektami i beneficjentami</p>
+        </div>
+
+        <div class="modules-grid">
+            <!-- Projekty -->
+            <div class="module-card" onclick="location.href='projects.html'">
+                <span class="module-icon">🎯</span>
+                <h2 class="module-title">Projekty</h2>
+                <p class="module-description">
+                    Zarządzaj projektami fundacji, monitoruj postępy, budżet i beneficjentów
+                </p>
+                <span class="module-badge">Zarządzanie projektami</span>
+            </div>
+
+            <!-- Sprawozdania - NOWY KAFELEK -->
+            <div class="module-card" onclick="location.href='project_raports.html'">
+                <span class="new-badge">NOWE</span>
+                <span class="module-icon">📊</span>
+                <h2 class="module-title">Sprawozdania</h2>
+                <p class="module-description">
+                    Generuj roczne sprawozdania merytoryczne z realizowanych projektów i działań
+                </p>
+                <span class="module-badge">Raporty i analizy</span>
+            </div>
+
+            <!-- Sprawozdania - NOWY KAFELEK -->
+            <div class="module-card" onclick="location.href='raport.html'">
+                <span class="new-badge">NOWE</span>
+                <span class="module-icon">📊</span>
+                <h2 class="module-title">Raport</h2>
+                <p class="module-description">
+                    Generuj roczne sprawozdania merytoryczne z realizowanych projektów i działań
+                </p>
+                <span class="module-badge">Raporty i analizy</span>
+            </div>
+
+            <!-- ipet -->
+            <div class="module-card" onclick="location.href='ipet.html'">
+                <span class="new-badge">NOWE</span>
+                <span class="module-icon">📊</span>
+                <h2 class="module-title">IPET</h2>
+                <p class="module-description">
+                    Generuj roczne sprawozdania merytoryczne z realizowanych projektów i działań
+                </p>
+                <span class="module-badge">Raporty i analizy</span>
+            </div>
+
+            <!-- TUS -->
+            <div class="module-card" onclick="location.href='tus.html'">
+                <span class="module-icon">🎓</span>
+                <h2 class="module-title">Trening Umiejętności Społecznych</h2>
+                <p class="module-description">
+                    Zarządzaj grupami TUS, sesjami, punktacją i nagrodami dla uczestników
+                </p>
+                <span class="module-badge">System punktowy</span>
+            </div>
+
+            <!-- Klienci -->
+            <div class="module-card" onclick="location.href='klienci.html'">
+                <span class="module-icon">👥</span>
+                <h2 class="module-title">Klienci</h2>
+                <p class="module-description">
+                    Przeglądaj bazę beneficjentów, zarządzaj danymi i harmonogramami
+                </p>
+                <span class="module-badge">Baza beneficjentów</span>
+            </div>
+
+            <!-- Terapeuci -->
+            <div class="module-card" onclick="location.href='therapist.html'">
+                <span class="module-icon">👨‍⚕️</span>
+                <h2 class="module-title">Terapeuci</h2>
+                <p class="module-description">
+                    Zarządzaj zespołem terapeutów, harmonogramami i statystykami pracy
+                </p>
+                <span class="module-badge">Zarządzanie zespołem</span>
+            </div>
+
+            <!-- Harmonogram -->
+            <div class="module-card" onclick="location.href='panel.html'">
+                <span class="module-icon">📅</span>
+                <h2 class="module-title">Harmonogram</h2>
+                <p class="module-description">
+                    Planuj zajęcia indywidualne i grupowe, zarządzaj kalendarzem
+                </p>
+                <span class="module-badge">Planowanie</span>
+            </div>
+        </div>
+
+        <!-- Harmonogram -->
+            <div class="module-card" onclick="location.href='import_image.html'">
+                <span class="module-icon">📅</span>
+                <h2 class="module-title">Import planu</h2>
+                <p class="module-description">
+                    Zeskanuj swój plan, wszystkie wpisy będą w bazie
+                </p>
+                <span class="module-badge">Planowanie</span>
+            </div>
+        </div>
+
+        <!-- Szybkie statystyki -->
+        <div class="quick-stats" id="quickStats">
+            <div class="stat-card">
+                <span class="stat-value" id="totalProjects">-</span>
+                <span class="stat-label">Aktywnych Projektów</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="totalClients">-</span>
+                <span class="stat-label">Beneficjentów</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="totalTherapists">-</span>
+                <span class="stat-label">Terapeutów</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="totalSessions">-</span>
+                <span class="stat-label">Sesji w tym miesiącu</span>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2025 Fundacja Odnowa. Wszystkie prawa zastrzeżone.</p>
+        </div>
+    </div>
+
+    <script>
+        // Załaduj szybkie statystyki
+        async function loadQuickStats() {
+            try {
+                // Projekty
+                const projectsRes = await fetch('/api/projects');
+                const projects = await projectsRes.json();
+                const activeProjects = projects.filter(p => p.status !== 'zakończony').length;
+                document.getElementById('totalProjects').textContent = activeProjects;
+
+                // Klienci
+                const clientsRes = await fetch('/api/clients');
+                const clients = await clientsRes.json();
+                document.getElementById('totalClients').textContent = clients.length;
+
+                // Terapeuci
+                const therapistsRes = await fetch('/api/therapists');
+                const therapists = await therapistsRes.json();
+                document.getElementById('totalTherapists').textContent = therapists.length;
+
+                // Sesje w tym miesiącu
+                const now = new Date();
+                const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                const sessionsRes = await fetch(`/api/tus/schedule?month=${month}`);
+                const sessions = await sessionsRes.json();
+                document.getElementById('totalSessions').textContent = sessions.length;
+            } catch (error) {
+                console.error('Błąd ładowania statystyk:', error);
+            }
+        }
+
+        // Załaduj statystyki po załadowaniu strony
+        document.addEventListener('DOMContentLoaded', loadQuickStats);
+
+        // Usuń animację po kliknięciu w nowy kafelek
+        document.querySelectorAll('.module-card.new-feature').forEach(card => {
+            card.addEventListener('click', function() {
+                localStorage.setItem('reportsVisited', 'true');
+                this.classList.remove('new-feature');
+            });
+        });
+
+        // Sprawdź czy użytkownik już odwiedził sprawozdania
+        if (localStorage.getItem('reportsVisited') === 'true') {
+            document.querySelectorAll('.module-card.new-feature').forEach(card => {
+                card.classList.remove('new-feature');
+            });
+        }
+    </script>
+</body>
+</html>

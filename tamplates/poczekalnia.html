@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista Oczekujących - Fundacja SUO</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 20px 30px;
+            border-radius: 8px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .add-section {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+
+        .form-group input, .form-group textarea {
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .table-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        tbody tr {
+            transition: background-color 0.2s;
+        }
+
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .waiting-time {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .waiting-long {
+            color: #dc3545;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.2s;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+        }
+
+        .btn-accept {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.2s;
+            margin-right: 5px;
+        }
+
+        .btn-accept:hover {
+            background: #218838;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+            background: #f8f9fa;
+            margin: 20px 30px;
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-oczekujący {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .status-przyjęty {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-anulowany {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Lista Oczekujących</h1>
+            <p>System zarządzania kolejką przyjęć do Fundacji SUO (PostgreSQL)</p>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <div class="stats" id="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="totalClients">-</div>
+                <div class="stat-label">Oczekujących</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="avgWaitTime">-</div>
+                <div class="stat-label">Średni czas oczekiwania</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="acceptedClients">-</div>
+                <div class="stat-label">Przyjętych</div>
+            </div>
+        </div>
+
+        <div class="add-section">
+            <h2 style="margin-bottom: 20px; color: #495057;">Dodaj nowego klienta</h2>
+            <form id="clientForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="firstName">Imię *</label>
+                        <input type="text" id="firstName" name="first_name" required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Nazwisko *</label>
+                        <input type="text" id="lastName" name="last_name" required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="birthDate">Data urodzenia *</label>
+                        <input type="date" id="birthDate" name="birth_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="diagnosis">Diagnoza</label>
+                        <input type="text" id="diagnosis" name="diagnosis" maxlength="1000">
+                    </div>
+                    <div class="form-group">
+                        <label for="regDate">Data rejestracji *</label>
+                        <input type="date" id="regDate" name="registration_date" required>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="notes">Notatki</label>
+                    <textarea id="notes" name="notes" rows="3" maxlength="2000"></textarea>
+                </div>
+                <button type="submit" class="btn" id="submitBtn">➕ Dodaj do listy oczekujących</button>
+            </form>
+        </div>
+
+        <div class="table-container">
+            <div id="loadingIndicator" class="loading">
+                <div class="spinner"></div>
+                <p>Ładowanie danych...</p>
+            </div>
+            <table id="clientTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Lp.</th>
+                        <th>Imię</th>
+                        <th>Nazwisko</th>
+                        <th>Data urodzenia</th>
+                        <th>Diagnoza</th>
+                        <th>Data rejestracji</th>
+                        <th>Czas oczekiwania</th>
+                        <th>Status</th>
+                        <th>Akcje</th>
+                    </tr>
+                </thead>
+                <tbody id="clientList"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+           const API_BASE_URL = window.location.origin;
+        const API_URL = '/api/waiting-clients';
+        const STATS_URL = '/api/waiting-clients/stats';
+
+        let clients = [];
+
+        // Funkcje pomocnicze
+        function showAlert(message, type = 'success') {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} show`;
+            alert.textContent = message;
+            container.innerHTML = '';
+            container.appendChild(alert);
+
+            setTimeout(() => {
+                alert.classList.remove('show');
+                setTimeout(() => alert.remove(), 300);
+            }, 5000);
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            return new Date(dateString).toLocaleDateString('pl-PL');
+        }
+
+        function calculateWaitingTime(regDate) {
+            if (!regDate) return '-';
+            const now = new Date();
+            const registration = new Date(regDate);
+            const diff = now - registration;
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+            if (days > 0) {
+                return `${days} dni, ${hours} godz.`;
+            } else {
+                return `${hours} godz.`;
+            }
+        }
+
+        // Funkcje API
+        async function fetchClients() {
+            try {
+                const response = await fetch(`${API_URL}?status=oczekujący`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const data = await response.json();
+                // Obsługa zarówno tablicy jak i obiektu z pagination
+                clients = Array.isArray(data) ? data : (data.clients || []);
+
+                renderClients();
+                fetchStats();
+            } catch (error) {
+                console.error('Błąd pobierania klientów:', error);
+                showAlert('Błąd połączenia z serwerem: ' + error.message, 'error');
+                document.getElementById('loadingIndicator').innerHTML =
+                    '<p style="color: #dc3545;">❌ Nie można połączyć z serwerem</p>';
+            }
+        }
+
+        async function fetchStats() {
+            try {
+                const response = await fetch(STATS_URL);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const stats = await response.json();
+                document.getElementById('totalClients').textContent = stats.oczekujacy || 0;
+                document.getElementById('acceptedClients').textContent = stats.przyjeci || 0;
+
+                const avgDays = stats.sredni_czas_dni || 0;
+                document.getElementById('avgWaitTime').textContent = `${Math.round(avgDays)} dni`;
+            } catch (error) {
+                console.error('Błąd pobierania statystyk:', error);
+            }
+        }
+
+        async function addClient(formData) {
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Dodawanie...';
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showAlert(result.message || 'Klient został dodany pomyślnie!', 'success');
+                    document.getElementById('clientForm').reset();
+                    document.getElementById('regDate').value = new Date().toISOString().split('T')[0];
+                    await fetchClients();
+                } else {
+                    showAlert('Błąd: ' + (result.error || 'Nieznany błąd'), 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd podczas dodawania: ' + error.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '➕ Dodaj do listy oczekujących';
+            }
+        }
+
+        async function deleteClient(id) {
+            if (!confirm('Czy na pewno chcesz anulować tego klienta?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showAlert(result.message || 'Klient został anulowany', 'success');
+                    await fetchClients();
+                } else {
+                    showAlert('Błąd: ' + (result.error || 'Nieznany błąd'), 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd: ' + error.message, 'error');
+            }
+        }
+
+        async function acceptClient(id, firstName, lastName) {
+            if (!confirm(`Czy na pewno chcesz przyjąć klienta ${firstName} ${lastName}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/${id}/accept`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showAlert(result.message || 'Klient został przyjęty!', 'success');
+                    await fetchClients();
+                } else {
+                    showAlert('Błąd: ' + (result.error || 'Nieznany błąd'), 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd: ' + error.message, 'error');
+            }
+        }
+
+        function renderClients() {
+            const tbody = document.getElementById('clientList');
+            const table = document.getElementById('clientTable');
+            const loading = document.getElementById('loadingIndicator');
+
+            loading.style.display = 'none';
+            table.style.display = 'table';
+
+            if (!clients || clients.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-state">
+                        <td colspan="9">
+                            <div style="font-size: 3em; opacity: 0.3;">📝</div>
+                            <p style="font-size: 1.2em; margin-top: 10px;">Brak klientów na liście oczekujących</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = clients.map((client, index) => {
+                const waitingTime = calculateWaitingTime(client.registration_date);
+                const waitingDays = client.waiting_days || 0;
+                const waitingClass = waitingDays > 30 ? 'waiting-long' : 'waiting-time';
+                const statusClass = `status-${client.status}`;
+
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${client.first_name || '-'}</td>
+                        <td>${client.last_name || '-'}</td>
+                        <td>${formatDate(client.birth_date)}</td>
+                        <td>${client.diagnosis || '-'}</td>
+                        <td>${formatDate(client.registration_date)}</td>
+                        <td class="${waitingClass}">${waitingTime}</td>
+                        <td><span class="status-badge ${statusClass}">${client.status}</span></td>
+                        <td>
+                            <button class="btn-accept" onclick="acceptClient(${client.id}, '${client.first_name}', '${client.last_name}')">✓ Przyjmij</button>
+                            <button class="btn-delete" onclick="deleteClient(${client.id})">🗑️ Anuluj</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Event Listeners
+        document.getElementById('clientForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = {
+                first_name: document.getElementById('firstName').value.trim(),
+                last_name: document.getElementById('lastName').value.trim(),
+                birth_date: document.getElementById('birthDate').value,
+                diagnosis: document.getElementById('diagnosis').value.trim(),
+                registration_date: document.getElementById('regDate').value,
+                notes: document.getElementById('notes').value.trim(),
+                status: 'oczekujący'
+            };
+
+            await addClient(formData);
+        });
+
+        // Inicjalizacja
+        document.getElementById('regDate').value = new Date().toISOString().split('T')[0];
+
+        // Pierwsze pobranie danych
+        fetchClients();
+
+        // Odświeżanie co minutę
+        setInterval(fetchClients, 60000);
+    </script>
+</body>
+
+</html>

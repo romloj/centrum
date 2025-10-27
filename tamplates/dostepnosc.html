@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>Zarządzanie Dostępnością Klientów</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container py-4">
+  <header class="mb-4">
+    <h1 class="h3">🗓️ Zarządzanie Dostępnością Klientów</h1>
+    <p class="text-muted">W tym miejscu możesz zdefiniować stałe okresy niedostępności klientów, np. plan lekcji.</p>
+  </header>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="clientSelector" class="form-label fw-bold">Wybierz klienta:</label>
+        <select class="form-select" id="clientSelector">
+          <option value="">-- Proszę czekać, ładowanie listy --</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="scheduleView" class="d-none">
+    <div class="row">
+      <div class="col-lg-4 mb-4">
+        <div class="card shadow-sm">
+          <div class="card-header">
+            <h5 class="m-0">Dodaj nowy okres niedostępności</h5>
+          </div>
+          <div class="card-body">
+            <form id="unavailabilityForm">
+              <div class="mb-3">
+                <label for="dayOfWeek" class="form-label">Dzień tygodnia</label>
+                <select id="dayOfWeek" class="form-select" required>
+                  <option value="1">Poniedziałek</option>
+                  <option value="2">Wtorek</option>
+                  <option value="3">Środa</option>
+                  <option value="4">Czwartek</option>
+                  <option value="5">Piątek</option>
+                  <option value="6">Sobota</option>
+                  <option value="7">Niedziela</option>
+                </select>
+              </div>
+              <div class="row">
+                <div class="col-6 mb-3">
+                  <label for="startTime" class="form-label">Od godz.</label>
+                  <input type="time" id="startTime" class="form-control" required>
+                </div>
+                <div class="col-6 mb-3">
+                  <label for="endTime" class="form-label">Do godz.</label>
+                  <input type="time" id="endTime" class="form-control" required>
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="notes" class="form-label">Notatki (np. "Szkoła")</label>
+                <input type="text" id="notes" class="form-control" placeholder="Opcjonalnie">
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary">Dodaj do planu</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-8">
+        <div class="card shadow-sm">
+         <div class="card-header">
+            <h5 class="m-0">Aktualny plan niedostępności</h5>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped-columns mb-0">
+              <thead>
+                <tr>
+                  <th>Dzień</th>
+                  <th>Od</th>
+                  <th>Do</th>
+                  <th>Notatki</th>
+                  <th style="width: 1%;"></th>
+                </tr>
+              </thead>
+              <tbody id="scheduleTableBody">
+                </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const API_URL = "/api";
+
+
+    const DOW_MAP = ["", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"];
+
+    const clientSelector = document.getElementById('clientSelector');
+    const scheduleView = document.getElementById('scheduleView');
+    const scheduleTableBody = document.getElementById('scheduleTableBody');
+    const unavailabilityForm = document.getElementById('unavailabilityForm');
+
+    let selectedClientId = null;
+
+    // 1. Wczytaj listę klientów do selecta
+    const loadClients = async () => {
+        try {
+            const response = await fetch(`${API_URL}/clients`);
+            const clients = await response.json();
+            const activeClients = clients.filter(c => c.active !== false);
+
+            clientSelector.innerHTML = '<option value="">-- wybierz klienta --</option>' +
+                activeClients.map(c => `<option value="${c.client_id}">${c.full_name}</option>`).join('');
+        } catch (error) {
+            clientSelector.innerHTML = '<option value="">Błąd ładowania klientów</option>';
+            console.error(error);
+        }
+    };
+
+    // 2. Pobierz i wyświetl plan dla wybranego klienta
+    const fetchAndRenderSchedule = async () => {
+        if (!selectedClientId) {
+            scheduleView.classList.add('d-none');
+            return;
+        }
+        scheduleView.classList.remove('d-none');
+        scheduleTableBody.innerHTML = '<tr><td colspan="5" class="text-center">Ładowanie...</td></tr>';
+
+        try {
+            const response = await fetch(`${API_URL}/clients/${selectedClientId}/unavailability`);
+            const entries = await response.json();
+
+            if (entries.length === 0) {
+                scheduleTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Brak zdefiniowanych okresów niedostępności.</td></tr>';
+                return;
+            }
+
+            scheduleTableBody.innerHTML = entries.map(entry => `
+                <tr>
+                    <td>${DOW_MAP[entry.day_of_week]}</td>
+                    <td>${entry.start_time}</td>
+                    <td>${entry.end_time}</td>
+                    <td>${entry.notes || '—'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${entry.id}">Usuń</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            scheduleTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Błąd ładowania danych.</td></tr>';
+            console.error(error);
+        }
+    };
+
+    // 3. Obsługa zdarzeń
+    clientSelector.addEventListener('change', () => {
+        selectedClientId = clientSelector.value;
+        fetchAndRenderSchedule();
+    });
+
+    unavailabilityForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!selectedClientId) return;
+
+        const payload = {
+            day_of_week: document.getElementById('dayOfWeek').value,
+            start_time: document.getElementById('startTime').value,
+            end_time: document.getElementById('endTime').value,
+            notes: document.getElementById('notes').value
+        };
+
+        try {
+            await fetch(`${API_URL}/clients/${selectedClientId}/unavailability`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            unavailabilityForm.reset();
+            fetchAndRenderSchedule(); // Odśwież listę
+        } catch (error) {
+            alert('Błąd podczas zapisywania wpisu.');
+            console.error(error);
+        }
+    });
+
+    scheduleTableBody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('delete-btn')) {
+            const entryId = e.target.dataset.id;
+            if (confirm('Czy na pewno chcesz usunąć ten wpis?')) {
+                try {
+                    await fetch(`${API_URL}/unavailability/${entryId}`, { method: 'DELETE' });
+                    fetchAndRenderSchedule(); // Odśwież listę
+                } catch (error) {
+                    alert('Błąd podczas usuwania wpisu.');
+                    console.error(error);
+                }
+            }
+        }
+    });
+
+    // Inicjalizacja
+    loadClients();
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

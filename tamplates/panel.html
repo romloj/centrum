@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>Planowanie SUO – saldo i pakiety</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="menu_fab.css">
+
+  <style>
+  body { padding: 16px; }
+  @media (min-width: 992px){ body { padding: 24px; } }
+  .table thead th { white-space: nowrap; }
+  .actions .btn { min-width: 110px; }
+  @media (max-width: 576px){
+    .actions .btn { width: 100%; }
+    .actions .btn + .btn { margin-top: .5rem; }
+  }
+  .offcanvas.offcanvas-panel { --bs-offcanvas-width: 520px; }
+  .offcanvas { --bs-offcanvas-bg: #fff; }
+
+  @media (prefers-color-scheme: dark){
+    .offcanvas { --bs-offcanvas-bg: #1e1e1e; }
+  }
+
+  .form-section-title { font-weight: 600; margin-top: 12px; }
+
+  .start-card {
+    transition: transform .12s ease, box-shadow .12s ease;
+    border-radius: 16px;
+  }
+  .start-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 .5rem 1.25rem rgba(0,0,0,.08);
+  }
+  </style>
+
+</head>
+
+<body>
+    <div class="col-12 col-lg-6">
+        <h1 class="h5 m-0">Moduł planowania</h1>
+    </div>
+
+    <!-- Responsywne fab-menu.js -->
+    <nav class="navbar navbar-expand-lg bg-body-tertiary mb-3 rounded shadow-sm">
+      <div class="container-fluid">
+        <a class="navbar-brand navbar-brand-responsive" href="#">
+          <i class="bi bi-calendar-check"></i> Planowanie SUO
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+                aria-controls="mainNavbar" aria-expanded="false" aria-label="Przełącz nawigację">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="mainNavbar">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-people-fill"></i> Klienci
+              </a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" id="addClientBtn"><i class="bi bi-person-add"></i> Dodaj Klienta</a></li>
+                <li><a class="dropdown-item" href="klienci.html"><i class="bi bi-list-ul me-2"></i> Lista Klientów</a></li>
+                <li><a class="dropdown-item" href="index.html"><i class="bi bi-list-ul me-2"></i> Klientów</a></li>
+                <li><a class="dropdown-item" href="client-panel.html"><i class="bi bi-calendar-week me-2"></i> Plan Klienta</a></li>
+                <li><a class="dropdown-item" href="lista.html"><i class="bi bi-list-check"></i> Lista obecności</a></li>
+                <li><a class="dropdown-item" href="dostepnosc.html"><i class="bi bi-universal-access-circle"></i> Dostępność Klienta</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item fw-bold" href="#" id="openClientSelectModalBtn"><i class="bi bi-plus-circle-fill me-2"></i> Dodaj Pakiet</a></li>
+              </ul>
+            </li>
+
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-calendar3"></i> Grafiki
+              </a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" id="addTherapistBtn"><i class="bi bi-person-fill-add"></i> Dodaj Terapeutę</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="therapist1.html"><i class="bi bi-heart-pulse me-2"></i> Plan Terapeuty</a></li>
+                <li><a class="dropdown-item" href="import_image0.html"><i class="bi bi-image-alt me-2"></i> Import Planu</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" id="addDriverBtn"><i class="bi bi-person-plus-fill"></i> Dodaj Kierowcę</a></li>
+                <li><a class="dropdown-item" href="kierowcy.html"><i class="bi bi-truck me-2"></i> Plan Kierowcy</a></li>
+              </ul>
+            </li>
+
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-star-fill"></i> Moduł TUS
+              </a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="tus.html"><i class="bi bi-person-video3 me-2"></i> Zarządzanie Grupami</a></li>
+                <li><a class="dropdown-item" href="plan-tus.html"><i class="bi bi-calendar-range me-2"></i> Globalny Plan TUS</a></li>
+              </ul>
+            </li>
+          </ul>
+
+          <div class="d-flex">
+            <a href="panel.html" class="btn btn-outline-secondary">
+              <i class="bi bi-house-door-fill"></i>
+              <span class="d-none d-md-inline">Powrót do menu</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div id="errorBox" class="alert alert-danger d-none"></div>
+    <div id="screen"></div>
+
+    <div class="container-fluid">
+      <header class="row align-items-center g-2 mb-3">
+        <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
+          <input id="clientFilter" type="text" class="form-control" placeholder="Szukaj klienta" style="max-width: 220px">
+          <select id="therapistFilter" class="form-select" style="max-width: 260px">
+            <option value="">— wszyscy terapeuci —</option>
+          </select>
+          <input id="monthInput" type="month" class="form-control" style="max-width: 160px">
+          <input id="dayInput" type="date" class="form-control" style="max-width: 170px">
+          <button id="reloadBtn" class="btn btn-primary">
+            <span class="spinner-border spinner-border-sm d-none" id="reloadSpinner" role="status" aria-hidden="true"></span>
+            <span id="reloadTxt">Odśwież</span>
+          </button>
+          <button id="gapsMonthBtn" class="btn btn-outline-secondary">Braki w miesiącu</button>
+        </div>
+      </header>
+
+
+    <div id="alertBox" class="mb-3"></div>
+    <div id="gapsBox" class="mb-3"></div>
+
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
+          <h2 class="h6 m-0">Saldo SUO – klienci</h2>
+          <small class="text-muted">Kliknij „Dodaj pakiet”, aby dodać pickup → terapię → dropoff</small>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle" id="clientsTable">
+            <thead class="table-light">
+              <tr>
+                <th>Klient</th>
+                <th class="d-none d-md-table-cell">Telefon</th>
+                <th class="d-none d-lg-table-cell">Adres</th>
+                <th>Miesiąc</th>
+                <th>Przydział</th>
+                <th>Wykorzystano</th>
+                <th>Pozostało</th>
+                <th>Status</th>
+
+                <th style="width:1%"></th>
+              </tr>
+            </thead>
+            <tbody id="clientsTbody">
+              <tr>
+                <td colspan="9" class="text-center py-4">
+                  <div class="d-inline-flex align-items-center gap-2 text-muted">
+                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                    <span>Ładowanie…</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="card shadow-sm mt-4">
+  <div class="card-body">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
+      <h2 class="h6 m-0">Terapeuci</h2>
+      <button class="btn btn-sm btn-primary" id="btnOpenTherapistAdd">Dodaj terapeutę</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Nazwa</th>
+            <th class="d-none d-md-table-cell">Specjalizacja</th>
+            <th class="d-none d-lg-table-cell">Telefon</th>
+            <th>Status</th>
+            <th style="width:1%"></th>
+          </tr>
+        </thead>
+        <tbody id="therapistsTbody">
+          <tr><td colspan="6" class="text-center text-muted py-3">Ładowanie…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mt-4">
+  <div class="card-body">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
+      <h2 class="h6 m-0">Kierowcy</h2>
+      <button class="btn btn-sm btn-primary" id="btnOpenDriverAdd">Dodaj kierowcę</button>
+    </div>
+
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Nazwa</th>
+            <th class="d-none d-lg-table-cell">Telefon</th>
+            <th>Status</th>
+            <th style="width:1%"></th>
+          </tr>
+        </thead>
+        <tbody id="driversTbody">
+          <tr><td colspan="5" class="text-center text-muted py-3">Ładowanie…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="offcanvas offcanvas-end offcanvas-panel" tabindex="-1" id="packageCanvas" aria-labelledby="packageCanvasLabel">
+    <div class="offcanvas-header">
+      <h5 id="packageCanvasLabel">Dodaj pakiet zdarzeń</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Zamknij"></button>
+    </div>
+    <div class="offcanvas-body">
+      <form id="packageForm" class="needs-validation" novalidate>
+        <input type="hidden" id="pkgClientId">
+        <div class="mb-3">
+          <label class="form-label">Etykieta (np. „Wtorek poranny”)</label>
+          <input type="text" class="form-control" id="pkgLabel" placeholder="Opcjonalnie">
+        </div>
+
+        <div class="form-section-title">Terapia</div>
+        <div class="row g-3">
+          <div class="col-12 col-sm-6">
+            <label class="form-label">Terapeuta</label>
+            <select class="form-select" id="thSelect" required>
+              <option value="">— wybierz terapeutę —</option>
+            </select>
+        </div>
+          <div class="col-6 col-sm-6">
+            <label class="form-label">Data</label>
+            <input type="date" class="form-control" id="thDate" required>
+          </div>
+          <div class="col-6 col-sm-3">
+            <label class="form-label">Start</label>
+            <input type="time" class="form-control" id="thStart" required>
+          </div>
+          <div class="col-6 col-sm-3">
+            <label class="form-label">Koniec</label>
+            <input type="time" class="form-control" id="thEnd" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Miejsce</label>
+            <input type="text" class="form-control" id="thPlace" placeholder="Poradnia">
+          </div>
+        </div>
+
+        <hr class="my-3">
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="withPickup">
+          <label class="form-check-label" for="withPickup"><strong>Dodaj dowóz (pickup)</strong></label>
+        </div>
+        <div id="pickupFields" class="row g-3 d-none">
+          <div class="col-6 col-sm-6">
+            <label class="form-label">Kierowca (pickup)</label>
+            <select class="form-select" id="pkDriverSelect">
+              <option value="">— wybierz kierowcę —</option>
+            </select>
+        </div>
+          <div class="col-6 col-sm-6">
+            <label class="form-label">Vehicle ID</label>
+            <input type="number" class="form-control" id="pkVehicleId">
+          </div>
+          <div class="col-6 col-sm-6">
+            <label class="form-label">Start</label>
+            <input type="time" class="form-control" id="pkStart">
+          </div>
+          <div class="col-6 col-sm-6">
+            <label class="form-label">Koniec</label>
+            <input type="time" class="form-control" id="pkEnd">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Z (from)</label>
+            <input type="text" class="form-control" id="pkFrom" placeholder="Dom">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Do (to)</label>
+            <input type="text" class="form-control" id="pkTo" placeholder="Poradnia">
+          </div>
+        </div>
+
+        <hr class="my-3">
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="withDropoff">
+          <label class="form-check-label" for="withDropoff"><strong>Dodaj odwóz (dropoff)</strong></label>
+        </div>
+        <div id="dropoffFields" class="row g-3 d-none">
+          <div class="col-6 col-sm-6">
+            <label class="form-label">Kierowca (dropoff)</label>
+            <select class="form-select" id="dpDriverSelect">
+              <option value="">— wybierz kierowcę —</option>
+            </select>
+        </div>
+          <div class="col-6 col-sm-6">
+            <label class="form-label">Vehicle ID</label>
+            <input type="number" class="form-control" id="dpVehicleId">
+          </div>
+          <div class="col-6 col-sm-6">
+            <label class="form-label">Start</label>
+            <input type="time" class="form-control" id="dpStart">
+          </div>
+          <div class="col-6 col-sm-6">
+            <label class="form-label">Koniec</label>
+            <input type="time" class="form-control" id="dpEnd">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Z (from)</label>
+            <input type="text" class="form-control" id="dpFrom" placeholder="Poradnia">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Do (to)</label>
+            <input type="text" class="form-control" id="dpTo" placeholder="Dom">
+          </div>
+        </div>
+
+        <hr class="my-3">
+        <div class="col-12 col-sm-6">
+          <label class="form-label">Status</label>
+          <select id="pkgStatus" class="form-select">
+            <option value="planned" selected>zaplanowany</option>
+            <option value="done">wykonany</option>
+            <option value="cancelled">anulowany</option>
+          </select>
+        </div>
+
+        <div class="d-grid d-sm-flex gap-2 mt-4">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="offcanvas">Anuluj</button>
+          <button id="pkgSaveBtn" class="btn btn-primary" type="submit">
+            <span class="spinner-border spinner-border-sm d-none" id="pkgSpinner"></span>
+            Zapisz pakiet
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="offcanvas offcanvas-end offcanvas-panel" tabindex="-1" id="allocCanvas" aria-labelledby="allocCanvasLabel">
+    <div class="offcanvas-header">
+      <h5 id="allocCanvasLabel">Ustaw przydział SUO</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Zamknij"></button>
+    </div>
+    <div class="offcanvas-body">
+      <form id="allocForm" class="needs-validation" novalidate>
+        <input type="hidden" id="allocClientId">
+        <div class="mb-3">
+          <label class="form-label">Klient</label>
+          <input type="text" class="form-control" id="allocClientName" disabled>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Miesiąc (YYYY-MM)</label>
+          <input type="month" class="form-control" id="allocMonth" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Przydział godzin</label>
+          <input type="number" min="0" step="0.5" class="form-control" id="allocMinutes" placeholder="np. 20" required>
+        </div>
+
+        <div class="d-grid d-sm-flex gap-2">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="offcanvas">Anuluj</button>
+          <button id="allocSaveBtn" class="btn btn-primary" type="submit">
+            <span class="spinner-border spinner-border-sm d-none" id="allocSpinner"></span>
+            Zapisz
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<div class="offcanvas offcanvas-end offcanvas-panel" tabindex="-1" id="clientCanvas" aria-labelledby="clientCanvasLabel">
+  <div class="offcanvas-header">
+    <h5 id="clientCanvasLabel">Dodaj klienta</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Zamknij"></button>
+  </div>
+  <div class="offcanvas-body">
+    <form id="clientForm">
+       <input type="hidden" id="clId">
+
+        <!-- Podgląd zdjęcia -->
+      <div class="text-center mb-3">
+        <img id="clientPhotoPreview" src="" alt="Zdjęcie klienta"
+             class="rounded-circle"
+             style="width: 100px; height: 100px; object-fit: cover; border: 3px solid #dee2e6; display: none;">
+        <div id="photoPlaceholder" class="rounded-circle d-inline-flex align-items-center justify-content-center"
+             style="width: 100px; height: 100px; background: #e9ecef; border: 3px solid #dee2e6;">
+          <i class="bi bi-person-circle text-muted" style="font-size: 3rem;"></i>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Zdjęcie profilowe</label>
+        <input type="file" class="form-control" id="clPhoto" accept="image/*">
+        <small class="text-muted">Dozwolone: JPG, PNG, max 5MB</small>
+      </div>
+ <!-- koniec dodawania zdjęcia -->
+
+      <div class="mb-3">
+        <label class="form-label">Imię i nazwisko</label>
+        <input type="text" class="form-control" id="clName" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Telefon</label>
+        <input type="text" class="form-control" id="clPhone">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Adres</label>
+        <input type="text" class="form-control" id="clAddress">
+      </div>
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="clActive" checked>
+        <label class="form-check-label" for="clActive">Aktywny</label>
+      </div>
+      <div class="d-grid d-sm-flex gap-2">
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="offcanvas">Anuluj</button>
+        <button id="clSaveBtn" class="btn btn-primary" type="submit">
+          <span class="spinner-border spinner-border-sm d-none" id="clSpinner"></span>
+          Zapisz
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="offcanvas offcanvas-end offcanvas-panel" tabindex="-1" id="therapistCanvas" aria-labelledby="therapistCanvasLabel">
+  <div class="offcanvas-header">
+    <h5 id="therapistCanvasLabel">Dodaj terapeutę</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Zamknij"></button>
+  </div>
+  <div class="offcanvas-body">
+    <form id="therapistForm">
+      <div class="mb-3">
+        <label class="form-label">Imię i nazwisko</label>
+        <input type="text" class="form-control" id="thName" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Specjalizacja</label>
+        <input type="text" class="form-control" id="thSpec" placeholder="np. SI, psycholog">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Telefon</label>
+        <input type="text" class="form-control" id="thPhone">
+      </div>
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="thActive" checked>
+        <label class="form-check-label" for="thActive">Aktywny</label>
+      </div>
+      <div class="d-grid d-sm-flex gap-2">
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="offcanvas">Anuluj</button>
+        <button id="thSaveBtn" class="btn btn-primary" type="submit">
+          <span class="spinner-border spinner-border-sm d-none" id="thSpinner"></span>
+          Zapisz
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="offcanvas offcanvas-end offcanvas-panel" tabindex="-1" id="driverCanvas" aria-labelledby="driverCanvasLabel">
+  <div class="offcanvas-header">
+    <h5 id="driverCanvasLabel">Dodaj kierowcę</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Zamknij"></button>
+  </div>
+  <div class="offcanvas-body">
+    <form id="driverForm">
+      <div class="mb-3">
+        <label class="form-label">Imię i nazwisko</label>
+        <input type="text" class="form-control" id="drName" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Telefon</label>
+        <input type="text" class="form-control" id="drPhone">
+      </div>
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="drActive" checked>
+        <label class="form-check-label" for="drActive">Aktywny</label>
+      </div>
+      <div class="d-grid d-sm-flex gap-2">
+        <button class="btn btn-secondary" type="button" data-bs-dismiss="offcanvas">Anuluj</button>
+        <button id="drSaveBtn" class="btn btn-primary" type="submit">
+          <span class="spinner-border spinner-border-sm d-none" id="drSpinner"></span>
+          Zapisz
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="offcanvas offcanvas-end offcanvas-panel" tabindex="-1" id="clientPackagesCanvas">
+  <div class="offcanvas-header">
+    <h5 class="m-0">Pakiety klienta</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div class="mb-2 text-muted"><span id="cpClientName">—</span></div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Grupa</th><th>Rodzaj</th><th>Start</th><th>Koniec</th>
+            <th>Terapeuta/Kierowca</th><th>Z</th><th>Do</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="clientPackagesTbody">
+          <tr><td colspan="8" class="text-center text-muted py-3">Brak danych</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="offcanvas offcanvas-end offcanvas-panel" tabindex="-1" id="therapistScheduleCanvas">
+  <div class="offcanvas-header">
+    <h5 class="m-0">Grafik terapeuty</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div class="mb-2 text-muted"><span id="tsTherapistName">—</span></div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Rodzaj</th><th>Klient</th><th>Start</th><th>Koniec</th><th>Z</th><th>Do</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="therapistScheduleTbody">
+          <tr><td colspan="7" class="text-center text-muted py-3">Brak danych</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-----MOADEL----->
+
+<div class="modal fade" id="packageTypeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Wybierz rodzaj zajęć</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Jaki rodzaj zajęć chcesz zaplanować dla tego klienta?</p>
+        <div class="d-grid gap-2">
+          <button class="btn btn-primary btn-lg" id="btnGoToIndividualPackage">Zajęcia Indywidualne</button>
+          <button class="btn btn-info btn-lg" id="btnGoToTus">Sesja Grupowa TUS</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="clientPackagesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="clientPackagesTitle">Pakiety klienta</h5>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="printPackagesBtn">
+            Drukuj
+          </button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+        </div>
+        <div class="modal-body" id="clientPackagesBody">
+          </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="driverScheduleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="driverScheduleTitle">Kursy kierowcy</h5>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="printDriverBtn">Drukuj</button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+      </div>
+      <div class="modal-body" id="driverScheduleBody"><div class="text-muted">Brak danych</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="therapistReportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="therapistReportTitle">Zestawienie godzin terapeuty</h5>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="printTherapistReportBtn">Drukuj</button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+      </div>
+      <div class="modal-body" id="therapistReportBody">
+        <div class="text-muted">Brak danych</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="clientSelectModal" tabindex="-1" aria-labelledby="clientSelectModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="clientSelectModalLabel">Dodaj Pakiet - Krok 1: Wybierz klienta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Wybierz klienta z listy, aby zaplanować dla niego nowy pakiet zdarzeń.</p>
+        <select id="modalClientSelect" class="form-select form-select-lg">
+          <option value="">Ładowanie listy klientów...</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="button" class="btn btn-primary" id="continueWithClientBtn">Dalej →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="absenceModal" tabindex="-1" aria-labelledby="absenceModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="absenceModalLabel">Dodaj nieobecność</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+      </div>
+      <div class="modal-body">
+        <form id="absenceForm">
+          <!-- pola formularza -->
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" form="absenceForm" class="btn btn-primary">Zapisz</button>
+      </div>
+    </div>
+  </div>
+</div>
+    <!-- Floating Action Menu - TYLKO RAZ, na końcu body -->
+    <div class="fab-container" id="fabContainer">
+    <ul class="fab-menu">
+        <li class="fab-item">
+            <span class="fab-label">Plan terapeuty</span>
+            <a href="therapist.html" class="fab-button" title="Plan terapeuty">
+                <i class="bi bi-heart-pulse"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Moduł TUS</span>
+            <a href="tus.html" class="fab-button" title="Moduł TUS">
+                <i class="bi bi-star-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Lista klientów</span>
+            <a href="klienci.html" class="fab-button" title="Lista klientów">
+                <i class="bi bi-people-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Historia klientów</span>
+            <a href="client_history.html" class="fab-button" title="Historia klientów">
+                <i class="bi bi-clock-history"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Moduł Kierowcy</span>
+            <a href="drivers.html" class="fab-button" title="Plan terapeuty">
+                <i class="bi bi-car-front-fill"></i>
+            </a>
+        </li>
+        <li class="fab-item">
+            <span class="fab-label">Strona główna</span>
+            <a href="index.html" class="fab-button" title="Strona główna">
+                <i class="bi bi-house-fill"></i>
+            </a>
+        </li>
+    </ul>
+    <button class="fab-main" id="fabMainBtn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg"></i>
+    </button>
+</div>
+    <div class="fab-backdrop" id="fabBackdrop"></div>
+
+    <!-- Skrypty -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="fab-menu.js"></script>
+
+<script src="panel.js"></script>
+
+<!--<script>
+console.log('Inicjalizuje fix...');
+
+setTimeout(function() {
+  if (typeof window.renderClientPackagesHTML !== 'function') {
+    console.error('Brak renderClientPackagesHTML');
+    return;
+  }
+
+  window.originalRender = window.renderClientPackagesHTML;
+
+  window.renderClientPackagesHTML = function(fullName, data) {
+    var groups = new Map();
+
+    for (var i = 0; i < data.length; i++) {
+      var row = data[i];
+      var iso = row.starts_at || row.ends_at;
+      if (!iso) continue;
+      var dk = dateKeyPLLocal(iso);
+      if (!dk.key) continue;
+      if (!groups.has(dk.key)) {
+        groups.set(dk.key, { label: dk.label, items: [], sumTherapy: 0, sumAll: 0 });
+      }
+      var g = groups.get(dk.key);
+      var mins = minutesBetweenLocal(row.starts_at, row.ends_at);
+      g.sumAll += mins;
+      if (row.kind === "therapy") g.sumTherapy += mins;
+      g.items.push(row);
+    }
+
+    var ordered = Array.from(groups.entries()).sort(function(a,b) {
+      return a[0].localeCompare(b[0]);
+    });
+
+    var monthInput = document.getElementById('monthInput');
+    var html = '<div class="mb-2"><strong>Klient:</strong> ' + fullName + '</div>';
+    if (monthInput && monthInput.value) {
+      html += '<div class="mb-3"><strong>Miesiac:</strong> ' + monthInput.value + '</div>';
+    }
+
+    if (!ordered.length) {
+      return html + '<div class="text-muted">Brak pakietow</div>';
+    }
+
+    for (var j = 0; j < ordered.length; j++) {
+      var entry = ordered[j];
+      var group = entry[1];
+
+      html += '<div class="d-flex flex-wrap align-items-center justify-content-between mt-3 mb-2">';
+      html += '<h6 class="m-0">' + group.label + '</h6>';
+      html += '<div class="d-flex gap-2">';
+      html += '<span class="badge text-bg-primary">Razem (terapia): ' + group.sumTherapy + ' min</span>';
+      html += '<span class="badge text-bg-secondary">Razem (wszystkie): ' + group.sumAll + ' min</span>';
+      html += '</div></div>';
+
+      var items = group.items.sort(function(a,b) {
+        return (a.starts_at||"").localeCompare(b.starts_at||"");
+      });
+
+      var rows = '';
+      for (var k = 0; k < items.length; k++) {
+        var row = items[k];
+        var mins = minutesBetweenLocal(row.starts_at, row.ends_at);
+        var who = row.kind === "therapy"
+          ? (row.therapist_name || 'terapeuta')
+          : (row.driver_name || 'kierowca');
+        var route = row.kind === "therapy"
+          ? (row.place_to || "")
+          : [row.place_from, row.place_to].filter(Boolean).join(' -> ');
+
+        var slotId = row.slot_id;
+        var currentStatus = row.status || 'planned';
+        var statusHTML = '<code>' + currentStatus + '</code>';
+        if (slotId) {
+          statusHTML = '<select class="form-select form-select-sm" onchange="quickChangeStatus(' + slotId + ', this.value)" style="min-width:150px;">';
+          statusHTML += '<option value="planned"' + (currentStatus === 'planned' ? ' selected' : '') + '>Zaplanowany</option>';
+          statusHTML += '<option value="confirmed"' + (currentStatus === 'confirmed' ? ' selected' : '') + '>Potwierdzony</option>';
+          statusHTML += '<option value="done"' + (currentStatus === 'done' ? ' selected' : '') + '>Wykonany</option>';
+          statusHTML += '<option value="cancelled"' + (currentStatus === 'cancelled' ? ' selected' : '') + '>Anulowany</option>';
+          statusHTML += '</select>';
+        }
+
+        var groupId = row.group_id;
+        var actionsHTML = '-';
+        if (groupId) {
+          actionsHTML = '<div class="btn-group btn-group-sm">';
+          actionsHTML += '<button class="btn btn-outline-warning" onclick="openPackageEdit(' + groupId + ')"><i class="bi bi-pencil"></i></button>';
+          actionsHTML += '<button class="btn btn-outline-danger" onclick="confirmDeletePackage(' + groupId + ')"><i class="bi bi-trash"></i></button>';
+          actionsHTML += '</div>';
+        }
+
+        rows += '<tr>';
+        rows += '<td><span class="badge text-bg-' + (row.kind === 'therapy' ? 'success' : 'info') + '">' + row.kind + '</span></td>';
+        rows += '<td>' + fmtLocalTime(row.starts_at) + '-' + fmtLocalTime(row.ends_at) + '</td>';
+        rows += '<td>' + (mins || "") + '</td>';
+        rows += '<td>' + who + '</td>';
+        rows += '<td>' + route + '</td>';
+        rows += '<td>' + statusHTML + '</td>';
+        rows += '<td>' + actionsHTML + '</td>';
+        rows += '</tr>';
+      }
+
+      html += '<div class="table-responsive"><table class="table table-sm table-hover align-middle">';
+      html += '<thead class="table-light"><tr>';
+      html += '<th>Typ</th><th>Godzina</th><th>Min</th><th>Osoba</th><th>Trasa</th><th>Status</th><th>Akcje</th>';
+      html += '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }
+
+    return html;
+  };-->
+
+</body>
+</html>

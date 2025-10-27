@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>Lista Obecności TUS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding: 1rem; background-color: #f8f9fa; }
+    .attendance-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+      .fab-container {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: 1050;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+    .fab-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: var(--bs-primary);
+        color: white;
+        font-size: 1.8rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        text-decoration: none;
+        transition: transform 0.3s ease, background-color 0.3s ease;
+        border: none;
+    }
+    .fab-button:hover {
+        transform: scale(1.1);
+        background-color: var(--bs-primary-dark);
+    }
+    .fab-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        gap: 0.75rem;
+        transform: scaleY(0);
+        transform-origin: bottom;
+        transition: transform 0.3s ease;
+    }
+    .fab-container.open .fab-menu {
+        transform: scaleY(1);
+    }
+    .fab-menu-item a {
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+        background-color: var(--bs-secondary);
+    }
+    .fab-container.open #fab-main-icon {
+        transform: rotate(45deg);
+    }
+    #fab-main-icon {
+        transition: transform 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="d-flex flex-wrap align-items-center gap-2 mb-4">
+      <h1 class="h4 m-0">📋 Lista Obecności TUS</h1>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <label for="datePicker" class="form-label mb-0">Wybierz datę:</label>
+        <input type="date" id="datePicker" class="form-control" style="width: 200px;">
+      </div>
+    </header>
+
+    <div id="alertBox" class="mb-3"></div>
+
+    <div class="mb-3">
+        <label for="sessionSelector" class="form-label">Wybierz sesję z danego dnia:</label>
+        <select id="sessionSelector" class="form-select"></select>
+    </div>
+
+    <div id="attendanceListContainer" class="card d-none">
+      <div class="card-header">
+        <h5 class="mb-0" id="attendanceListHeader">Lista obecności</h5>
+      </div>
+      <div class="card-body">
+        <form id="attendanceForm">
+            <div id="participantsList" class="list-group">
+                <!-- Uczestnicy będą wstrzykiwani tutaj przez JavaScript -->
+            </div>
+        </form>
+      </div>
+      <div class="card-footer text-end">
+        <button type="button" id="saveAttendanceBtn" class="btn btn-primary">Zapisz obecność</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- fab-menu.js-->
+    <div class="fab-container" id="fab-container">
+    <ul class="fab-menu">
+        <li class="fab-menu-item">
+            <a href="therapist1.html" class="fab-button" title="Plan terapeuty"><i class="bi bi-heart-pulse"></i></a>
+        </li>
+        <li class="fab-menu-item">
+            <a href="tus.html" class="fab-button" title="Moduł TUS"><i class="bi bi-star-fill"></i></a>
+        </li>
+        <li class="fab-menu-item">
+            <a href="klienci.html" class="fab-button" title="Lista klientów"><i class="bi bi-people-fill"></i></a>
+        </li>
+
+         <li class="fab-menu-item">
+            <a href="client_history.html" class="fab-button" title="Historia klientów"><i class="bi bi-people-fill"></i></a>
+        </li>
+         <li class="fab-menu-item">
+            <a href="index.html" class="fab-button" title="Strona główna"><i class="bi bi-house-x-fill"></i></a>
+        </li>
+
+
+
+    </ul>
+    <button class="fab-button" id="fab-main-btn" aria-label="Rozwiń menu">
+        <i class="bi bi-plus-lg" id="fab-main-icon"></i>
+    </button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const API_URL = "/api";
+    const datePicker = document.getElementById('datePicker');
+    const sessionSelector = document.getElementById('sessionSelector');
+    const attendanceListContainer = document.getElementById('attendanceListContainer');
+    const participantsList = document.getElementById('participantsList');
+    const attendanceListHeader = document.getElementById('attendanceListHeader');
+    const saveAttendanceBtn = document.getElementById('saveAttendanceBtn');
+
+    const showAlert = (msg, type = "success") => {
+        const box = document.getElementById("alertBox");
+        box.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    };
+
+    // Ustawia dzisiejszą datę przy starcie
+    function initializeDate() {
+        const today = new Date();
+        datePicker.value = today.toISOString().split('T')[0];
+        loadSessionsForDate();
+    }
+
+    // Ładuje sesje dla wybranej daty
+    async function loadSessionsForDate() {
+        const selectedDate = datePicker.value;
+        if (!selectedDate) {
+            sessionSelector.innerHTML = '<option>Wybierz datę</option>';
+            return;
+        }
+
+        sessionSelector.innerHTML = '<option>Ładowanie sesji...</option>';
+        attendanceListContainer.classList.add('d-none');
+
+        try {
+            const response = await fetch(`${API_URL}/tus/sessions-for-day?date=${selectedDate}`);
+            if (!response.ok) throw new Error(`Błąd serwera: ${response.statusText}`);
+            const sessions = await response.json();
+
+            if (sessions.length === 0) {
+                sessionSelector.innerHTML = '<option>Brak sesji tego dnia</option>';
+            } else {
+                sessionSelector.innerHTML = '<option value="">-- Wybierz sesję --</option>';
+                sessions.forEach(s => {
+                    const time = s.session_time ? s.session_time.substring(0, 5) : 'Brak godz.';
+                    const option = new Option(`${time} - ${s.group_name} (${s.topic_title})`, s.session_id);
+                    sessionSelector.add(option);
+                });
+            }
+        } catch (error) {
+            sessionSelector.innerHTML = '<option>Błąd ładowania</option>';
+            showAlert(error.message, 'danger');
+        }
+    }
+
+    // Ładuje listę obecności dla wybranej sesji
+    async function loadAttendanceList() {
+        const sessionId = sessionSelector.value;
+        if (!sessionId) {
+            attendanceListContainer.classList.add('d-none');
+            return;
+        }
+
+        attendanceListContainer.classList.remove('d-none');
+        participantsList.innerHTML = '<p class="text-muted">Ładowanie uczestników...</p>';
+
+        try {
+            const response = await fetch(`${API_URL}/tus/sessions/${sessionId}/attendance`);
+            if (!response.ok) throw new Error(`Błąd serwera: ${response.statusText}`);
+            const data = await response.json();
+            
+            attendanceListHeader.textContent = `Lista obecności: ${data.group_name}`;
+            renderAttendanceForm(data.members, data.attendance);
+
+        } catch (error) {
+            participantsList.innerHTML = `<p class="text-danger">${error.message}</p>`;
+        }
+    }
+
+    // Renderuje formularz z listą obecności
+    function renderAttendanceForm(members, attendance) {
+        if (!members || members.length === 0) {
+            participantsList.innerHTML = '<p class="text-muted">Ta grupa nie ma uczestników.</p>';
+            return;
+        }
+        
+        const statuses = [
+            { value: 'obecny', label: 'Obecny' },
+            { value: 'nieobecny', label: 'Nieobecny' },
+            { value: 'spóźniony', label: 'Spóźniony' },
+            { value: 'usprawiedliwiony', label: 'Usprawiedliwiony' }
+        ];
+
+        participantsList.innerHTML = members.map(member => {
+            const currentStatus = attendance[member.id] || 'obecny';
+            const radioButtons = statuses.map(status => `
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="status-${member.id}" id="status-${member.id}-${status.value}" 
+                           value="${status.value}" ${currentStatus === status.value ? 'checked' : ''}>
+                    <label class="form-check-label" for="status-${member.id}-${status.value}">${status.label}</label>
+                </div>
+            `).join('');
+
+            return `
+                <div class="list-group-item attendance-row">
+                    <span>${member.full_name}</span>
+                    <div data-client-id="${member.id}">${radioButtons}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Zapisuje listę obecności
+    async function saveAttendance() {
+        const sessionId = sessionSelector.value;
+        if (!sessionId) return;
+
+        const payload = [];
+        document.querySelectorAll('#participantsList [data-client-id]').forEach(div => {
+            const clientId = div.dataset.clientId;
+            const selectedStatus = div.querySelector(`input[name="status-${clientId}"]:checked`).value;
+            payload.push({ client_id: parseInt(clientId), status: selectedStatus });
+        });
+
+        try {
+            const response = await fetch(`${API_URL}/tus/sessions/${sessionId}/attendance`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error(`Błąd serwera: ${response.statusText}`);
+            showAlert('Lista obecności została zapisana!', 'success');
+        } catch (error) {
+            showAlert(error.message, 'danger');
+        }
+    }
+
+    // Event Listeners
+    datePicker.addEventListener('change', loadSessionsForDate);
+    sessionSelector.addEventListener('change', loadAttendanceList);
+    saveAttendanceBtn.addEventListener('click', saveAttendance);
+
+    // Inicjalizacja
+    initializeDate();
+});
+    document.addEventListener('DOMContentLoaded', () => {
+        const fabContainer = document.getElementById('fab-container');
+        const fabMainBtn = document.getElementById('fab-main-btn');
+
+        fabMainBtn.addEventListener('click', () => {
+            fabContainer.classList.toggle('open');
+        });
+    });
+</script>
+</body>
+</html>
