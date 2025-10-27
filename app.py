@@ -480,50 +480,40 @@ app.register_blueprint(admin_bp)
 # === GŁÓWNA STRONA APLIKACJI ===
 @app.route('/')
 @login_required
-def main_index():
-    is_admin = session.get('is_admin', False)
-    therapist_id = session.get('therapist_id')
-    driver_id = session.get('driver_id')
-    return render_template('index.html', 
-                         is_admin=is_admin,
-                         therapist_id=therapist_id,
-                         driver_id=driver_id)
+def main_index(): 
+    return render_template('index.html')
+                       
 
 
-@app.route('/klient-panel')
-@login_required  # Zabezpiecz stronę, aby tylko zalogowani użytkownicy mogli ją widzieć
-def klient_panel_page():
-   is_admin = session.get('is_admin', False)
-    therapist_id = session.get('therapist_id')
-    driver_id = session.get('driver_id')
-    return render_template('klient-panel.html',
-                         is_admin=is_admin,
-                         therapist_id=therapist_id,
-                         driver_id=driver_id)
-
-#nowe endpointy
-# To samo dla innych stron
-@app.route('/clients.html')
-@therapist_required
+@app.route('/clients')
+@therapist_required  # Zabezpieczamy - tylko terapeuta lub admin
 def clients_page():
-    is_admin = session.get('is_admin', False)
-    therapist_id = session.get('therapist_id')
-    driver_id = session.get('driver_id')
-    return render_template('clients.html',
-                         is_admin=is_admin,
-                         therapist_id=therapist_id,
-                         driver_id=driver_id)
+    """Wyświetla stronę 'clients.html'"""
+    return render_template('clients.html')
 
-@app.route('/tus.html')
-@therapist_required
-def clients_page():
-    is_admin = session.get('is_admin', False)
-    therapist_id = session.get('therapist_id')
-    driver_id = session.get('driver_id')
-    return render_template('clients.html',
-                         is_admin=is_admin,
-                         therapist_id=therapist_id,
-                         driver_id=driver_id)
+@app.route('/schedule')
+@therapist_required  # Zabezpieczamy
+def schedule_page():
+    """Wyświetla stronę 'schedule.html'"""
+    return render_template('schedule.html')
+
+@app.route('/tus')
+@therapist_required  # Zabezpieczamy
+def tus_page():
+    """Wyświetla stronę 'tus.html'"""
+    return render_template('tus.html')
+
+@app.route('/projects')
+@therapist_required  # Zabezpieczamy
+def projects_page():
+    """Wyświetla stronę 'projects.html'"""
+    return render_template('projects.html')
+
+@app.route('/driver-schedule')
+@driver_required  # Zabezpieczamy - tylko kierowca lub admin
+def driver_schedule_page():
+    """Wyświetla stronę 'driver_schedule.html'"""
+    return render_template('driver_schedule.html')
 
 #koniec
 
