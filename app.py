@@ -4671,7 +4671,6 @@ def update_individual_attendance(slot_id):
 @app.get("/individual_attendance.html")
 def individual_attendance_page():
     # Tutaj można dodać @login_required, jeśli strona ma być chroniona
-    @login_required
     return app.send_static_file("individual_attendance.html")
 
 
