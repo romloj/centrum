@@ -489,6 +489,18 @@ def main_index():
                          therapist_id=therapist_id,
                          driver_id=driver_id)
 
+
+@app.route('/klient-panel')
+@login_required  # Zabezpiecz stronę, aby tylko zalogowani użytkownicy mogli ją widzieć
+def klient_panel_page():
+   is_admin = session.get('is_admin', False)
+    therapist_id = session.get('therapist_id')
+    driver_id = session.get('driver_id')
+    return render_template('klient-panel.html',
+                         is_admin=is_admin,
+                         therapist_id=therapist_id,
+                         driver_id=driver_id)
+
 #nowe endpointy
 # To samo dla innych stron
 @app.route('/clients.html')
