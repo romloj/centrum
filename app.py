@@ -480,6 +480,21 @@ def main_index():
                          therapist_id=therapist_id,
                          driver_id=driver_id)
 
+#nowe endpointy
+# To samo dla innych stron
+@app.route('/clients.html')
+@therapist_required
+def clients_page():
+    is_admin = session.get('is_admin', False)
+    therapist_id = session.get('therapist_id')
+    driver_id = session.get('driver_id')
+    return render_template('clients.html',
+                         is_admin=is_admin,
+                         therapist_id=therapist_id,
+                         driver_id=driver_id)
+
+#koniec
+
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set!")
 GOOGLE_MAPS_API_KEY = os.getenv("klucz")
