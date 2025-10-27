@@ -26,7 +26,9 @@
                     </a>
                     <ul class="dropdown-menu" ...>
                         <li><a class="dropdown-item" href="{{ url_for('admin.admin_register_page') }}">Dodaj użytkownika</a></li>
+                        
                         <li><a class="dropdown-item {% if request.endpoint == 'admin.manage_users_page' %}active{% endif %}" href="{{ url_for('admin.manage_users_page') }}">Zarządzaj Rolami</a></li>
+                        
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{{ url_for('admin.admin_change_password_page') }}">Zmień hasło</a></li>
                     </ul>
