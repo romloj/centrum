@@ -980,7 +980,7 @@ a.card-link:hover .start-card {
 
         const viewDriver = confirm('Czy chcesz przejść do planów kierowców?');
         if (viewDriver) {
-          navigateTo('{{ url_for('drivers_page') }}');
+          navigateTo('{{ url_for('driver_schedule_page') }}');
         }
       } catch (err) {
         alert(`Błąd dodawania kierowcy: ${err.message}`);
