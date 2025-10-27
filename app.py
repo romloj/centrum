@@ -489,7 +489,7 @@ def main_index():
 @therapist_required  # Zabezpieczamy - tylko terapeuta lub admin
 def clients_page():
     """Wyświetla stronę 'clients.html'"""
-    return render_template('clients.html')
+    return render_template('klienci.html')
 
 @app.route('/schedule')
 @therapist_required  # Zabezpieczamy
