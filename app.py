@@ -281,6 +281,15 @@ def driver_required(view):
         return redirect(url_for('main_index'))
     return wrapped_view
 
+@app.context_processor
+def inject_session_vars():
+    return {
+        'session': session,
+        'is_admin': session.get('is_admin', False),
+        'therapist_id': session.get('therapist_id'),
+        'driver_id': session.get('driver_id')
+    }
+
 #tymczasowa naprawa hasła
 #@app.route('/api/reset-admin-password-force', methods=['POST'])
 #def reset_admin_password_force():
