@@ -404,7 +404,7 @@ a.card-link:hover .start-card {
 
       <!-- Plan SUO -->
       {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('panel_page') }}')">
+      <div class="app-card" onclick="navigateTo('{{ url_for('manager_page') }}')">
         <i class="bi bi-calendar3 card-icon"></i>
         <h2 class="card-title">Plan SUO</h2>
         <p class="card-description">
@@ -1154,7 +1154,7 @@ a.card-link:hover .start-card {
       const confirmAdd = confirm(`Czy chcesz dodać pakiet dla klienta:\n${clientName}?`);
       if (confirmAdd) {
         // ✅ POPRAWKA TUTAJ
-        window.location.href = `{{ url_for('panel_page') }}?openPackageFor=${clientId}`;
+        window.location.href = `{{ url_for('manager_page') }}?openPackageFor=${clientId}`;
       }
     };
 
