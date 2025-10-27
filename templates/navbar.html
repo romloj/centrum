@@ -7,15 +7,16 @@
                 
                 {# === LINKI DLA TERAPEUTÓW I ADMINÓW === #}
                 {% if session.get('is_admin') or session.get('therapist_id') %}
-                <li class="nav-item"><a class="nav-link" href="/clients.html">Klienci</a></li>
-                <li class="nav-item"><a class="nav-link" href="/schedule.html">Grafik</a></li>
-                <li class="nav-item"><a class="nav-link" href="/tus.html">TUS</a></li>
-                <li class="nav-item"><a class="nav-link" href="/projects.html">Projekty</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('clients_page') }}">Klienci</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('schedule_page') }}">Grafik</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('tus_page') }}">TUS</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('projects_page') }}">Projekty</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('driver_schedule_page') }}">Mój Grafik (Kierowca)</a></li>
                 {% endif %}
 
                 {# === LINKI TYLKO DLA KIEROWCÓW (i Adminów) === #}
                 {% if session.get('is_admin') or session.get('driver_id') %}
-                <li class="nav-item"><a class="nav-link" href="/driver_schedule.html">Mój Grafik (Kierowca)</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('driver_schedule_page') }}">Mój Grafik (Kierowca)</a></li>
                 {% endif %}
                 
                 {# === LINKI TYLKO DLA ADMINA === #}
