@@ -284,14 +284,14 @@ a.card-link:hover .start-card {
     <div class="dashboard-grid">
       <!-- Klienci -->
       {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('/klient-panel')">
-        <span class="badge bg-success badge-status">Aktywne</span>
-        <i class="bi bi-people-fill card-icon"></i>
-        <h2 class="card-title">Klienci</h2>
-        <p class="card-description">
-          Zarządzaj bazą klientów, przeglądaj ich pakiety i dostępność
-        </p>
-      </div>
+      <div class="app-card" onclick="navigateTo('{{ url_for('clients_page') }}')">
+        <span class="badge bg-success badge-status">Aktywne</span>
+        <i class="bi bi-people-fill card-icon"></i>
+        <h2 class="card-title">Klienci</h2>
+        <p class="card-description">
+          Zarządzaj bazą klientów, przeglądaj ich pakiety i dostępność
+        </p>
+      </div>
       {% endif %}
 
 <!--
@@ -374,13 +374,13 @@ a.card-link:hover .start-card {
 
       <!-- Terapeuci -->
        {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('/terapeuta-panel')">
-        <i class="bi bi-heart-pulse-fill card-icon"></i>
-        <h2 class="card-title">Terapeuci</h2>
-        <p class="card-description">
-          Przeglądaj grafiki, dodawaj terapeutów i planuj zajęcia
-        </p>
-      </div>
+      <div class="app-card" onclick="navigateTo('{{ url_for('schedule_page') }}')">
+        <i class="bi bi-heart-pulse-fill card-icon"></i>
+        <h2 class="card-title">Grafik Terapeutów</h2>
+        <p class="card-description">
+          Przeglądaj grafiki, dodawaj terapeutów i planuj zajęcia
+        </p>
+      </div>
       {% endif %}
 
        <!-- <div class="app-card" onclick="navigateTo('/terapeuta')">
@@ -393,36 +393,36 @@ a.card-link:hover .start-card {
 
       <!-- Kierowcy -->
        {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('/drivers')">
-        <i class="bi bi-truck card-icon"></i>
-        <h2 class="card-title">Kierowcy</h2>
-        <p class="card-description">
-          Zarządzaj kierowcami i przeglądaj plany transportu
-        </p>
-      </div>
+      <div class="app-card" onclick="navigateTo('{{ url_for('driver_schedule_page') }}')">
+        <i class="bi bi-truck card-icon"></i>
+        <h2 class="card-title">Kierowcy</h2>
+        <p class="card-description">
+          Zarządzaj kierowcami i przeglądaj plany transportu
+        </p>
+      </div>
       {% endif %}
 
       <!-- Plan SUO -->
       {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('/panel')">
-        <i class="bi bi-calendar3 card-icon"></i>
-        <h2 class="card-title">Plan SUO</h2>
-        <p class="card-description">
-          Przegląd salda godzin i pakietów wszystkich klientów
-        </p>
-      </div>
+      <div class="app-card" onclick="navigateTo('{{ url_for('panel_page') }}')">
+        <i class="bi bi-calendar3 card-icon"></i>
+        <h2 class="card-title">Plan SUO</h2>
+        <p class="card-description">
+          Przegląd salda godzin i pakietów wszystkich klientów
+        </p>
+      </div>
        {% endif %}
 
       <!-- Moduł TUS -->
       {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('/tus')">
-        <span class="badge bg-info badge-status">Grupy</span>
-        <i class="bi bi-star-fill card-icon"></i>
-        <h2 class="card-title">Moduł TUS</h2>
-        <p class="card-description">
-          Zarządzanie zajęciami grupowymi i globalny plan TUS
-        </p>
-      </div>
+      <div class="app-card" onclick="navigateTo('{{ url_for('tus_page') }}')">
+        <span class="badge bg-info badge-status">Grupy</span>
+        <i class="bi bi-star-fill card-icon"></i>
+        <h2 class="card-title">Moduł TUS</h2>
+        <p class="card-description">
+          Zarządzanie zajęciami grupowymi i globalny plan TUS
+        </p>
+      </div>
        {% endif %}
 
       <!-- Lista Obecności
@@ -444,14 +444,14 @@ a.card-link:hover .start-card {
       </div>-->
         <!--Menadżer-->
       {% if is_admin or therapist_id %}
-        <div class="app-card" onclick="navigateTo('/manager')">
-      <span class="badge bg-warning badge-status">Menadżer</span>
-      <i class="bi bi-file-earmark-medical card-icon"></i>
-      <h2 class="card-title">Menadżer</h2>
-      <p class="card-description">
-        Zarządzaj dokumentacją klientów, skanuj i przesyłaj pliki
-      </p>
-    </div>
+        <div class="app-card" onclick="navigateTo('{{ url_for('manager_page') }}')">
+      <span class="badge bg-warning badge-status">Menadżer</span>
+      <i class="bi bi-file-earmark-medical card-icon"></i>
+      <h2 class="card-title">Menadżer</h2>
+      <p class="card-description">
+        Zarządzaj dokumentacją klientów, skanuj i przesyłaj pliki
+      </p>
+    </div>
       {% endif %}
 
       <!-- Dokumenty IPET
@@ -497,13 +497,13 @@ a.card-link:hover .start-card {
       </div> -->
       
         {% if is_admin or therapist_id %}
-         <div class="app-card" onclick="navigateTo('/poczekalnia')">
-        <i class="bi bi-alarm" style="font-size: 2rem; color: cornflowerblue;"></i>
-        <h2 class="card-title">Oczekujący</h2>
-        <p class="card-description">
-          Zarządzaj kierowcami i przeglądaj plany transportu
-        </p>
-      </div>
+         <div class="app-card" onclick="navigateTo('{{ url_for('waiting_list_page') }}')">
+        <i class="bi bi-alarm" style="font-size: 2rem; color: cornflowerblue;"></i>
+        <h2 class="card-title">Oczekujący</h2>
+        <p class="card-description">
+          Zarządzaj listą klientów oczekujących na przyjęcie
+        </p>
+      </div>
       {% endif %}
       
     </div> <!--koniec bloku menu-->
@@ -847,49 +847,33 @@ a.card-link:hover .start-card {
     }
 
     // Submit dodawania klienta
-    async function submitAddClient() {
-      const name = document.getElementById('clientName').value.trim();
-      if (!name) {
-        alert('Podaj imię i nazwisko klienta');
-        return;
-      }
-
-      const phone = document.getElementById('clientPhone').value.trim();
-      const address = document.getElementById('clientAddress').value.trim();
-      const spinner = document.getElementById('clientSpinner');
-
-      spinner.classList.remove('d-none');
-
-      try {
-        const res = await fetch(`${API}/api/clients`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            full_name: name,
-            phone: phone || null,
-            address: address || null,
-            active: true
-          })
-        });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        bootstrap.Modal.getInstance(document.getElementById('addClientModal')).hide();
-        alert('Klient został dodany pomyślnie!');
-        loadStats();
-
-
-        const viewClient = confirm('Czy chcesz przejść do listy klientów?');
-        if (viewClient) {
+   const name = document.getElementById('clientName').value.trim();
+      if (!name) { alert('Podaj imię i nazwisko klienta'); return; }
+      const phone = document.getElementById('clientPhone').value.trim();
+      const address = document.getElementById('clientAddress').value.trim();
+      const spinner = document.getElementById('clientSpinner');
+      spinner.classList.remove('d-none');
+      try {
+        const res = await fetch(`${API}/api/clients`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ full_name: name, phone: phone || null, address: address || null, active: true })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        bootstrap.Modal.getInstance(document.getElementById('addClientModal')).hide();
+        alert('Klient został dodany pomyślnie!');
+        loadStats();
+        const viewClient = confirm('Czy chcesz przejść do listy klientów?');
+        if (viewClient) {
+          // ✅ POPRAWKA TUTAJ: Użyj url_for z Jinja2
           navigateTo('{{ url_for('clients_page') }}');
         }
-      } catch (err) {
-        alert(`Błąd dodawania klienta: ${err.message}`);
-      } finally {
-        spinner.classList.add('d-none');
-      }
-    }
-
+      } catch (err) {
+        alert(`Błąd dodawania klienta: ${err.message}`);
+      } finally {
+        spinner.classList.add('d-none');
+      }
+    }
     // Dodaj terapeutę - otwórz modal
     function quickAddTherapist() {
       document.getElementById('therapistName').value = '';
@@ -932,8 +916,9 @@ a.card-link:hover .start-card {
 
         const viewTherapist = confirm('Czy chcesz przejść do planów terapeutów?');
         if (viewTherapist) {
-          navigateTo('{{ url_for('schedule_page') }}');
-        }
+          // ✅ POPRAWKA TUTAJ: Użyj url_for z Jinja2
+          navigateTo('{{ url_for('schedule_page') }}');
+        }
       } catch (err) {
         alert(`Błąd dodawania terapeuty: ${err.message}`);
       } finally {
