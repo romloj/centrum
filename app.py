@@ -91,27 +91,7 @@ except Exception as e:
     print(f"--- BŁĄD Inicjalizacji SQLAlchemy: {e} ---")
     sys.exit(1) # Wyjście z aplikacji jeśli baza nie działa
 
-# === MODEL: User ===
-class User(Base):
-    __tablename__ = 'users'
-    id = Column(Integer, primary_key=True)
-    username = Column(String(80), unique=True, nullable=False)
-    password_hash = Column(String(255), nullable=False) 
-    is_admin = Column(Boolean, default=False, nullable=False)
 
-    # === NOWE POLA ===
-    therapist_id = Column(Integer, ForeignKey('therapists.id'), nullable=True)
-    driver_id = Column(Integer, ForeignKey('drivers.id'), nullable=True)
-
-    # === NOWE RELACJE ===
-    therapist_profile = relationship("Therapist", foreign_keys=[therapist_id])
-    driver_profile = relationship("Driver", foreign_keys=[driver_id])
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
 
 # === MODUŁ LOGOWANIA (Blueprint) ===
 auth_bp = Blueprint('auth', __name__, template_folder='templates')
@@ -1002,6 +982,28 @@ class EventGroup(Base):
     client_id = Column(Integer, ForeignKey('clients.id'))
     label = Column(String)
     slots = relationship("ScheduleSlot", cascade="all, delete-orphan")
+
+# === MODEL: User ===
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False) 
+    is_admin = Column(Boolean, default=False, nullable=False)
+
+    # === NOWE POLA ===
+    therapist_id = Column(Integer, ForeignKey('therapists.id'), nullable=True)
+    driver_id = Column(Integer, ForeignKey('drivers.id'), nullable=True)
+
+    # === NOWE RELACJE ===
+    therapist_profile = relationship("Therapist", foreign_keys=[therapist_id])
+    driver_profile = relationship("Driver", foreign_keys=[driver_id])
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 
 # === MODELE DZIENNIKA ===
