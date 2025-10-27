@@ -2430,9 +2430,9 @@ def get_semester_dates(school_year_start, semester):
     return start_date, end_date
 
 
-@app.get("/tus")
-def tus_page():
-    return app.send_static_file("tus.html")
+#@app.get("/tus")
+#def tus_page():
+    #return app.send_static_file("tus.html")
 
 
 @app.get("/api/tus/groups")
