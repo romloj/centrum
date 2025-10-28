@@ -185,10 +185,25 @@
       font-size: 1.3rem;
     }
 
-    @media (max-width: 768px) {
-      .app-title {
-        font-size: 1.8rem;
-      }
+          /* Dodaj do sekcji style */
+    .modal-content {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+    
+    .offcanvas {
+        box-shadow: -5px 0 30px rgba(0,0,0,0.1);
+    }
+    
+    .btn-lg {
+        padding: 12px 20px;
+        font-size: 1.1rem;
+    }
+        @media (max-width: 768px) {
+          .app-title {
+            font-size: 1.8rem;
+          }
 
       .dashboard-grid {
         grid-template-columns: 1fr;
@@ -601,6 +616,50 @@ a.card-link:hover .start-card {
             </div>
         </form>
     </div>
+</div>
+<!-- wstawka z deep-->
+    <!-- Modal wyboru klienta -->
+<div class="modal fade" id="clientSelectModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Wybierz klienta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <select class="form-select" id="modalClientSelect">
+          <option value="">Ładowanie klientów...</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="button" class="btn btn-primary" onclick="selectClient()">Wybierz</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal wyboru typu pakietu -->
+<div class="modal fade" id="packageTypeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Wybierz typ pakietu</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Dla klienta: <strong id="selectedClientName"></strong></p>
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-primary btn-lg" onclick="goToIndividualPackage()">
+            <i class="bi bi-person-fill"></i> Terapia indywidualna
+          </button>
+          <button type="button" class="btn btn-info btn-lg" onclick="goToTusPackage()">
+            <i class="bi bi-people-fill"></i> Grupa TUS
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -1040,6 +1099,7 @@ document.getElementById('packageForm')?.addEventListener('submit', async (e) => 
     }
 });
   </script>
+    
 </body>
 
 </html>
