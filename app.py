@@ -176,6 +176,8 @@ def handle_admin_change_password():
 
 # W app.py
 
+
+  
 @admin_bp.route('/admin/manage-users', methods=['GET'])
 @admin_required
 def manage_users_page():
@@ -195,9 +197,9 @@ def manage_users_page():
         # Przekaż dane do szablonu HTML
         return render_template(
             'manage_users.html', 
-            users=all_users, 
-            therapists=all_therapists, 
-            drivers=all_drivers
+            #users=all_users, 
+            #therapists=all_therapists, 
+            #drivers=all_drivers
         )
     except Exception as e:
         print(f"Błąd podczas ładowania strony zarządzania użytkownikami: {e}")
