@@ -649,7 +649,7 @@ def client_history():
     """Wyświetla stronę 'client_history.html'"""
     return render_template('client_history.html')
 
-@app.route('/dostepnosc')
+@app.route('/klient_panel/dostepnosc')
 @therapist_required  # Dostęp dla admina i terapeutów
 def dostepnosc():
     """Wyświetla stronę 'dostepnosc.html'"""
