@@ -125,11 +125,11 @@
     }
 
     .stats-row {
-      display: grid !important;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
-      gap: 20px !important;
-      margin-bottom: 30px !important;
-    }
+	  display: grid !important;
+	  grid-template-columns: repeat(4, 1fr) !important;
+	  gap: 20px !important;
+	  margin-bottom: 30px !important;
+	}
 
     .stat-card {
       background: rgba(255, 255, 255, 0.95);
@@ -154,12 +154,13 @@
     }
 
     .quick-actions {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
-      padding: 24px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    }
+		  background: rgba(255, 255, 255, 0.95) !important;
+		  backdrop-filter: blur(10px) !important;
+		  border-radius: 20px !important;
+		  padding: 24px !important;
+		  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+		  margin-bottom: 30px !important;
+		}
 
     .quick-actions h3 {
       font-size: 1.3rem;
@@ -209,14 +210,31 @@
         font-size: 1.1rem;
     }
 
-    @media (max-width: 768px) {
-      .app-title {
-        font-size: 1.8rem;
-      }
+	/* Responsywność */
+	@media (max-width: 1200px) {
+		  .stats-row {
+		    grid-template-columns: repeat(2, 1fr) !important;
+		  }
+		  
+		  .dashboard-grid {
+		    grid-template-columns: repeat(2, 1fr) !important;
+		  }
+		}
 
-      .dashboard-grid {
-        grid-template-columns: 1fr !important;
-      }
+
+   @media (max-width: 768px) {
+	  .stats-row {
+	    grid-template-columns: 1fr !important;
+	  }
+	  
+
+	
+     .dashboard-grid {
+	  display: grid !important;
+	  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+	  gap: 20px !important;
+	  margin-bottom: 30px !important;
+	}
 
       .card-icon {
         font-size: 2.5rem;
