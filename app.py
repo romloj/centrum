@@ -494,8 +494,8 @@ def clients_page():
 @app.route('/schedule')
 @therapist_required  # Zabezpieczamy
 def schedule_page():
-    """Wyświetla stronę 'schedule.html'"""
-    return render_template('schedule.html')
+    """Wyświetla stronę 'panel-terapeuty.html'"""
+    return render_template('panel-terapeuty.html')
 
 @app.route('/tus')
 @therapist_required  # Zabezpieczamy
