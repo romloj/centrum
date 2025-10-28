@@ -503,7 +503,7 @@ def tus_page():
     """Wyświetla stronę 'tus.html'"""
     return render_template('tus.html')
 
-@app.route('/projects')
+@app.route('/manager/projects')
 @therapist_required  # Zabezpieczamy
 def projects_page():
     """Wyświetla stronę 'projects.html'"""
