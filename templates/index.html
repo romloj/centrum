@@ -81,7 +81,7 @@
     <!-- Dashboard Grid -->
     <div class="dashboard-grid">
       {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('clients_page') }}')">
+      <div class="app-card" onclick="navigateTo('{{ url_for('klient_panel') }}')">
         <span class="badge-status">Aktywne</span>
         <i class="bi bi-people-fill card-icon"></i>
         <h2 class="card-title">Klienci</h2>
