@@ -503,8 +503,8 @@ def schedule_page():
 @app.route('/klient_panel')
 @therapist_required  # Zabezpieczamy
 def klient_panel():
-    """Wyświetla stronę 'klient_panel.html'"""
-    return render_template('klient_panel.html')
+    """Wyświetla stronę 'klient-panel.html'"""
+    return render_template('klient-panel.html')
 
 
 
