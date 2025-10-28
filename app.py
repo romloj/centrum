@@ -611,7 +611,7 @@ def raport():
     """Wyświetla stronę 'raport.html'"""
     return render_template('raport.html')
 
-@app.route('manager/ipet')
+@app.route('/manager/ipet')
 @therapist_required  # Dostęp dla admina i terapeutów
 def ipet():
     """Wyświetla stronę 'ipet.html'"""
