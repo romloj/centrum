@@ -1001,7 +1001,8 @@
     }
 
         // Sprawdź braki w miesiącu
-    async function quickCheckGaps() {
+   // Sprawdź braki w miesiącu - układ kolumnowy
+async function quickCheckGaps() {
     const month = document.getElementById('monthFilter').value;
     if (!month) {
         alert('Wybierz miesiąc z filtra u góry strony.');
@@ -1025,35 +1026,43 @@
         const data = await res.json();
         const c = data.counts || {clients: 0, therapists: 0, drivers: 0};
         
-        const renderList = (arr, type) => {
-            if (!arr || !arr.length) return '<div class="text-muted text-center py-3">🎉 Brak brakujących</div>';
+        const renderPersonList = (persons, type) => {
+            if (!persons || !persons.length) {
+                return '<div class="empty-list">Brak brakujących</div>';
+            }
             
-            return arr.map(item => {
-                const personId = item.id || item.client_id || item.therapist_id || item.driver_id;
-                const fullName = item.full_name || 'Brak nazwy';
-                let actionButton = '';
+            return persons.map(person => {
+                const personId = person.id || person.client_id || person.therapist_id || person.driver_id;
+                const fullName = person.full_name || 'Brak nazwy';
                 
+                let actionButton = '';
                 if (personId && type === 'client') {
-                    actionButton = `<button class="btn btn-sm btn-primary" onclick="addPackageForClient(${personId}, '${fullName.replace(/'/g, "\\'")}')">
-                        <i class="bi bi-plus-circle"></i> Dodaj pakiet
-                    </button>`;
+                    actionButton = `
+                        <button class="action-btn btn-primary" onclick="addPackageForClient(${personId}, '${fullName.replace(/'/g, "\\'")}')">
+                            <i class="bi bi-plus-circle"></i> Dodaj pakiet
+                        </button>
+                    `;
                 } else if (personId && type === 'therapist') {
-                    actionButton = `<button class="btn btn-sm btn-outline-secondary" onclick="viewTherapistSchedule(${personId})">
-                        <i class="bi bi-calendar3"></i> Grafik
-                    </button>`;
+                    actionButton = `
+                        <button class="action-btn btn-outline" onclick="viewTherapistSchedule(${personId})">
+                            <i class="bi bi-calendar3"></i> Grafik
+                        </button>
+                    `;
                 } else if (personId && type === 'driver') {
-                    actionButton = `<button class="btn btn-sm btn-outline-secondary" onclick="viewDriverSchedule(${personId})">
-                        <i class="bi bi-truck"></i> Kursy
-                    </button>`;
+                    actionButton = `
+                        <button class="action-btn btn-outline" onclick="viewDriverSchedule(${personId})">
+                            <i class="bi bi-truck"></i> Kursy
+                        </button>
+                    `;
                 }
                 
                 return `
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div class="flex-grow-1">
-                            <strong>${fullName}</strong>
-                            ${item.absence_status ? `<span class="badge bg-danger ms-2">${item.absence_status}</span>` : ''}
+                    <div class="person-item">
+                        <div class="person-info">
+                            <span class="person-name">${fullName}</span>
+                            ${person.absence_status ? `<span class="person-badge">${person.absence_status}</span>` : ''}
                         </div>
-                        <div class="ms-3">
+                        <div class="person-actions">
                             ${actionButton}
                         </div>
                     </div>
@@ -1062,40 +1071,46 @@
         };
         
         content.innerHTML = `
-            <div class="gaps-stats">
-                <div class="stat-alert">
-                    <strong>👥 Klienci bez zdarzeń</strong>
-                    <div class="stat-number">${c.clients}</div>
-                </div>
-                <div class="stat-alert">
-                    <strong>🩺 Terapeuci bez terapii</strong>
-                    <div class="stat-number">${c.therapists}</div>
-                </div>
-                <div class="stat-alert">
-                    <strong>🚗 Kierowcy bez kursów</strong>
-                    <div class="stat-number">${c.drivers}</div>
-                </div>
-            </div>
-            
-            <div class="gaps-lists">
-                <div class="gaps-category">
-                    <h6>Klienci</h6>
-                    <div class="gaps-list">
-                        ${renderList(data.clients, 'client')}
+            <div class="gaps-container">
+                <!-- Klienci -->
+                <div class="gaps-column">
+                    <div class="column-header">
+                        <h2>Klienci bez zdarzeń</h2>
+                        <span class="column-count">${c.clients}</span>
+                    </div>
+                    <div class="column-list">
+                        <div class="column-section">
+                            <h3>Klienci</h3>
+                            ${renderPersonList(data.clients, 'client')}
+                        </div>
                     </div>
                 </div>
                 
-                <div class="gaps-category">
-                    <h6>Terapeuci</h6>
-                    <div class="gaps-list">
-                        ${renderList(data.therapists, 'therapist')}
+                <!-- Terapeuci -->
+                <div class="gaps-column">
+                    <div class="column-header">
+                        <h2>Terapeuci bez terapii</h2>
+                        <span class="column-count">${c.therapists}</span>
+                    </div>
+                    <div class="column-list">
+                        <div class="column-section">
+                            <h3>Terapeuci</h3>
+                            ${renderPersonList(data.therapists, 'therapist')}
+                        </div>
                     </div>
                 </div>
                 
-                <div class="gaps-category">
-                    <h6>Kierowcy</h6>
-                    <div class="gaps-list">
-                        ${renderList(data.drivers, 'driver')}
+                <!-- Kierowcy -->
+                <div class="gaps-column">
+                    <div class="column-header">
+                        <h2>Kierowcy bez kursów</h2>
+                        <span class="column-count">${c.drivers}</span>
+                    </div>
+                    <div class="column-list">
+                        <div class="column-section">
+                            <h3>Kierowcy</h3>
+                            ${renderPersonList(data.drivers, 'driver')}
+                        </div>
                     </div>
                 </div>
             </div>
