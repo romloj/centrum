@@ -376,8 +376,25 @@
   </style>
 </head>
 <body>
-  {% include 'navbar.html' %}
+ 
   <div class="app-container">
+
+	  {# === LINKI TYLKO DLA ADMINA === #}
+		{% if session.get('is_admin') %}
+		<div class="nav-item dropdown">
+		    <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+		        Admin 🛠️
+		    </a>
+		    <div class="dropdown-menu" aria-labelledby="adminDropdown">
+		        <a class="dropdown-item" href="{{ url_for('admin.admin_register_page') }}">Dodaj użytkownika</a>
+		        
+		        <a class="dropdown-item {% if request.endpoint == 'admin.manage_users_page' %}active{% endif %}" href="{{ url_for('admin.manage_users_page') }}">Zarządzaj Rolami</a>
+		        
+		        <div class="dropdown-divider"></div>
+		        <a class="dropdown-item" href="{{ url_for('admin.admin_change_password_page') }}">Zmień hasło</a>
+		    </div>
+		</div>
+		{% endif %}
     
     <!-- Nowy Header -->
     <div class="app-header">
