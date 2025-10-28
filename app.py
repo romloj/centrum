@@ -521,6 +521,18 @@ def manager_page():
     """Wyświetla stronę 'manager.html'"""
     return render_template('manager.html')
 
+@app.route('/manager/sprawozdania')
+@therapist_required  # Dostęp dla admina i terapeutów (lub zmień na @admin_required)
+def sprawozdania_new():
+    """Wyświetla stronę 'sprawozdania.html'"""
+    return render_template('sprawozdania.html')
+
+@app.route('/manager/ipet')
+@therapist_required  # Dostęp dla admina i terapeutów (lub zmień na @admin_required)
+def ipet_new():
+    """Wyświetla stronę 'ipet.html'"""
+    return render_template('ipet.html')
+
 @app.route('/poczekalnia')
 @therapist_required  # Dostęp dla admina i terapeutów
 def waiting_list_page():
@@ -557,7 +569,7 @@ def indywidual_attendance():
     """Wyświetla stronę 'indywidual-attendance.html'"""
     return render_template('indywidual-attendance.html')
 
-@app.route('/lista')
+@app.route('/clients/lista')
 @therapist_required  # Dostęp dla admina i terapeutów
 def lista():
     """Wyświetla stronę 'lista.html'"""
@@ -587,25 +599,25 @@ def panel():
     """Wyświetla stronę 'panel.html'"""
     return render_template('panel.html')
 
-@app.route('/project_raports')
+@app.route('/manager/project_raports')
 @therapist_required  # Dostęp dla admina i terapeutów
 def project_raports():
     """Wyświetla stronę 'project_raports.html'"""
     return render_template('project_raports.html')
 
-@app.route('/raport')
+@app.route('/manager/raport')
 @therapist_required  # Dostęp dla admina i terapeutów
 def raport():
     """Wyświetla stronę 'raport.html'"""
     return render_template('raport.html')
 
-@app.route('/ipet')
+@app.route('manager/ipet')
 @therapist_required  # Dostęp dla admina i terapeutów
 def ipet():
     """Wyświetla stronę 'ipet.html'"""
     return render_template('ipet.html')
 
-@app.route('/diagnoza')
+@app.route('/manager/diagnoza')
 @therapist_required  # Dostęp dla admina i terapeutów
 def diagnoza():
     """Wyświetla stronę 'diagnoza.html'"""
