@@ -513,7 +513,7 @@ def projects_page():
 @driver_required  # Zabezpieczamy - tylko kierowca lub admin
 def driver_schedule_page():
     """Wyświetla stronę 'driver_schedule.html'"""
-    return render_template('driver_schedule.html')
+    return render_template('kierowcy.html')
 
 @app.route('/manager')
 @therapist_required  # Dostęp dla admina i terapeutów (lub zmień na @admin_required)
@@ -526,6 +526,73 @@ def manager_page():
 def waiting_list_page():
     """Wyświetla stronę 'poczekalnia.html'"""
     return render_template('poczekalnia.html')
+
+@app.route('/terapeuta')
+@therapist_required  # Dostęp dla admina i terapeutów
+def terapeuta():
+    """Wyświetla stronę 'terapeuta.html'"""
+    return render_template('terapeuta.html')
+
+@app.route('/sprawozdania')
+@therapist_required  # Dostęp dla admina i terapeutów
+def sprawozdania():
+    """Wyświetla stronę 'sprawozdania.html'"""
+    return render_template('sprawozdania.html')
+
+@app.route('/dziennik')
+@therapist_required  # Dostęp dla admina i terapeutów
+def dziennik():
+    """Wyświetla stronę 'dziennik.html'"""
+    return render_template('dziennik.html')
+
+@app.route('/grafik')
+@therapist_required  # Dostęp dla admina i terapeutów
+def grafik():
+    """Wyświetla stronę 'grafik.html'"""
+    return render_template('grafik.html')
+
+@app.route('/indywidual-attendance')
+@therapist_required  # Dostęp dla admina i terapeutów
+def indywidual_attendance():
+    """Wyświetla stronę 'indywidual-attendance.html'"""
+    return render_template('indywidual-attendance.html')
+
+@app.route('/lista')
+@therapist_required  # Dostęp dla admina i terapeutów
+def lista():
+    """Wyświetla stronę 'lista.html'"""
+    return render_template('lista.html')
+
+@app.route('/notes')
+@therapist_required  # Dostęp dla admina i terapeutów
+def notes():
+    """Wyświetla stronę 'notes.html'"""
+    return render_template('notes.html')
+
+@app.route('/panel-terapeuty')
+@therapist_required  # Dostęp dla admina i terapeutów
+def panel_terapeuty():
+    """Wyświetla stronę 'panel-terapeuty.html'"""
+    return render_template('panel-terapeuty.html')
+
+@app.route('/panel')
+@therapist_required  # Dostęp dla admina i terapeutów
+def panel():
+    """Wyświetla stronę 'panel.html'"""
+    return render_template('panel.html')
+
+@app.route('/project_raports')
+@therapist_required  # Dostęp dla admina i terapeutów
+def project_raports():
+    """Wyświetla stronę 'project_raports.html'"""
+    return render_template('project_raports.html')
+
+@app.route('/raport')
+@therapist_required  # Dostęp dla admina i terapeutów
+def raport():
+    """Wyświetla stronę 'raport.html'"""
+    return render_template('raport.html')
+
 
 #koniec
 
