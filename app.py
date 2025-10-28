@@ -497,6 +497,12 @@ def schedule_page():
     """Wyświetla stronę 'panel-terapeuty.html'"""
     return render_template('panel-terapeuty.html')
 
+@app.route('/klient_panel')
+@therapist_required  # Zabezpieczamy
+def klient_panel():
+    """Wyświetla stronę 'klient_panel.html'"""
+    return render_template('klient_panel.html')
+
 @app.route('/tus')
 @therapist_required  # Zabezpieczamy
 def tus_page():
@@ -551,11 +557,17 @@ def sprawozdania():
     """Wyświetla stronę 'sprawozdania.html'"""
     return render_template('sprawozdania.html')
 
-@app.route('/dziennik')
+@app.route('/klient_panel/dziennik')
 @therapist_required  # Dostęp dla admina i terapeutów
 def dziennik():
-    """Wyświetla stronę 'dziennik.html'"""
-    return render_template('dziennik.html')
+    """Wyświetla stronę 'dziennik3.html'"""
+    return render_template('dziennik3.html')
+
+@app.route('/klient_panel/historia')
+@therapist_required  # Dostęp dla admina i terapeutów
+def historia():
+    """Wyświetla stronę 'client_history.html'"""
+    return render_template('client_history.html')
 
 @app.route('/grafik')
 @therapist_required  # Dostęp dla admina i terapeutów
@@ -563,23 +575,29 @@ def grafik():
     """Wyświetla stronę 'grafik.html'"""
     return render_template('grafik.html')
 
-@app.route('/indywidual-attendance')
+@app.route('/klient_panel/indywidual-attendance')
 @therapist_required  # Dostęp dla admina i terapeutów
 def indywidual_attendance():
     """Wyświetla stronę 'indywidual-attendance.html'"""
     return render_template('indywidual-attendance.html')
 
-@app.route('/clients/lista')
+@app.route('/klient_panel/lista')
 @therapist_required  # Dostęp dla admina i terapeutów
 def lista():
     """Wyświetla stronę 'lista.html'"""
     return render_template('lista.html')
 
-@app.route('/notes')
+@app.route('/klient_panel/notes')
 @therapist_required  # Dostęp dla admina i terapeutów
 def notes():
     """Wyświetla stronę 'notes.html'"""
     return render_template('notes.html')
+
+@app.route('/klient_panel/client_panel')
+@therapist_required  # Dostęp dla admina i terapeutów
+def client_panel():
+    """Wyświetla stronę 'client_panel.html'"""
+    return render_template('client_panel.html')
 
 @app.route('/panel-terapeuty')
 @therapist_required  # Dostęp dla admina i terapeutów
