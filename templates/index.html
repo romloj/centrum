@@ -1002,60 +1002,115 @@
 
         // Sprawdź braki w miesiącu
     async function quickCheckGaps() {
-      const month = document.getElementById('monthFilter').value;
-      if (!month) {
-        alert('Wybierz miesiąc z filtra u góry strony.');
-        return;
-      }
-      const modal = new bootstrap.Modal(document.getElementById('gapsModal'));
-      modal.show();
-      const content = document.getElementById('gapsContent');
-      content.innerHTML = `<div class="text-center py-4"><div class="spinner-border" role="status"></div><p class="mt-2">Sprawdzam braki w miesiącu ${month}...</p></div>`;
-      try {
-        const res = await fetch(`${API}/api/gaps/month?month=${encodeURIComponent(month)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const c = data.counts || {clients:0, therapists:0, drivers:0};
-        const renderList = (arr, type) => {
-          if (!arr || !arr.length) return '<div class="text-muted">Brak</div>';
-          return `<ul class="list-group">
-            ${arr.map(item => {
-              const personId = item.id || item.client_id || item.therapist_id || item.driver_id;
-              const fullName = item.full_name || 'Brak nazwy';
-              let actionButton = '';
-              if (personId && type === 'client') {
-                actionButton = `<button class="btn btn-sm btn-primary" onclick="addPackageForClient(${personId}, '${fullName.replace(/'/g, "\\'")}')"><i class="bi bi-plus-circle"></i> Dodaj pakiet</button>`;
-              } else if (personId && type === 'therapist') {
-                actionButton = `<button class="btn btn-sm btn-outline-secondary" onclick="viewTherapistSchedule(${personId})"><i class="bi bi-calendar3"></i> Grafik</button>`;
-              } else if (personId && type === 'driver') {
-                actionButton = `<button class="btn btn-sm btn-outline-secondary" onclick="viewDriverSchedule(${personId})"><i class="bi bi-truck"></i> Kursy</button>`;
-              }
-              return `<li class="list-group-item d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>${fullName}</strong>
-                    ${item.absence_status ? `<span class="badge bg-danger ms-2">${item.absence_status}</span>` : ''}
-                  </div>
-                  ${actionButton}
-                </li>`;
-            }).join('')}
-          </ul>`;
-        };
-        content.innerHTML = `
-          <div class="row mb-3">
-            <div class="col-md-4"><div class="alert alert-secondary"><strong>Klienci bez zdarzeń:</strong> ${c.clients}</div></div>
-            <div class="col-md-4"><div class="alert alert-secondary"><strong>Terapeuci bez terapii:</strong> ${c.therapists}</div></div>
-            <div class="col-md-4"><div class="alert alert-secondary"><strong>Kierowcy bez kursów:</strong> ${c.drivers}</div></div>
-          </div>
-          <div class="row">
-            <div class="col-md-4"><h6>Klienci</h6>${renderList(data.clients, 'client')}</div>
-            <div class="col-md-4"><h6>Terapeuci</h6>${renderList(data.therapists, 'therapist')}</div>
-            <div class="col-md-4"><h6>Kierowcy</h6>${renderList(data.drivers, 'driver')}</div>
-          </div>
-        `;
-      } catch (err) {
-        content.innerHTML = `<div class="alert alert-danger">Błąd: ${err.message}</div>`;
-      }
-    }
+    const month = document.getElementById('monthFilter').value;
+    if (!month) {
+        alert('Wybierz miesiąc z filtra u góry strony.');
+        return;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('gapsModal'));
+    modal.show();
+    
+    const content = document.getElementById('gapsContent');
+    content.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border" style="width: 3rem; height: 3rem;" role="status"></div>
+            <p class="mt-3 text-white">Sprawdzam braki w miesiącu ${month}...</p>
+        </div>
+    `;
+    
+    try {
+        const res = await fetch(`${API}/api/gaps/month?month=${encodeURIComponent(month)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const c = data.counts || {clients: 0, therapists: 0, drivers: 0};
+        
+        const renderList = (arr, type) => {
+            if (!arr || !arr.length) return '<div class="text-muted text-center py-3">🎉 Brak brakujących</div>';
+            
+            return arr.map(item => {
+                const personId = item.id || item.client_id || item.therapist_id || item.driver_id;
+                const fullName = item.full_name || 'Brak nazwy';
+                let actionButton = '';
+                
+                if (personId && type === 'client') {
+                    actionButton = `<button class="btn btn-sm btn-primary" onclick="addPackageForClient(${personId}, '${fullName.replace(/'/g, "\\'")}')">
+                        <i class="bi bi-plus-circle"></i> Dodaj pakiet
+                    </button>`;
+                } else if (personId && type === 'therapist') {
+                    actionButton = `<button class="btn btn-sm btn-outline-secondary" onclick="viewTherapistSchedule(${personId})">
+                        <i class="bi bi-calendar3"></i> Grafik
+                    </button>`;
+                } else if (personId && type === 'driver') {
+                    actionButton = `<button class="btn btn-sm btn-outline-secondary" onclick="viewDriverSchedule(${personId})">
+                        <i class="bi bi-truck"></i> Kursy
+                    </button>`;
+                }
+                
+                return `
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <strong>${fullName}</strong>
+                            ${item.absence_status ? `<span class="badge bg-danger ms-2">${item.absence_status}</span>` : ''}
+                        </div>
+                        <div class="ms-3">
+                            ${actionButton}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+        
+        content.innerHTML = `
+            <div class="gaps-stats">
+                <div class="stat-alert">
+                    <strong>👥 Klienci bez zdarzeń</strong>
+                    <div class="stat-number">${c.clients}</div>
+                </div>
+                <div class="stat-alert">
+                    <strong>🩺 Terapeuci bez terapii</strong>
+                    <div class="stat-number">${c.therapists}</div>
+                </div>
+                <div class="stat-alert">
+                    <strong>🚗 Kierowcy bez kursów</strong>
+                    <div class="stat-number">${c.drivers}</div>
+                </div>
+            </div>
+            
+            <div class="gaps-lists">
+                <div class="gaps-category">
+                    <h6>Klienci</h6>
+                    <div class="gaps-list">
+                        ${renderList(data.clients, 'client')}
+                    </div>
+                </div>
+                
+                <div class="gaps-category">
+                    <h6>Terapeuci</h6>
+                    <div class="gaps-list">
+                        ${renderList(data.therapists, 'therapist')}
+                    </div>
+                </div>
+                
+                <div class="gaps-category">
+                    <h6>Kierowcy</h6>
+                    <div class="gaps-list">
+                        ${renderList(data.drivers, 'driver')}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+    } catch (err) {
+        content.innerHTML = `
+            <div class="alert alert-danger text-center">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <strong>Błąd podczas ładowania danych:</strong><br>
+                ${err.message}
+            </div>
+        `;
+    }
+}
 
     // Dodaj pakiet - przekierowanie do wyboru klienta
     function quickAddPackage() {
