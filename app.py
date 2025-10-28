@@ -485,11 +485,14 @@ def main_index():
                        
 
 
-@app.route('/clients')
+
+@app.route('/klient_panel/clients')
 @therapist_required  # Zabezpieczamy - tylko terapeuta lub admin
 def clients_page():
     """Wyświetla stronę 'clients.html'"""
     return render_template('klienci.html')
+
+
 
 @app.route('/schedule')
 @therapist_required  # Zabezpieczamy
@@ -502,6 +505,8 @@ def schedule_page():
 def klient_panel():
     """Wyświetla stronę 'klient_panel.html'"""
     return render_template('klient_panel.html')
+
+
 
 @app.route('/tus')
 @therapist_required  # Zabezpieczamy
@@ -611,7 +616,7 @@ def terapeuta_panel():
     """Wyświetla stronę 'terapeuta-panel.html'"""
     return render_template('terapeuta-panel.html')
 
-@app.route('/panel')
+@app.route('/klient_panel/panel')
 @therapist_required  # Dostęp dla admina i terapeutów
 def panel():
     """Wyświetla stronę 'panel.html'"""
@@ -643,7 +648,7 @@ def client_attendance():
     """Wyświetla stronę 'client-attendance.html'"""
     return render_template('client-attendance.html')
 
-@app.route('/client_history')
+@app.route('/klient_panel/client_history')
 @therapist_required  # Dostęp dla admina i terapeutów
 def client_history():
     """Wyświetla stronę 'client_history.html'"""
@@ -655,7 +660,7 @@ def dostepnosc():
     """Wyświetla stronę 'dostepnosc.html'"""
     return render_template('dostepnosc.html')
 
-@app.route('/import_image')
+@app.route('/klient_panel/import_image')
 @therapist_required  # Dostęp dla admina i terapeutów
 def import_image():
     """Wyświetla stronę 'import_image.html'"""
