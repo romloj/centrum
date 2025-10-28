@@ -1,18 +1,158 @@
-<style>
+
     :root {
       --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
       --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
       --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-      --glass-bg: rgba(255, 255, 255, 1.0); /* ✅ BIAŁE tło kafelków */
-      --glass-border: rgba(0, 0, 0, 0.1);   /* ✅ Ciemniejsza ramka */
-      --text-dark: #2d3748;                 /* ✅ Ciemny tekst */
+      --glass-bg: rgba(255, 255, 255, 1.0);
+      --glass-border: rgba(0, 0, 0, 0.1);
+      --text-dark: #2d3748;
       --text-light: #718096;
+      --shadow-light: rgba(0, 0, 0, 0.1);
+      --shadow-medium: rgba(0, 0, 0, 0.15);
     }
 
-    /* ... reszta bez zmian ... */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-    /* Nowoczesny Grid Dashboard - ZMIENIONE */
+    body {
+      background: var(--primary-gradient);
+      min-height: 100vh;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.2) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.15) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    /* Nowy Header z Glassmorphism */
+    .app-header {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 30px 40px;
+      margin-bottom: 30px;
+      box-shadow: 
+        0 8px 32px var(--shadow-light),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .app-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.3), transparent);
+    }
+
+    .app-title {
+      font-size: 2.8rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+
+    .app-subtitle {
+      color: var(--text-light);
+      font-size: 1.1rem;
+      margin-top: 8px;
+      font-weight: 400;
+    }
+
+    /* Ulepszone Statystyki */
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .stat-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 28px 24px;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 20px var(--shadow-light);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+      transition: left 0.6s;
+    }
+
+    .stat-card:hover::before {
+      left: 100%;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(102, 126, 234, 0.3);
+      box-shadow: 0 8px 30px var(--shadow-medium);
+    }
+
+    .stat-value {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+
+    .stat-label {
+      color: var(--text-light);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+
+    /* Nowoczesny Grid Dashboard */
     .dashboard-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -21,9 +161,9 @@
     }
 
     .app-card {
-      background: var(--glass-bg); /* ✅ BIAŁE tło */
+      background: var(--glass-bg);
       backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border); /* ✅ Ciemna ramka */
+      border: 1px solid var(--glass-border);
       border-radius: 24px;
       padding: 32px;
       cursor: pointer;
@@ -34,7 +174,7 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 8px 32px var(--shadow-light);
     }
 
     .app-card::before {
@@ -44,7 +184,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%); /* ✅ Jaśniejszy gradient */
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
       opacity: 0;
       transition: opacity 0.3s;
     }
@@ -56,25 +196,34 @@
       left: -50%;
       width: 200%;
       height: 200%;
-      background: linear-gradient(45deg, transparent, rgba(0, 0, 0, 0.05), transparent); /* ✅ Ciemniejszy efekt hover */
+      background: linear-gradient(45deg, transparent, rgba(102, 126, 234, 0.1), transparent);
       transform: rotate(45deg);
       transition: all 0.6s;
     }
 
     .app-card:hover {
       transform: translateY(-8px) scale(1.02);
-      border-color: rgba(0, 0, 0, 0.2); /* ✅ Ciemna ramka przy hover */
+      border-color: rgba(102, 126, 234, 0.3);
       box-shadow: 
-        0 20px 40px rgba(0, 0, 0, 0.15),
-        0 0 0 1px rgba(0, 0, 0, 0.1); /* ✅ Ciemniejszy cień */
+        0 20px 40px var(--shadow-medium),
+        0 0 0 1px rgba(102, 126, 234, 0.1);
+    }
+
+    .app-card:hover::after {
+      left: 100%;
+    }
+
+    .app-card:hover::before {
+      opacity: 1;
     }
 
     .card-icon {
       font-size: 3.5rem;
       margin-bottom: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* ✅ Ciemny gradient dla ikon */
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      background-clip: text;
       position: relative;
       z-index: 2;
     }
@@ -82,34 +231,49 @@
     .card-title {
       font-size: 1.5rem;
       font-weight: 700;
-      color: var(--text-dark); /* ✅ Ciemny tekst */
+      color: var(--text-dark);
       margin-bottom: 12px;
       position: relative;
       z-index: 2;
     }
 
     .card-description {
-      color: var(--text-light); /* ✅ Szary tekst */
+      color: var(--text-light);
       font-size: 0.95rem;
       line-height: 1.6;
       position: relative;
       z-index: 2;
     }
 
-    /* Szybkie Akcje - ZMIENIONE */
+    .badge-status {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      z-index: 3;
+      background: var(--success-gradient);
+      color: white;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Szybkie Akcje - Nowy Styl */
     .quick-actions {
-      background: var(--glass-bg); /* ✅ Białe tło */
+      background: var(--glass-bg);
       backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border); /* ✅ Ciemna ramka */
+      border: 1px solid var(--glass-border);
       border-radius: 24px;
       padding: 32px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 8px 32px var(--shadow-light);
     }
 
     .quick-actions h3 {
       font-size: 1.5rem;
       font-weight: 700;
-      color: var(--text-dark); /* ✅ Ciemny tekst */
+      color: var(--text-dark);
       margin-bottom: 24px;
       display: flex;
       align-items: center;
@@ -117,9 +281,10 @@
     }
 
     .quick-actions h3 i {
-      background: var(--primary-gradient); /* ✅ Gradient z primary */
+      background: var(--primary-gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .action-btn {
@@ -127,8 +292,8 @@
       padding: 18px 24px;
       border-radius: 16px;
       border: 1px solid var(--glass-border);
-      background: var(--glass-bg); /* ✅ Białe tło */
-      color: var(--text-dark); /* ✅ Ciemny tekst */
+      background: var(--glass-bg);
+      color: var(--text-dark);
       font-weight: 600;
       transition: all 0.3s ease;
       margin-bottom: 12px;
@@ -139,7 +304,7 @@
     }
 
     .action-btn:hover {
-      background: rgba(102, 126, 234, 0.1); /* ✅ Niebieskie tło przy hover */
+      background: rgba(102, 126, 234, 0.1);
       border-color: rgba(102, 126, 234, 0.3);
       transform: translateX(8px);
       color: var(--text-dark);
@@ -147,72 +312,146 @@
 
     .action-btn i {
       font-size: 1.3rem;
-      background: var(--primary-gradient); /* ✅ Gradient z primary */
+      background: var(--primary-gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
-    /* Statystyki - ZMIENIONE */
-    .stat-card {
-      background: var(--glass-bg); /* ✅ Białe tło */
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border); /* ✅ Ciemna ramka */
+    /* Styl dla inputów i selectów w headerze */
+    .app-header .form-control {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--glass-border);
+      color: var(--text-dark);
+    }
+
+    .app-header .form-control:focus {
+      background: white;
+      border-color: rgba(102, 126, 234, 0.5);
+      box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.1);
+    }
+
+    .app-header .btn {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--glass-border);
+      color: var(--text-dark);
+    }
+
+    .app-header .btn:hover {
+      background: white;
+      border-color: rgba(102, 126, 234, 0.3);
+    }
+
+    /* Responsywność */
+    @media (max-width: 1200px) {
+      .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .stats-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app-title {
+        font-size: 2.2rem;
+      }
+      
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .stats-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .app-header {
+        padding: 24px;
+      }
+      
+      .card-icon {
+        font-size: 2.8rem;
+      }
+      
+      .app-card {
+        padding: 24px;
+        min-height: 240px;
+      }
+      
+      .quick-actions {
+        padding: 24px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 10px;
+      }
+      
+      .app-header {
+        padding: 20px;
+      }
+      
+      .app-title {
+        font-size: 1.8rem;
+      }
+      
+      .stat-value {
+        font-size: 2.5rem;
+      }
+    }
+
+    /* Animacje */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .app-card, .stat-card, .quick-actions {
+      animation: fadeInUp 0.6s ease-out;
+    }
+
+    .app-card:nth-child(2) { animation-delay: 0.1s; }
+    .app-card:nth-child(3) { animation-delay: 0.2s; }
+    .app-card:nth-child(4) { animation-delay: 0.3s; }
+    .app-card:nth-child(5) { animation-delay: 0.4s; }
+    .app-card:nth-child(6) { animation-delay: 0.5s; }
+
+    /* Dodatkowe style dla lepszej czytelności */
+    .text-muted {
+      color: var(--text-light) !important;
+    }
+
+    .text-dark {
+      color: var(--text-dark) !important;
+    }
+
+    /* Style dla modalów aby pasowały do nowego designu */
+    .modal-content {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       border-radius: 20px;
-      padding: 28px 24px;
-      text-align: center;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 20px 40px var(--shadow-medium);
     }
 
-    .stat-value {
-      font-size: 3rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* ✅ Ciemny gradient */
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 8px;
-      line-height: 1;
+    .modal-header {
+      background: rgba(255, 255, 255, 0.9);
+      border-bottom: 1px solid var(--glass-border);
+      border-radius: 20px 20px 0 0;
     }
 
-    .stat-label {
-      color: var(--text-light); /* ✅ Szary tekst */
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 1px;
+    .modal-title {
+      color: var(--text-dark);
       font-weight: 600;
     }
 
-    /* Header - ZMIENIONE */
-    .app-header {
-      background: var(--glass-bg); /* ✅ Białe tło */
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border); /* ✅ Ciemna ramka */
-      border-radius: 24px;
-      padding: 30px 40px;
-      margin-bottom: 30px;
-      box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(0, 0, 0, 0.1); /* ✅ Ciemniejszy inner shadow */
+    .btn-close {
+      filter: invert(0.3);
     }
-
-    .app-title {
-      font-size: 2.8rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* ✅ Ciemny gradient */
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin: 0;
-      letter-spacing: -0.5px;
-    }
-
-    .app-subtitle {
-      color: var(--text-light); /* ✅ Szary tekst */
-      font-size: 1.1rem;
-      margin-top: 8px;
-      font-weight: 400;
-    }
-
-    /* ... reszta bez zmian ... */
-</style>
