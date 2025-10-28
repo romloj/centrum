@@ -1,4 +1,4 @@
-/* Styl dla modala Braki w miesiącu - Opcja 4 */
+/* Styl dla modala Braki w miesiącu - układ kolumnowy */
 #gapsModal .modal-content {
     background: var(--glass-bg);
     backdrop-filter: blur(20px);
@@ -34,173 +34,223 @@
     background: rgba(255, 255, 255, 0.05);
 }
 
-/* Statystyki - styl Opcja 4 */
-.gaps-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 32px;
-}
-
-.stat-alert {
-    background: var(--glass-bg);
-    backdrop-filter: blur(15px);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 20px;
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.stat-alert:hover {
-    transform: translateY(-3px);
-    border-color: rgba(255, 255, 255, 0.3);
-}
-
-.stat-alert strong {
-    display: block;
-    font-size: 1.1rem;
-    color: white;
-    margin-bottom: 8px;
-}
-
-.stat-alert .stat-number {
-    font-size: 2rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #fff 0%, #e2e8f0 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-/* Listy osób - styl Opcja 4 */
-.gaps-lists {
+/* Główny kontener z kolumnami */
+.gaps-container {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 24px;
 }
 
-.gaps-category {
+/* Pojedyncza kolumna */
+.gaps-column {
     background: var(--glass-bg);
     backdrop-filter: blur(15px);
     border: 1px solid var(--glass-border);
     border-radius: 20px;
-    padding: 24px;
+    padding: 0;
+    overflow: hidden;
     transition: all 0.3s ease;
 }
 
-.gaps-category:hover {
+.gaps-column:hover {
     border-color: rgba(255, 255, 255, 0.3);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
-.gaps-category h6 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: white;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding-bottom: 12px;
+/* Nagłówek kolumny */
+.column-header {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px 24px;
     border-bottom: 1px solid var(--glass-border);
 }
 
-.gaps-category h6::before {
-    font-size: 1.2em;
+.column-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-/* Ikony dla kategorii */
-.gaps-category:nth-child(1) h6::before { content: "👥"; } /* Klienci */
-.gaps-category:nth-child(2) h6::before { content: "🩺"; } /* Terapeuci */
-.gaps-category:nth-child(3) h6::before { content: "🚗"; } /* Kierowcy */
+.column-count {
+    background: var(--secondary-gradient);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-left: auto;
+}
 
-/* Listy osób */
-.gaps-list {
+/* Lista osób w kolumnie */
+.column-list {
+    padding: 16px 0;
     max-height: 400px;
     overflow-y: auto;
 }
 
-.gaps-list .list-group-item {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    margin-bottom: 8px;
-    padding: 16px;
-    backdrop-filter: blur(10px);
+.column-section {
+    margin-bottom: 20px;
+}
+
+.column-section:last-child {
+    margin-bottom: 0;
+}
+
+.column-section h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0 24px 12px 24px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Elementy listy */
+.person-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
     transition: all 0.3s ease;
+    border-left: 3px solid transparent;
 }
 
-.gaps-list .list-group-item:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.4);
+.person-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-left-color: rgba(255, 255, 255, 0.3);
 }
 
-.gaps-list .list-group-item strong {
+.person-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-grow: 1;
+}
+
+.person-name {
     color: white;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.person-badge {
+    background: var(--warning-gradient);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-size: 0.7rem;
     font-weight: 600;
 }
 
-.gaps-list .badge {
-    font-size: 0.7rem;
-    padding: 4px 8px;
-    border-radius: 8px;
+.person-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: 12px;
 }
 
 /* Przyciski akcji */
-.gaps-list .btn {
-    border-radius: 10px;
-    font-size: 0.8rem;
+.action-btn {
     padding: 6px 12px;
-    margin-top: 8px;
-    transition: all 0.3s ease;
-}
-
-.gaps-list .btn-primary {
-    background: var(--success-gradient);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 500;
     border: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
-.gaps-list .btn-outline-secondary {
+.btn-primary {
+    background: var(--success-gradient);
+    color: white;
+}
+
+.btn-outline {
+    background: transparent;
     border: 1px solid var(--glass-border);
     color: rgba(255, 255, 255, 0.8);
 }
 
-.gaps-list .btn:hover {
+.action-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+.btn-primary:hover {
+    background: var(--success-gradient);
+    filter: brightness(1.1);
+    color: white;
+}
+
+.btn-outline:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: white;
+}
+
+/* Ikony dla kolumn */
+.gaps-column:nth-child(1) .column-header h2::before { content: "👥"; }
+.gaps-column:nth-child(2) .column-header h2::before { content: "🩺"; }
+.gaps-column:nth-child(3) .column-header h2::before { content: "🚗"; }
+
+/* Pusta lista */
+.empty-list {
+    text-align: center;
+    padding: 40px 24px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.empty-list::before {
+    content: "🎉";
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 12px;
+}
+
 /* Responsywność */
 @media (max-width: 1200px) {
-    .gaps-lists {
+    .gaps-container {
         grid-template-columns: 1fr;
         gap: 20px;
     }
     
-    .gaps-stats {
-        grid-template-columns: repeat(3, 1fr);
+    .gaps-column {
+        max-width: 100%;
     }
 }
 
 @media (max-width: 768px) {
-    .gaps-stats {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
-    
     #gapsModal .modal-body {
         padding: 20px;
     }
     
-    .gaps-category {
-        padding: 20px;
+    .column-header {
+        padding: 16px 20px;
     }
     
-    .stat-alert {
-        padding: 16px;
+    .person-item {
+        padding: 10px 20px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
     }
     
-    .stat-alert .stat-number {
-        font-size: 1.7rem;
+    .person-actions {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .action-btn {
+        flex-grow: 1;
+        justify-content: center;
     }
 }
