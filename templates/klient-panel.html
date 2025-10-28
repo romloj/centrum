@@ -238,7 +238,8 @@
         <div class="modules-grid">
 
             <!-- Klienci -->
-            <div class="module-card" onclick="location.href='klienci.html'">
+            {% if is_admin or therapist_id %}
+            <div class="module-card" onclick="navigateTo('{{ url_for('clients') }}')">
                 <span class="module-icon">👥</span>
                 <h2 class="module-title">Klienci</h2>
                 <p class="module-description">
@@ -246,8 +247,10 @@
                 </p>
                 <span class="module-badge">Baza beneficjentów</span>
             </div>
+            {% endif %}
             <!-- Projekty -->
-            <div class="module-card" onclick="location.href='dostepnosc.html'">
+             {% if is_admin or therapist_id %}
+            <div class="module-card" onclick="navigateTo('{{ url_for('dostepnosc') }}')">
                 <span class="module-icon">🎯</span>
                 <h2 class="module-title">Dostępność Klienta</h2>
                 <p class="module-description">
@@ -255,9 +258,10 @@
                 </p>
                 <span class="module-badge">Zarządzanie projektami</span>
             </div>
-
+             {% endif %}
+             {% if is_admin or therapist_id %}
             <!-- Sprawozdania - NOWY KAFELEK -->
-            <div class="module-card" onclick="location.href='lista.html'">
+            <div class="module-card" onclick="navigateTo('{{ url_for('lista') }}')">
                 <span class="new-badge">Lista obecności</span>
                 <span class="module-icon">📊</span>
                 <h2 class="module-title">Lista obecności</h2>
@@ -266,9 +270,11 @@
                 </p>
                 <span class="module-badge">Raporty i analizy</span>
             </div>
+            {% endif %}
 
+            {% if is_admin or therapist_id %}
              <!-- Sprawozdania - NOWY KAFELEK -->
-            <div class="module-card" onclick="location.href='dziennik3.html'">
+            <div class="module-card" onclick="navigateTo('{{ url_for('dziennik') }}')">
                 <span class="new-badge">Lista obecności-zestawienie</span>
                 <span class="module-icon">📊</span>
                 <h2 class="module-title">Lista obecności-zestawienie</h2>
@@ -277,9 +283,11 @@
                 </p>
                 <span class="module-badge">Raporty i analizy</span>
             </div>
+            {% endif %}
 
+            {% if is_admin or therapist_id %}
             <!-- TUS -->
-            <div class="module-card" onclick="location.href='tus.html'">
+            <div class="module-card" onclick="navigateTo('{{ url_for('tus_page') }}')">
                 <span class="module-icon">🎓</span>
                 <h2 class="module-title">Trening Umiejętności Społecznych</h2>
                 <p class="module-description">
@@ -287,21 +295,14 @@
                 </p>
                 <span class="module-badge">System punktowy</span>
             </div>
-
+            {% endif %}
            
             
-            <!-- Hisotira -->
-            <div class="module-card" onclick="location.href='client_history.html'">
-                <span class="module-icon">📅</span>
-                <h2 class="module-title">Hitoria klienta</h2>
-                <p class="module-description">
-                    Planuj zajęcia indywidualne i grupowe, zarządzaj kalendarzem
-                </p>
-                <span class="module-badge">Planowanie</span>
-            </div>
+           
 
+             {% if is_admin or therapist_id %}
             <!-- Harmonogram -->
-            <div class="module-card" onclick="location.href='client-panel.html'">
+            <div class="module-card" onclick="navigateTo('{{ url_for('client_panel') }}')">
                 <span class="module-icon">📅</span>
                 <h2 class="module-title">Harmonogram</h2>
                 <p class="module-description">
@@ -309,9 +310,11 @@
                 </p>
                 <span class="module-badge">Planowanie</span>
             </div>
+            {% endif %}
 
+            {% if is_admin or therapist_id %}
             <!--Historia klienta-->
-            <div class="module-card" onclick="location.href='dziennik2.html'">
+            <div class="module-card" onclick="navigateTo('{{ url_for('historia') }}')">
                 <span class="module-icon">🎓</span>
                 <h2 class="module-title">Historia wpisów</h2>
                 <p class="module-description">
@@ -319,7 +322,7 @@
                 </p>
                 <span class="module-badge">System punktowy</span>
             </div>
-
+            {% endif %}
             
 
         </div>
@@ -431,6 +434,10 @@
                 card.classList.remove('new-feature');
             });
         }
+
+        function navigateTo(url) {
+        window.location.href = url;
+    }
     </script>
 </body>
 
