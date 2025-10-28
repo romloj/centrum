@@ -561,8 +561,8 @@ def terapeuta():
 @app.route('/sprawozdania')
 @therapist_required  # Dostęp dla admina i terapeutów
 def sprawozdania():
-    """Wyświetla stronę 'sprawozdania.html'"""
-    return render_template('sprawozdania.html')
+    """Wyświetla stronę 'klient-panel.html'"""
+    return render_template('klient-panel.html')
 
 @app.route('/klient_panel/dziennik')
 @therapist_required  # Dostęp dla admina i terapeutów
