@@ -593,6 +593,42 @@ def raport():
     """Wyświetla stronę 'raport.html'"""
     return render_template('raport.html')
 
+@app.route('/ipet')
+@therapist_required  # Dostęp dla admina i terapeutów
+def ipet():
+    """Wyświetla stronę 'ipet.html'"""
+    return render_template('ipet.html')
+
+@app.route('/diagnoza')
+@therapist_required  # Dostęp dla admina i terapeutów
+def diagnoza():
+    """Wyświetla stronę 'diagnoza.html'"""
+    return render_template('diagnoza.html')
+
+@app.route('/client-attendance')
+@therapist_required  # Dostęp dla admina i terapeutów
+def client_attendance():
+    """Wyświetla stronę 'client-attendance.html'"""
+    return render_template('client-attendance.html')
+
+@app.route('/client_history')
+@therapist_required  # Dostęp dla admina i terapeutów
+def client_history():
+    """Wyświetla stronę 'client_history.html'"""
+    return render_template('client_history.html')
+
+@app.route('/dostepnosc')
+@therapist_required  # Dostęp dla admina i terapeutów
+def dostepnosc():
+    """Wyświetla stronę 'dostepnosc.html'"""
+    return render_template('dostepnosc.html')
+
+@app.route('/import_image')
+@therapist_required  # Dostęp dla admina i terapeutów
+def import_image():
+    """Wyświetla stronę 'import_image.html'"""
+    return render_template('import_image.html')
+
 
 #koniec
 
