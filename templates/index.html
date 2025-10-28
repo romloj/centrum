@@ -252,6 +252,26 @@ a.card-link:hover .start-card {
     border: 1px solid rgba(0,0,0,0.125);
     transition: box-shadow 0.12s ease;
 }
+            /* FORCE STYLES - tymczasowo */
+.dashboard-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  gap: 20px !important;
+  border: 3px solid lime !important;
+  padding: 20px !important;
+  background: rgba(0,255,0,0.1) !important;
+}
+
+.app-card {
+  background: white !important;
+  border: 2px solid blue !important;
+  padding: 20px !important;
+  border-radius: 10px !important;
+  min-height: 150px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
   </style>
 </head>
 <body>
@@ -293,48 +313,54 @@ a.card-link:hover .start-card {
       </div>
     </div>
 
+            <!-- DIAGNOSTYKA - tymczasowo -->
+<div style="background: red; color: white; padding: 20px; margin-bottom: 20px; border-radius: 10px;">
+  <h4>🔥 DIAGNOSTYKA:</h4>
+  <p>Jeśli ten czerwony blok jest widoczny, to strona ładuje się</p>
+  <p>is_admin: {{ is_admin }}, therapist_id: {{ therapist_id }}, driver_id: {{ driver_id }}</p>
+</div>
+
+<div style="background: yellow; padding: 15px; margin-bottom: 20px; border: 2px solid orange;">
+  <p>🔍 Sprawdź czy ten żółty blok jest widoczny</p>
+</div>
         <div class="dashboard-grid">
-      {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('clients_page') }}')">
-        <span class="badge bg-success badge-status">Aktywne</span>
-        <i class="bi bi-people-fill card-icon"></i>
-        <h2 class="card-title">Klienci</h2>
-        <p class="card-description">
-          Zarządzaj bazą klientów, przeglądaj ich pakiety i dostępność
-        </p>
-      </div>
-      {% endif %}
+  <!-- Testowy kafel 1 -->
+  <div class="app-card" onclick="navigateTo('{{ url_for('clients_page') }}')">
+    <span class="badge bg-success badge-status">Aktywne</span>
+    <i class="bi bi-people-fill card-icon"></i>
+    <h2 class="card-title">Klienci</h2>
+    <p class="card-description">
+      Zarządzaj bazą klientów, przeglądaj ich pakiety i dostępność
+    </p>
+  </div>
 
-      
-      <div class="app-card" onclick="navigateTo('{{ url_for('schedule_page') }}')">
-        <i class="bi bi-heart-pulse-fill card-icon"></i>
-        <h2 class="card-title">Grafik Terapeutów</h2>
-        <p class="card-description">
-          Przeglądaj grafiki, dodawaj terapeutów i planuj zajęcia
-        </p>
-      </div>
-    
+  <!-- Testowy kafel 2 -->
+  <div class="app-card" onclick="navigateTo('{{ url_for('schedule_page') }}')">
+    <i class="bi bi-heart-pulse-fill card-icon"></i>
+    <h2 class="card-title">Grafik Terapeutów</h2>
+    <p class="card-description">
+      Przeglądaj grafiki, dodawaj terapeutów i planuj zajęcia
+    </p>
+  </div>
 
-      {% if is_admin or driver_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('driver_schedule_page') }}')">
-        <i class="bi bi-truck card-icon"></i>
-        <h2 class="card-title">Kierowcy</h2>
-        <p class="card-description">
-          Zarządzaj kierowcami i przeglądaj plany transportu
-        </p>
-      </div>
-      {% endif %}
+  <!-- Testowy kafel 3 -->
+  <div class="app-card" onclick="navigateTo('{{ url_for('driver_schedule_page') }}')">
+    <i class="bi bi-truck card-icon"></i>
+    <h2 class="card-title">Kierowcy</h2>
+    <p class="card-description">
+      Zarządzaj kierowcami i przeglądaj plany transportu
+    </p>
+  </div>
 
-      {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('manager_page') }}')">
-        <i class="bi bi-calendar3 card-icon"></i>
-        <h2 class="card-title">Plan SUO</h2>
-        <p class="card-description">
-          Przegląd salda godzin i pakietów wszystkich klientów
-        </p>
-      </div>
-      {% endif %}
-
+  <!-- Testowy kafel 4 -->
+  <div class="app-card" onclick="navigateTo('{{ url_for('manager_page') }}')">
+    <i class="bi bi-calendar3 card-icon"></i>
+    <h2 class="card-title">Plan SUO</h2>
+    <p class="card-description">
+      Przegląd salda godzin i pakietów wszystkich klientów
+    </p>
+  </div>
+</div>
       {% if is_admin or therapist_id %}
       <div class="app-card" onclick="navigateTo('{{ url_for('tus_page') }}')">
         <span class="badge bg-info badge-status">Grupy</span>
