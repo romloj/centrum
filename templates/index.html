@@ -352,47 +352,9 @@ a.card-link:hover .start-card {
     </p>
   </div>
 
-  <!-- Testowy kafel 4 -->
-  <div class="app-card" onclick="navigateTo('{{ url_for('manager_page') }}')">
-    <i class="bi bi-calendar3 card-icon"></i>
-    <h2 class="card-title">Plan SUO</h2>
-    <p class="card-description">
-      Przegląd salda godzin i pakietów wszystkich klientów
-    </p>
-  </div>
-</div>
-      {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('tus_page') }}')">
-        <span class="badge bg-info badge-status">Grupy</span>
-        <i class="bi bi-star-fill card-icon"></i>
-        <h2 class="card-title">Moduł TUS</h2>
-        <p class="card-description">
-          Zarządzanie zajęciami grupowymi i globalny plan TUS
-        </p>
-      </div>
-      {% endif %}
-      
-      {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('manager_page') }}')">
-      <span class="badge bg-warning badge-status">Menadżer</span>
-      <i class="bi bi-file-earmark-medical card-icon"></i>
-      <h2 class="card-title">Menadżer</h2>
-      <p class="card-description">
-        Zarządzaj dokumentacją klientów, skanuj i przesyłaj pliki
-      </p>
-    </div>
-      {% endif %}
-
-     {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('waiting_list_page') }}')">
-        <i class="bi bi-alarm" style="font-size: 2rem; color: cornflowerblue;"></i>
-        <h2 class="card-title">Oczekujący</h2>
-        <p class="card-description">
-          Zarządzaj listą klientów oczekujących na przyjęcie
-        </p>
-      </div>
-      {% endif %}
-    </div>         <div class="quick-actions">
+           
+          
+          <div class="quick-actions">
       <h3><i class="bi bi-lightning-fill"></i> Szybkie akcje</h3>
       <div class="row g-3">
                   <div class="col-md-6">
