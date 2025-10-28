@@ -601,7 +601,7 @@ def panel():
 
 @app.route('/manager/project_raports')
 @therapist_required  # Dostęp dla admina i terapeutów
-def project_raports():
+def projects():
     """Wyświetla stronę 'project_raports.html'"""
     return render_template('project_raports.html')
 
