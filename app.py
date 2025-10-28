@@ -575,6 +575,12 @@ def panel_terapeuty():
     """Wyświetla stronę 'panel-terapeuty.html'"""
     return render_template('panel-terapeuty.html')
 
+@app.route('/terapeuta-panel')
+@therapist_required  # Dostęp dla admina i terapeutów
+def terapeuta_panel():
+    """Wyświetla stronę 'terapeuta-panel.html'"""
+    return render_template('terapeuta-panel.html')
+
 @app.route('/panel')
 @therapist_required  # Dostęp dla admina i terapeutów
 def panel():
