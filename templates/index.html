@@ -42,11 +42,12 @@
     }
 
     .dashboard-grid {
-      display: grid !important;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
-      gap: 24px !important;
-      margin-bottom: 30px !important;
-    }
+		  display: grid !important;
+		  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+		  gap: 20px !important;
+		  margin-bottom: 30px !important;
+		  align-items: stretch !important;
+		}
 
     .app-card {
       background: rgba(255, 255, 255, 0.95) !important;
@@ -64,7 +65,11 @@
       float: none !important;
       display: block !important;
       width: auto !important;
-    }
+	  min-height: 220px !important;
+	  display: flex !important;
+	  flex-direction: column !important;
+	  justify-content: center !important;
+	    }
 
     .app-card::before {
       content: '';
@@ -307,79 +312,79 @@
     </div>
 
 <div class="dashboard-grid">
-      {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('clients_page') }}')">
-        <span class="badge bg-success badge-status">Aktywne</span>
-        <i class="bi bi-people-fill card-icon"></i>
-        <h2 class="card-title">Klienci</h2>
-        <p class="card-description">
-          Zarządzaj bazą klientów, przeglądaj ich pakiety i dostępność
-        </p>
-      </div>
-      {% endif %}
+  {% if is_admin or therapist_id %}
+  <div class="app-card" onclick="navigateTo('{{ url_for('clients_page') }}')">
+    <span class="badge bg-success badge-status">Aktywne</span>
+    <i class="bi bi-people-fill card-icon"></i>
+    <h2 class="card-title">Klienci</h2>
+    <p class="card-description">
+      Zarządzaj bazą klientów, przeglądaj ich pakiety i dostępność
+    </p>
+  </div>
+  {% endif %}
 
-      
-      <div class="app-card" onclick="navigateTo('{{ url_for('schedule_page') }}')">
-        <i class="bi bi-heart-pulse-fill card-icon"></i>
-        <h2 class="card-title">Grafik Terapeutów</h2>
-        <p class="card-description">
-          Przeglądaj grafiki, dodawaj terapeutów i planuj zajęcia
-        </p>
-      </div>
-    
+  {% if is_admin or therapist_id %}  <!-- DODAJ TEN WARUNEK -->
+  <div class="app-card" onclick="navigateTo('{{ url_for('schedule_page') }}')">
+    <i class="bi bi-heart-pulse-fill card-icon"></i>
+    <h2 class="card-title">Grafik Terapeutów</h2>
+    <p class="card-description">
+      Przeglądaj grafiki, dodawaj terapeutów i planuj zajęcia
+    </p>
+  </div>
+  {% endif %}  <!-- ZAMKNIJ WARUNEK -->
 
-      {% if is_admin or driver_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('driver_schedule_page') }}')">
-        <i class="bi bi-truck card-icon"></i>
-        <h2 class="card-title">Kierowcy</h2>
-        <p class="card-description">
-          Zarządzaj kierowcami i przeglądaj plany transportu
-        </p>
-      </div>
-      {% endif %}
+  {% if is_admin or driver_id %}
+  <div class="app-card" onclick="navigateTo('{{ url_for('driver_schedule_page') }}')">
+    <i class="bi bi-truck card-icon"></i>
+    <h2 class="card-title">Kierowcy</h2>
+    <p class="card-description">
+      Zarządzaj kierowcami i przeglądaj plany transportu
+    </p>
+  </div>
+  {% endif %}
 
-      {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('manager_page') }}')">
-        <i class="bi bi-calendar3 card-icon"></i>
-        <h2 class="card-title">Plan SUO</h2>
-        <p class="card-description">
-          Przegląd salda godzin i pakietów wszystkich klientów
-        </p>
-      </div>
-      {% endif %}
+  {% if is_admin or therapist_id %}
+  <div class="app-card" onclick="navigateTo('{{ url_for('manager_page') }}')">
+    <i class="bi bi-calendar3 card-icon"></i>
+    <h2 class="card-title">Plan SUO</h2>
+    <p class="card-description">
+      Przegląd salda godzin i pakietów wszystkich klientów
+    </p>
+  </div>
+  {% endif %}
 
-      {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('tus_page') }}')">
-        <span class="badge bg-info badge-status">Grupy</span>
-        <i class="bi bi-star-fill card-icon"></i>
-        <h2 class="card-title">Moduł TUS</h2>
-        <p class="card-description">
-          Zarządzanie zajęciami grupowymi i globalny plan TUS
-        </p>
-      </div>
-      {% endif %}
-      
-      {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('manager_page') }}')">
-      <span class="badge bg-warning badge-status">Menadżer</span>
-      <i class="bi bi-file-earmark-medical card-icon"></i>
-      <h2 class="card-title">Menadżer</h2>
-      <p class="card-description">
-        Zarządzaj dokumentacją klientów, skanuj i przesyłaj pliki
-      </p>
-    </div>
-      {% endif %}
+  {% if is_admin or therapist_id %}
+  <div class="app-card" onclick="navigateTo('{{ url_for('tus_page') }}')">
+    <span class="badge bg-info badge-status">Grupy</span>
+    <i class="bi bi-star-fill card-icon"></i>
+    <h2 class="card-title">Moduł TUS</h2>
+    <p class="card-description">
+      Zarządzanie zajęciami grupowymi i globalny plan TUS
+    </p>
+  </div>
+  {% endif %}
+  
+  {% if is_admin or therapist_id %}
+  <div class="app-card" onclick="navigateTo('{{ url_for('manager_page') }}')">
+    <span class="badge bg-warning badge-status">Menadżer</span>
+    <i class="bi bi-file-earmark-medical card-icon"></i>
+    <h2 class="card-title">Menadżer</h2>
+    <p class="card-description">
+      Zarządzaj dokumentacją klientów, skanuj i przesyłaj pliki
+    </p>
+  </div>
+  {% endif %}
 
-     {% if is_admin or therapist_id %}
-      <div class="app-card" onclick="navigateTo('{{ url_for('waiting_list_page') }}')">
-        <i class="bi bi-alarm" style="font-size: 2rem; color: cornflowerblue;"></i>
-        <h2 class="card-title">Oczekujący</h2>
-        <p class="card-description">
-          Zarządzaj listą klientów oczekujących na przyjęcie
-        </p>
-      </div>
-      {% endif %}
-    </div>         
+  {% if is_admin or therapist_id %}
+  <div class="app-card" onclick="navigateTo('{{ url_for('waiting_list_page') }}')">
+    <i class="bi bi-alarm card-icon"></i>
+    <h2 class="card-title">Oczekujący</h2>
+    <p class="card-description">
+      Zarządzaj listą klientów oczekujących na przyjęcie
+    </p>
+  </div>
+  {% endif %}
+</div>
 
 		<div class="quick-actions">
       <h3><i class="bi bi-lightning-fill"></i> Szybkie akcje</h3>
@@ -632,7 +637,7 @@
         </form>
     </div>
 </div>
-<!-- wstawka z deep-->
+
     <!-- Modal wyboru klienta -->
 <div class="modal fade" id="clientSelectModal" tabindex="-1">
   <div class="modal-dialog">
