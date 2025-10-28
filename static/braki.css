@@ -1,0 +1,206 @@
+/* Styl dla modala Braki w miesiącu - Opcja 4 */
+#gapsModal .modal-content {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+#gapsModal .modal-header {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--glass-border);
+    border-radius: 24px 24px 0 0;
+    padding: 24px 32px;
+}
+
+#gapsModal .modal-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#gapsModal .modal-title::before {
+    content: "📊";
+    font-size: 1.3em;
+}
+
+#gapsModal .modal-body {
+    padding: 32px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Statystyki - styl Opcja 4 */
+.gaps-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.stat-alert {
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stat-alert:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.stat-alert strong {
+    display: block;
+    font-size: 1.1rem;
+    color: white;
+    margin-bottom: 8px;
+}
+
+.stat-alert .stat-number {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 0%, #e2e8f0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Listy osób - styl Opcja 4 */
+.gaps-lists {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+.gaps-category {
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 24px;
+    transition: all 0.3s ease;
+}
+
+.gaps-category:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.gaps-category h6 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.gaps-category h6::before {
+    font-size: 1.2em;
+}
+
+/* Ikony dla kategorii */
+.gaps-category:nth-child(1) h6::before { content: "👥"; } /* Klienci */
+.gaps-category:nth-child(2) h6::before { content: "🩺"; } /* Terapeuci */
+.gaps-category:nth-child(3) h6::before { content: "🚗"; } /* Kierowcy */
+
+/* Listy osób */
+.gaps-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.gaps-list .list-group-item {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    padding: 16px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.gaps-list .list-group-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.gaps-list .list-group-item strong {
+    color: white;
+    font-weight: 600;
+}
+
+.gaps-list .badge {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    border-radius: 8px;
+}
+
+/* Przyciski akcji */
+.gaps-list .btn {
+    border-radius: 10px;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    margin-top: 8px;
+    transition: all 0.3s ease;
+}
+
+.gaps-list .btn-primary {
+    background: var(--success-gradient);
+    border: none;
+}
+
+.gaps-list .btn-outline-secondary {
+    border: 1px solid var(--glass-border);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.gaps-list .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsywność */
+@media (max-width: 1200px) {
+    .gaps-lists {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .gaps-stats {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .gaps-stats {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    #gapsModal .modal-body {
+        padding: 20px;
+    }
+    
+    .gaps-category {
+        padding: 20px;
+    }
+    
+    .stat-alert {
+        padding: 16px;
+    }
+    
+    .stat-alert .stat-number {
+        font-size: 1.7rem;
+    }
+}
