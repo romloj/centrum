@@ -529,7 +529,7 @@ def sprawozdania_new():
 
 @app.route('/manager/ipet')
 @therapist_required  # Dostęp dla admina i terapeutów (lub zmień na @admin_required)
-def ipet_new():
+def ipet():
     """Wyświetla stronę 'ipet.html'"""
     return render_template('ipet.html')
 
