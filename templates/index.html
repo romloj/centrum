@@ -305,7 +305,7 @@ a.card-link:hover .start-card {
       </div>
       {% endif %}
 
-      {% if is_admin or therapist_id %}
+      
       <div class="app-card" onclick="navigateTo('{{ url_for('schedule_page') }}')">
         <i class="bi bi-heart-pulse-fill card-icon"></i>
         <h2 class="card-title">Grafik Terapeutów</h2>
@@ -313,7 +313,7 @@ a.card-link:hover .start-card {
           Przeglądaj grafiki, dodawaj terapeutów i planuj zajęcia
         </p>
       </div>
-      {% endif %}
+    
 
       {% if is_admin or driver_id %}
       <div class="app-card" onclick="navigateTo('{{ url_for('driver_schedule_page') }}')">
