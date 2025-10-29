@@ -1008,15 +1008,76 @@ def print_endpoint():
 
 @app.get("/")
 def index():
-    return app.return render_template("index.html")
+    """Serwuje główną stronę aplikacji (panel nawigacyjny)."""
+    # Używamy render_template, ponieważ plik jest w folderze /templates
+    # i zawiera logikę Jinja2 (np. url_for, {% if ... %})
+    try:
+        # Przekazujemy domyślne wartości, aby uniknąć błędów renderowania
+        return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+    except Exception as e:
+        print(f"BŁĄD renderowania index.html: {e}")
+        return f"Błąd szablonu: {e}", 500
 
 @app.get("/tus")
 def tus_page():
-    return app.return render_template("tus.html")
+    """Serwuje stronę modułu TUS."""
+    # Ten plik jest również szablonem w /templates
+    return render_template("tus.html")
 
 @app.get("/individual_attendance.html")
 def individual_attendance_page():
-    return app.return render_template("individual_attendance.html")
+    """Serwuje stronę obecności indywidualnej."""
+    # Ten plik jest również szablonem w /templates
+    return render_template("individual_attendance.html")
+
+# --- DODANE BRAKUJĄCE TRASY Z index.html ---
+# Te trasy są wymagane przez wywołania {{ url_for(...) }} w Twoim panelu.
+# Na razie wszystkie renderują 'index.html' jako placeholder.
+# Później możesz podmienić 'index.html' na właściwe pliki szablonów.
+
+@app.get("/klient-panel")
+def klient_panel():
+    """Placeholder dla panelu klienta."""
+    # TODO: Zmień 'index.html' na właściwy szablon, np. 'klient_panel.html'
+    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+
+@app.get("/driver-schedule")
+def driver_schedule_page():
+    """Placeholder dla panelu kierowcy."""
+    # TODO: Zmień 'index.html' na właściwy szablon
+    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+
+@app.get("/panel-suo")
+def panel():
+    """Placeholder dla planu SUO."""
+    # TODO: Zmień 'index.html' na właściwy szablon
+    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+
+@app.get("/manager")
+def manager_page():
+    """Placeholder dla menadżera dokumentów."""
+    # TODO: Zmień 'index.html' na właściwy szablon
+    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+
+@app.get("/waiting-list")
+def waiting_list_page():
+    """Placeholder dla listy oczekujących."""
+    # TODO: Zmień 'index.html' na właściwy szablon
+    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+
+@app.get("/terapeuta")
+def terapeuta():
+    """Placeholder dla strony terapeuty."""
+    # TODO: Zmień 'index.html' na właściwy szablon
+    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+
+@app.get("/sprawozdania-new")
+def sprawozdania_new():
+    """Placeholder dla strony sprawozdań."""
+    # TODO: Zmień 'index.html' na właściwy szablon
+    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+
+# --- Trasa serwująca UPLOADY (zostaje bez zmian) ---
 
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
