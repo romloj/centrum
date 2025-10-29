@@ -40,6 +40,9 @@ from sqlalchemy.exc import IntegrityError
 from geopy.distance import geodesic
 from werkzeug.security import generate_password_hash, check_password_hash
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 print("--- SERWER ZALADOWAL NAJNOWSZA WERSJE PLIKU ---")
 
 # === KONFIGURACJA APLIKACJI ===
@@ -354,8 +357,8 @@ def login_page():
         return redirect(url_for('main_index'))
     return render_template('login.html', error=None)
 
-def create_default_user():
-    """Tworzy domyślnego użytkownika admin jeśli tabela users jest pusta lub naprawia istniejącego"""
+'''def create_default_user():
+    #"""Tworzy domyślnego użytkownika admin jeśli tabela users jest pusta lub naprawia istniejącego"""
     try:
         with session_scope() as db_session:
             admin_user = db_session.query(User).filter_by(username='admin').first()
@@ -396,7 +399,7 @@ def create_default_user():
     except Exception as e:
         print(f"Błąd tworzenia/naprawy użytkownika: {e}")
         import traceback
-        traceback.print_exc()
+        traceback.print_exc()'''
 
 @auth_bp.route('/api/login', methods=['POST'])
 def handle_login():
