@@ -8164,7 +8164,7 @@ debug_endpoints()
 print("\n" + "="*60)
 print("INICJALIZACJA DOMYŚLNEGO UŻYTKOWNIKA")
 print("="*60)
-create_default_user()
+#create_default_user()
 print("="*60 + "\n")
 
 # === Uruchomienie aplikacji ===
