@@ -1039,43 +1039,43 @@ def individual_attendance_page():
 def klient_panel():
     """Placeholder dla panelu klienta."""
     # TODO: Zmień 'index.html' na właściwy szablon, np. 'klient_panel.html'
-    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+    return render_template('klient-panel.html', is_admin=True, therapist_id=1, driver_id=1)
 
 @app.get("/driver-schedule")
 def driver_schedule_page():
     """Placeholder dla panelu kierowcy."""
     # TODO: Zmień 'index.html' na właściwy szablon
-    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+    return render_template('kierowcy.html', is_admin=True, therapist_id=1, driver_id=1)
 
 @app.get("/panel-suo")
 def panel():
     """Placeholder dla planu SUO."""
     # TODO: Zmień 'index.html' na właściwy szablon
-    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+    return render_template('panel.html', is_admin=True, therapist_id=1, driver_id=1)
 
 @app.get("/manager")
 def manager_page():
     """Placeholder dla menadżera dokumentów."""
     # TODO: Zmień 'index.html' na właściwy szablon
-    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+    return render_template('manager.html', is_admin=True, therapist_id=1, driver_id=1)
 
 @app.get("/waiting-list")
 def waiting_list_page():
     """Placeholder dla listy oczekujących."""
     # TODO: Zmień 'index.html' na właściwy szablon
-    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+    return render_template('poczekalnia.html', is_admin=True, therapist_id=1, driver_id=1)
 
 @app.get("/terapeuta")
 def terapeuta():
     """Placeholder dla strony terapeuty."""
     # TODO: Zmień 'index.html' na właściwy szablon
-    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+    return render_template('terapeuta.html', is_admin=True, therapist_id=1, driver_id=1)
 
 @app.get("/sprawozdania-new")
 def sprawozdania_new():
     """Placeholder dla strony sprawozdań."""
     # TODO: Zmień 'index.html' na właściwy szablon
-    return render_template('index.html', is_admin=True, therapist_id=1, driver_id=1)
+    return render_template('sprawozdania.html', is_admin=True, therapist_id=1, driver_id=1)
 
 # --- Trasa serwująca UPLOADY (zostaje bez zmian) ---
 
