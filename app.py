@@ -558,11 +558,7 @@ def terapeuta():
     """Wyświetla stronę 'terapeuta.html'"""
     return render_template('terapeuta.html')
 
-@app.route('/klient-panel')
-@therapist_required  # Dostęp dla admina i terapeutów
-def klient_panel():
-    """Wyświetla stronę 'klient-panel.html'"""
-    return render_template('klient-panel.html')
+
 
 @app.route('/klient_panel/dziennik')
 @therapist_required  # Dostęp dla admina i terapeutów
