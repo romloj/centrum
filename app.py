@@ -24,7 +24,7 @@ import psutil
 import psycopg2
 import requests
 from PIL import Image
-from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory, send_file
+from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory, send_file,render_template
 from flask_cors import CORS
 from geopy.distance import geodesic
 from psycopg2 import errorcodes
@@ -1008,15 +1008,15 @@ def print_endpoint():
 
 @app.get("/")
 def index():
-    return app.send_static_file("index.html")
+    return app.return render_template("index.html")
 
 @app.get("/tus")
 def tus_page():
-    return app.send_static_file("tus.html")
+    return app.return render_template("tus.html")
 
 @app.get("/individual_attendance.html")
 def individual_attendance_page():
-    return app.send_static_file("individual_attendance.html")
+    return app.return render_template("individual_attendance.html")
 
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
