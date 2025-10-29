@@ -48,7 +48,7 @@ print("--- SERWER ZALADOWAL NAJNOWSZA WERSJE PLIKU (POSPRZĄTANĄ) ---")
 TZ = ZoneInfo("Europe/Warsaw")
 
 # Inicjalizacja aplikacji Flask
-app = Flask(__name_
+app = Flask(__name_)
 CORS(app)
 app.config['DEBUG'] = True
 
