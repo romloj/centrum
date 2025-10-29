@@ -333,9 +333,9 @@ def inject_session_vars():
 
   
 #tymczasowa naprawa hasła
-@app.route('/api/fix-admin-password', methods=['POST'])
+'''@app.route('/api/fix-admin-password', methods=['POST'])
 def fix_admin_password():
-    """Tymczasowy endpoint do naprawy hasła admina"""
+   # """Tymczasowy endpoint do naprawy hasła admina"""
     try:
         with session_scope() as db_session:
             admin_user = db_session.query(User).filter_by(username='admin').first()
@@ -349,7 +349,7 @@ def fix_admin_password():
                 return jsonify({'error': 'Użytkownik admin nie istnieje'}), 404
                 
     except Exception as e:
-        return jsonify({'error': f'Błąd: {str(e)}'}), 500
+        return jsonify({'error': f'Błąd: {str(e)}'}), 500'''
 
 @auth_bp.route('/login', methods=['GET'])
 def login_page():
