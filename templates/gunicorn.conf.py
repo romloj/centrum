@@ -2,7 +2,7 @@
 import multiprocessing
 
 # Bind
-bind = "0.0.0.0:10000"
+bind = "0.0.0.0:$PORT"
 
 # Workers
 workers = 1
