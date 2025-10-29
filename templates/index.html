@@ -548,7 +548,7 @@
         const viewClient = confirm('Czy chcesz przejść do listy klientów?');
         if (viewClient) {
           // ✅ POPRAWKA TUTAJ: Użyj url_for z Jinja2
-          navigateTo('{{ url_for('clients_page') }}');
+          navigateTo('{{ url_for('clients') }}');
         }
       } catch (err) {
         alert(`Błąd dodawania klienta: ${err.message}`);
