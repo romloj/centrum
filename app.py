@@ -1638,7 +1638,7 @@ def list_clients_with_suo():
     sql = f"""
         WITH used AS (
           SELECT client_id, minutes_used
-          FROM suo_usage
+          FROM suo
           WHERE month_key = :mk
         )
         SELECT
