@@ -316,6 +316,18 @@
             <!--Historia klienta-->
             <div class="module-card" onclick="navigateTo('{{ url_for('historia') }}')">
                 <span class="module-icon">🎓</span>
+                <h2 class="module-title">Historia klienta</h2>
+                <p class="module-description">
+                    Zarządzaj grupami TUS, sesjami, punktacją i nagrodami dla uczestników
+                </p>
+                <span class="module-badge">System punktowy</span>
+            </div>
+            {% endif %}
+
+            {% if is_admin or therapist_id %}
+            <!--Historia wpisów-->
+            <div class="module-card" onclick="navigateTo('{{ url_for('dziennik') }}')">
+                <span class="module-icon">🎓</span>
                 <h2 class="module-title">Historia wpisów</h2>
                 <p class="module-description">
                     Zarządzaj grupami TUS, sesjami, punktacją i nagrodami dla uczestników
