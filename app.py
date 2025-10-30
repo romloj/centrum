@@ -1035,25 +1035,37 @@ def individual_attendance_page():
 # Na razie wszystkie renderują 'index.html' jako placeholder.
 # Później możesz podmienić 'index.html' na właściwe pliki szablonów.
 
+
+
 @app.get("/klient-panel")
+@therapist_required
 def klient_panel():
     """Placeholder dla panelu klienta."""
     # TODO: Zmień 'index.html' na właściwy szablon, np. 'klient_panel.html'
     return render_template('klient-panel.html', is_admin=True, therapist_id=1, driver_id=1)
 
+@app.route('/klient_panel/clients')
+@therapist_required  # Zabezpieczamy - tylko terapeuta lub admin
+def clients_page():
+    """Wyświetla stronę 'clients.html'"""
+    return render_template('klienci.html')
+
 @app.get("/driver-schedule")
+@therapist_required
 def driver_schedule_page():
     """Placeholder dla panelu kierowcy."""
     # TODO: Zmień 'index.html' na właściwy szablon
     return render_template('kierowcy.html', is_admin=True, therapist_id=1, driver_id=1)
 
 @app.get("/panel-suo")
+@therapist_required
 def panel():
     """Placeholder dla planu SUO."""
     # TODO: Zmień 'index.html' na właściwy szablon
     return render_template('panel.html', is_admin=True, therapist_id=1, driver_id=1)
 
 @app.get("/manager")
+
 def manager_page():
     """Placeholder dla menadżera dokumentów."""
     # TODO: Zmień 'index.html' na właściwy szablon
@@ -1066,6 +1078,7 @@ def waiting_list_page():
     return render_template('poczekalnia.html', is_admin=True, therapist_id=1, driver_id=1)
 
 @app.get("/terapeuta")
+@therapist_required
 def terapeuta():
     """Placeholder dla strony terapeuty."""
     # TODO: Zmień 'index.html' na właściwy szablon
@@ -1669,6 +1682,9 @@ def save_parsed_schedule():
 
 # --- Trasy CRUD: Clients ---
 
+
+
+
 @app.get("/api/clients")
 def list_clients_with_suo():
     mk = request.args.get("month") or datetime.now(TZ).strftime("%Y-%m")
@@ -1956,6 +1972,7 @@ def delete_driver(did):
         return "", 204
 
 # --- Trasy: Harmonogramy (Schedule, Slots, Groups) ---
+
 
 @app.post("/api/schedule/group")
 def create_group_with_slots():
