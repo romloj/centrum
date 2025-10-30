@@ -1915,6 +1915,44 @@ def ai_recommend():
         "time_prefs": time_prefs
     }), 200
 
+@app.route('/api/auth/me')
+@login_required  # Wymaga, aby użytkownik był zalogowany
+def get_current_user_permissions():
+    """
+    Zwraca uprawnienia i dane aktualnie zalogowanego użytkownika.
+    Idealne dla frontendu (np. JavaScript) do decydowania, co pokazać/ukryć.
+    """
+    try:
+        # Pobieramy dane bezpośrednio z sesji, która została ustawiona podczas logowania
+        is_admin = session.get('is_admin', False)
+        therapist_id = session.get('therapist_id')
+        driver_id = session.get('driver_id')
+        username = session.get('username', 'Nieznany')
+
+        # Budujemy obiekt uprawnień
+        permissions = {
+            'username': username,
+            'isAuthenticated': True,
+            'isAdmin': is_admin,
+            'isTherapist': therapist_id is not None,
+            'isDriver': driver_id is not None,
+            'therapistId': therapist_id,
+            'driverId': driver_id
+        }
+        
+        # Twój system już daje adminowi dostęp do wszystkiego, 
+        # więc możemy to jawnie ustawić dla przejrzystości frontendu
+        if is_admin:
+            permissions['isTherapist'] = True
+            permissions['isDriver'] = True
+
+        return jsonify(permissions), 200
+
+    except Exception as e:
+        print(f"Błąd krytyczny w /api/auth/me: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Nie można pobrać danych sesji użytkownika', 'details': str(e)}), 500
 
 @app.get("/api/clients")
 @therapist_required
