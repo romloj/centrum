@@ -98,6 +98,26 @@ def session_scope():
 
 # === SEKCJA 4: MODELE BAZY DANYCH (SQLALCHEMY) ===
 
+
+# --- DEFINICJA DEKORATORA ---
+def therapist_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # TUTAJ WSTAW LOGIKĘ SPRAWDZANIA, CZY UŻYTKOWNIK JEST ZALOGOWANY
+        # I CZY JEST TERAPEUTĄ LUB ADMINEM
+        # Na przykład, sprawdzając sesję Flaska:
+        
+        is_admin = session.get('is_admin')
+        therapist_id = session.get('therapist_id')
+
+        if not is_admin and not therapist_id:
+            # Jeśli nie jest uprawniony, przekieruj go do logowania
+            return redirect(url_for('strona_logowania')) # <-- Musisz mieć endpoint o nazwie 'strona_logowania'
+            
+        # Jeśli jest uprawniony, pozwól mu przejść dalej
+        return f(*args, **kwargs)
+    return decorated_function
+
 class TUSSessionAttendance(Base):
     __tablename__ = 'tus_session_attendance'
     id = Column(Integer, primary_key=True)
