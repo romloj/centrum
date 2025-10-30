@@ -602,8 +602,8 @@ def notes():
 @app.route('/klient_panel/client_panel')
 @therapist_required  # Dostęp dla admina i terapeutów
 def client_panel():
-    """Wyświetla stronę 'client_panel.html'"""
-    return render_template('client_panel.html')
+    """Wyświetla stronę 'client-panel.html'"""
+    return render_template('client-panel.html')
 
 @app.route('/panel-terapeuty')
 @therapist_required  # Dostęp dla admina i terapeutów
