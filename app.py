@@ -39,6 +39,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import declarative_base, selectinload
 from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base, relationship, joinedload, aliased
 from werkzeug.utils import secure_filename
+from functools import wraps
 
 print("--- SERWER ZALADOWAL NAJNOWSZA WERSJE PLIKU (POSPRZĄTANĄ) ---")
 
