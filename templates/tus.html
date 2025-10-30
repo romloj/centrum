@@ -612,7 +612,14 @@ async function openGroupDetails(groupId) {
             const yearEnd = yearStart + 1;
             schoolYearOptionsHtml += `<option value="${yearStart}">${yearStart}/${yearEnd}</option>`;
         }
-        const membersListHtml = (g.members || []).map(m => `<li>${m.full_name}</li>`).join('') || '<li class="text-muted">Brak uczestników</li>';
+        const membersCheckboxesHtml = (g.members || []).map(member => `
+          <div class="form-check">
+              <input class="form-check-input new-session-attendance" type="checkbox" value="${member.id}" id="new-att-check-${g.id}-${member.id}" checked>
+              <label class="form-check-label" for="new-att-check-${g.id}-${member.id}">
+                  ${member.full_name}
+              </label>
+          </div>
+      `).join(''); || '<li class="text-muted">Brak uczestników</li>';
         const sessionsMap = new Map();
         (g.sessions || []).forEach(session => {
             if (session.id && !sessionsMap.has(session.id)) {
@@ -687,6 +694,12 @@ async function openGroupDetails(groupId) {
                                     <label for="sessionBehaviorsSelect" class="form-label">Zachowania do modelowania (max 4)</label>
                                     <select id="sessionBehaviorsSelect" class="form-select" multiple></select>
                                 </div>
+                                <div class="col-12 mt-3">
+                                        <label class="form-label">Obecność na sesji</label>
+                                        <div class="border rounded p-2" style="max-height: 150px; overflow-y: auto;">
+                                            ${membersCheckboxesHtml || '<p class="text-muted small mb-0">Brak uczestników w grupie.</p>'}
+                                        </div>
+                                    </div>
                                 <div class="col-12">
                                     <button class="btn btn-primary w-100" type="submit">Dodaj sesję</button>
                                 </div>
