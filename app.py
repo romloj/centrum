@@ -24,7 +24,7 @@ import psutil
 import psycopg2
 import requests
 from PIL import Image
-from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory, send_file,render_template
+from flask import Flask, jsonify, request, g, session, redirect, url_for, send_from_directory, send_file,render_template,Blueprint
 from flask_cors import CORS
 from geopy.distance import geodesic
 from psycopg2 import errorcodes
