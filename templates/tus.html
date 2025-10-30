@@ -619,7 +619,7 @@ async function openGroupDetails(groupId) {
                   ${member.full_name}
               </label>
           </div>
-      `).join(''); || '<li class="text-muted">Brak uczestników</li>';
+      `).join(''); 
         const sessionsMap = new Map();
         (g.sessions || []).forEach(session => {
             if (session.id && !sessionsMap.has(session.id)) {
