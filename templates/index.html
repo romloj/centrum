@@ -78,7 +78,7 @@
 		  <p>Wybierz "Chcę kontynuować", aby pozostać zalogowanym.</p>
 		</div>
 		<div class="modal-footer">
-		  <a href="{{ url_for('logout') }}" class="btn btn-secondary">Wyloguj teraz</a>
+		  <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Wyloguj teraz</a>
 		  <button type="button" class="btn btn-primary" id="stayLoggedInButton">Chcę kontynuować</button>
 		</div>
 	  </div>
@@ -502,7 +502,7 @@
 		
 		// 1. Funkcja końcowego wylogowania
 		function performLogout() {
-			window.location.href = "{{ url_for('logout') }}";
+			window.location.href = "{{ url_for('auth.logout') }}";
 		}
 
 		// 2. Funkcja startu licznika w modalu
