@@ -1055,7 +1055,12 @@ def individual_attendance_page():
 # Na razie wszystkie renderują 'index.html' jako placeholder.
 # Później możesz podmienić 'index.html' na właściwe pliki szablonów.
 
-
+@app.get("/schedule")
+@therapist_required
+def schedule_page():
+    """Placeholder dla panelu kierowcy."""
+    # TODO: Zmień 'index.html' na właściwy szablon
+    return render_template('grafik.html', is_admin=True, therapist_id=1, driver_id=1)
 
 @app.get("/klient-panel")
 @therapist_required
