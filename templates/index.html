@@ -67,6 +67,23 @@
       </div>
     </div>
 
+	  <div class="modal fade" id="inactivityWarningModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="inactivityModalLabel" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered">
+	  <div class="modal-content">
+		<div class="modal-header">
+		  <h5 class="modal-title" id="inactivityModalLabel"><i class="bi bi-clock-history"></i> Sesja wkrótce wygaśnie</h5>
+		</div>
+		<div class="modal-body">
+		  <p>Z powodu braku aktywności zostaniesz automatycznie wylogowany za <strong id="inactivityCountdown">60</strong> sekund.</p>
+		  <p>Wybierz "Chcę kontynuować", aby pozostać zalogowanym.</p>
+		</div>
+		<div class="modal-footer">
+		  <a href="{{ url_for('logout') }}" class="btn btn-secondary">Wyloguj teraz</a>
+		  <button type="button" class="btn btn-primary" id="stayLoggedInButton">Chcę kontynuować</button>
+		</div>
+	  </div>
+	</div>
+  </div>
     <!-- Nowe Statystyki -->
     <div class="stats-container" id="statsRow">
       <div class="stat-card">
@@ -472,7 +489,88 @@
   
     <script>
     const API = "";
+	(function() {
+		const WARNING_TIME = 14 * 60 * 1000; // 14 minut w milisekundach
+		const LOGOUT_TIME = 1 * 60 * 1000; // 1 minuta (po ostrzeżeniu) w milisekundach
+		const COUNTDOWN_SECONDS = 60; // Ile sekund pokazywać w liczniku
 
+		let mainTimer;
+		let warningTimer;
+		let countdownInterval;
+		let warningModal;
+		let countdownElement;
+		
+		// 1. Funkcja końcowego wylogowania
+		function performLogout() {
+			window.location.href = "{{ url_for('logout') }}";
+		}
+
+		// 2. Funkcja startu licznika w modalu
+		function startCountdown() {
+			let secondsLeft = COUNTDOWN_SECONDS;
+			countdownElement.textContent = secondsLeft;
+
+			clearInterval(countdownInterval); // Wyczyść stary licznik na wszelki wypadek
+			countdownInterval = setInterval(() => {
+				secondsLeft--;
+				countdownElement.textContent = secondsLeft;
+				if (secondsLeft <= 0) {
+					clearInterval(countdownInterval);
+				}
+			}, 1000);
+		}
+
+		// 3. Funkcja pokazywania modala ostrzegawczego
+		function showWarningModal() {
+			if (!warningModal) {
+				const modalEl = document.getElementById('inactivityWarningModal');
+				if (modalEl) {
+					warningModal = new bootstrap.Modal(modalEl);
+					countdownElement = document.getElementById('inactivityCountdown');
+					
+					// Ustawienie przycisku "Chcę kontynuować"
+					document.getElementById('stayLoggedInButton').addEventListener('click', resetMainTimer);
+				} else {
+					console.error("Nie znaleziono modala 'inactivityWarningModal'");
+					return;
+				}
+			}
+			
+			warningModal.show();
+			startCountdown();
+			
+			// Uruchom ostateczny licznik do wylogowania
+			clearTimeout(warningTimer);
+			warningTimer = setTimeout(performLogout, LOGOUT_TIME);
+		}
+
+		// 4. Główna funkcja resetująca liczniki (wywoływana przez aktywność)
+		function resetMainTimer() {
+			// Wyczyść wszystkie liczniki
+			clearTimeout(mainTimer);
+			clearTimeout(warningTimer);
+			clearInterval(countdownInterval);
+
+			// Ukryj modal, jeśli jest widoczny
+			if (warningModal) {
+				warningModal.hide();
+			}
+
+			// Uruchom główny licznik od nowa
+			mainTimer = setTimeout(showWarningModal, WARNING_TIME);
+		}
+
+		// 5. Uruchomienie nasłuchiwania na aktywność
+		const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+		activityEvents.forEach(event => {
+			window.addEventListener(event, resetMainTimer, true); // Używamy 'true' (capture phase)
+		});
+
+		// 6. Uruchom licznik po raz pierwszy przy załadowaniu strony
+		document.addEventListener('DOMContentLoaded', resetMainTimer);
+
+	})();
+	// === KONIEC KODU OBSŁUGI BRAKU AKTYWNOŚCI ===
     // Nawigacja
     function navigateTo(url) {
       window.location.href = url;
