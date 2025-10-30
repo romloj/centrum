@@ -2744,14 +2744,17 @@ def create_tus_session():
             attendance_records = []
             # Tworzymy wpis obecności dla KAŻDEGO członka grupy
             for member_link in all_group_members:
-                is_present = member_link.client_id in present_client_ids_set
-                
-                new_attendance_record = TUSSessionAttendance(
-                    session_id=new_session.id,
-                    client_id=member_link.client_id,
-                    is_present=is_present  # Zapisz True lub False
-                )
-                attendance_records.append(new_attendance_record)
+              is_present_bool = member_link.client_id in present_client_ids_set
+      
+              # Konwertuj wartość logiczną na status tekstowy
+              attendance_status = 'obecny' if is_present_bool else 'nieobecny'
+      
+              new_attendance_record = TUSSessionAttendance(
+                  session_id=new_session.id,
+                  client_id=member_link.client_id,
+                  status=attendance_status  # <-- Używamy poprawnego pola 'status'
+              )
+              attendance_records.append(new_attendance_record)
                 
                 if is_present:
                     print(f"  -> Uczestnik ID={member_link.client_id} OBECNY")
