@@ -612,6 +612,7 @@ async function openGroupDetails(groupId) {
             const yearEnd = yearStart + 1;
             schoolYearOptionsHtml += `<option value="${yearStart}">${yearStart}/${yearEnd}</option>`;
         }
+        const membersListHtml = (g.members || []).map(m => `<li>${m.full_name}</li>`).join('') || '<li class="text-muted">Brak uczestników</li>';
         const membersCheckboxesHtml = (g.members || []).map(member => `
           <div class="form-check">
               <input class="form-check-input new-session-attendance" type="checkbox" value="${member.id}" id="new-att-check-${g.id}-${member.id}" checked>
