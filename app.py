@@ -1055,6 +1055,12 @@ def individual_attendance_page():
 # Na razie wszystkie renderują 'index.html' jako placeholder.
 # Później możesz podmienić 'index.html' na właściwe pliki szablonów.
 
+@app.route('/')
+@login_required
+def main_index(): 
+    return render_template('index.html')
+                       
+
 @app.get("/schedule")
 @therapist_required
 def schedule_page():
