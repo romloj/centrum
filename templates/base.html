@@ -1,64 +1,46 @@
-<nav>
-    <a href="/">Strona Główna</a>
-    
-    <a href="/admin/manage-users" id="admin-link" style="display: none;">Zarządzaj Użytkownikami</a>
-    <a href="/schedule" id="therapist-link" style="display: none;">Panel Terapeuty</a>
-    <a href="/driver-schedule" id="driver-link" style="display: none;">Panel Kierowcy</a>
-    
-    <a href="/logout">Wyloguj (<span id="username-display">...</span>)</a>
-</nav>
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Moja Aplikacja{% endblock %}</title>
+    </head>
+<body>
 
-<hr>
-<h3>Twoje uprawnienia (dane z API):</h3>
-<pre id="permissions-debug"></pre>
+    <nav>
+        <a href="{{ url_for('main_index') }}">Strona Główna</a>
 
-<script>
-    // Uruchom ten skrypt, gdy strona się załaduje
-    document.addEventListener('DOMContentLoaded', () => {
-        fetchUserPermissions();
-    });
+        {% if is_admin %}
+            <a href="{{ url_for('admin.manage_users_page') }}">Panel Admina</a>
+            <a href="{{ url_for('admin.admin_register_page') }}">Rejestruj Użytkownika</a>
+        {% endif %}
 
-    async function fetchUserPermissions() {
-        try {
-            // 1. Odpytaj nowy endpoint backendu
-            const response = await fetch('/api/auth/me');
+        {% if is_therapist %}
+            <a href="{{ url_for('schedule_page') }}">Grafik Terapeuty</a>
+            <a href="{{ url_for('clients_page') }}">Klienci</a>
+            <a href="{{ url_for('tus_page') }}">TUS</a>
+        {% endif %}
 
-            if (!response.ok) {
-                // Jeśli użytkownik nie jest zalogowany (błąd 401), serwer go przekieruje
-                // ale na wszelki wypadek obsłużmy też inne błędy
-                if (response.status === 401) {
-                    console.warn('Użytkownik niezalogowany. Przekierowanie do logowania...');
-                    // Możesz tu dodać przekierowanie po stronie klienta,
-                    // ale dekorator @login_required już to robi po stronie serwera
-                    window.location.href = '/login';
-                }
-                throw new Error(`Błąd sieci: ${response.statusText}`);
-            }
+        {% if is_driver %}
+            <a href="{{ url_for('driver_schedule_page') }}">Panel Kierowcy</a>
+        {% endif %}
 
-            // 2. Odbierz dane JSON z uprawnieniami
-            const permissions = await response.json();
+        {% if session.user_id %}
+            <a href="{{ url_for('auth.logout') }}">Wyloguj ({{ session.username }})</a>
+        {% else %}
+            <a href="{{ url_for('auth.login_page') }}">Zaloguj</a>
+        {% endif %}
+    </nav>
 
-            // 3. Wyświetl dane do debugowania
-            document.getElementById('permissions-debug').textContent = JSON.stringify(permissions, null, 2);
-            document.getElementById('username-display').textContent = permissions.username;
+    <hr>
 
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
 
-            // 4. Użyj uprawnień do dynamicznego pokazywania/ukrywania elementów
-            if (permissions.isAdmin) {
-                document.getElementById('admin-link').style.display = 'inline';
-            }
-            
-            if (permissions.isTherapist) {
-                document.getElementById('therapist-link').style.display = 'inline';
-            }
+    <footer>
+        Stopka aplikacji
+    </footer>
 
-            if (permissions.isDriver) {
-                document.getElementById('driver-link').style.display = 'inline';
-            }
-
-        } catch (error) {
-            console.error('Nie udało się pobrać uprawnień użytkownika:', error);
-            document.getElementById('permissions-debug').textContent = `Błąd: ${error.message}`;
-        }
-    }
-</script>
+</body>
+</html>
