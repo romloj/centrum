@@ -461,6 +461,11 @@ def logout():
 def admin_register_page():
     return render_template('admin_register.html')
 
+@admin_bp.route('/admin/manage-user', methods=['GET'])
+@admin_required
+def admin_manager_page():
+    return render_template('manage_users.html')
+
 @admin_bp.route('/api/admin/register', methods=['POST'])
 @admin_required
 def handle_admin_register():
