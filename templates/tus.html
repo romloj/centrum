@@ -725,7 +725,13 @@ async function openGroupDetails(groupId) {
         // --- KONIEC GŁÓWNEJ ZMIANY ---
 
         renderSessionCalendar();
-        function fmtYYYYMMDD(date) { return date ? date.toISOString().split('T')[0] : ""; }
+        function fmtYYYYMMDD(date) {
+            if (!date) return "";
+            const y = date.getFullYear();
+            const m = (date.getMonth() + 1).toString().padStart(2, '0'); // Miesiące są 0-indeksowane
+            const d = date.getDate().toString().padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
         const calendarEl = document.getElementById('sessionCalendar');
         if (calendarEl) {
             calendarEl.addEventListener('click', (e) => {
