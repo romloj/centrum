@@ -24,7 +24,7 @@
 		    <div class="dropdown-menu" aria-labelledby="adminDropdown">
 		        <a class="dropdown-item" href="{{ url_for('admin.admin_register_page') }}">Dodaj użytkownika</a>
 		        
-		        <a class="dropdown-item {% if request.endpoint == 'admin.manager_page' %}active{% endif %}" href="{{ url_for('admin.manager_page') }}">Zarządzaj Rolami</a>
+		        <a class="dropdown-item {% if request.endpoint == 'admin.manager_page' %}active{% endif %}" href="{{ url_for('admin.manage_users_page') }}">Zarządzaj Rolami</a>
 		        
 		        <div class="dropdown-divider"></div>
 		        <a class="dropdown-item" href="{{ url_for('admin.admin_change_password_page') }}">Zmień hasło</a>
